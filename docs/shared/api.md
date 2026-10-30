@@ -793,7 +793,7 @@ Authorization: Bearer <token>
 | `code` | 源代码；无权限时为 `null` |
 | `status` / `statusText` | 状态枚举 / 中文文案，见 6.4 |
 | `timeUsedMs` | 已执行测试点中的**最大耗时**（毫秒）；编译错误时为 `null` |
-| `memoryUsedKb` | 内存峰值（KB）；Isolate 引擎会返回实际值，本机进程回退模式下为 `null` |
+| `memoryUsedKb` | 内存峰值（KB）；该次评测未提供该项统计时为 `null`，前端需判空 |
 | `compileMessage` | 编译错误信息，只有 `COMPILATION_ERROR` 时有值 |
 | `judgeMessage` | 系统级错误说明，只有 `SYSTEM_ERROR` 时有值 |
 | `createdAt` / `judgedAt` | 提交时间 / 评测完成时间；未完成时 `judgedAt` 为 `null` |
@@ -806,7 +806,7 @@ Authorization: Bearer <token>
 | `ordinal` | 对应测试数据的编号（从 1 开始） |
 | `status` / `statusText` | 该测试点的结果 |
 | `timeUsedMs` | 该测试点耗时 |
-| `memoryUsedKb` | 该测试点的内存峰值（KB）；回退模式下为 `null` |
+| `memoryUsedKb` | 该测试点的内存峰值（KB）；未提供该项统计时为 `null` |
 | `message` | 失败原因：超时会写"超过时间限制 xxx ms"；运行错误会给出程序错误输出；答案错误一般为 `null`。不会包含期望输出 |
 
 > 评测遇到第一个未通过的测试点就会停止，所以 `cases` 可能少于测试数据总数。
@@ -851,7 +851,7 @@ Authorization: Bearer <token>
 | `userId` / `userNickname` | 提交者 id / 昵称 |
 | `language` | 语言 |
 | `status` / `statusText` | 结果状态 / 中文文案 |
-| `timeUsedMs` / `memoryUsedKb` | 最大耗时 / 内存峰值（Isolate 引擎有值，回退模式为 `null`） |
+| `timeUsedMs` / `memoryUsedKb` | 最大耗时（毫秒）/ 内存峰值（KB，可能为 `null`） |
 | `createdAt` | 提交时间 |
 
 ### 6.4 评测状态
@@ -863,7 +863,7 @@ Authorization: Bearer <token>
 | `ACCEPTED` | 通过 | 全部测试点通过 | 是 |
 | `WRONG_ANSWER` | 答案错误 | 有测试点输出与期望不一致 | 是 |
 | `TIME_LIMIT_EXCEEDED` | 超出时间限制 | 运行超时 | 是 |
-| `MEMORY_LIMIT_EXCEEDED` | 超出内存限制 | 内存超限（Isolate 引擎通过 cgroup OOM 判定） | 是 |
+| `MEMORY_LIMIT_EXCEEDED` | 超出内存限制 | 内存使用超过题目限制 | 是 |
 | `OUTPUT_LIMIT_EXCEEDED` | 输出超出限制 | 程序输出内容过大 | 是 |
 | `RUNTIME_ERROR` | 运行错误 | 程序异常退出 | 是 |
 | `COMPILATION_ERROR` | 编译错误 | 代码编译失败 | 是 |
@@ -1116,10 +1116,12 @@ async function waitForJudge(id, token, onUpdate) {
 | 提交详情 | `compileMessage` | 只有编译错误时有值 |
 | 提交详情 | `judgeMessage` | 只有系统错误时有值 |
 | 提交详情 | `timeUsedMs` | 编译错误或尚未开始评测 |
-| 提交详情 | `memoryUsedKb` | 本机进程回退模式下为 `null`；Isolate 引擎返回实际峰值 |
+| 提交详情 | `memoryUsedKb` | 该次评测未提供内存统计时为 `null` |
 | 提交详情 | `judgedAt` | 尚未评测完成 |
 | 提交详情 | `cases` | 无权限或编译错误时为 `[]` |
 | 列表 | `items` | 无数据或超出页码时为 `[]`，此时 `total` 可能不为 0 |
+
+> 数值字段（`timeUsedMs`、`memoryUsedKb`）为 `null` 时，建议统一显示为 `-`，不要直接渲染 `null`。
 
 ### 9.3 常见现象与处理
 
