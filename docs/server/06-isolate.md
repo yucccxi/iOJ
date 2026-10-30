@@ -462,7 +462,7 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | JVM 报 `Error loading java.security file` | 沙箱默认不挂载 `/etc`，而 Debian 的 `conf/security/java.security` 是指向 `/etc/java-21-openjdk` 的软链 | `extra-dirs` 保留 `/etc/java-21-openjdk`；手工验证时先 `--cleanup` + `--init`，别让上一次的 `--dir` 残留 |
 | 程序正常退出但输出为空 / 莫名 WA | `--stdout` 目标文件不存在，isolate 静默丢弃输出 | 复现时先 `: > output.txt`；后端已自动建空文件 |
 | 写入目录报 `Read-only file system` | `--dir` 没加 `:rw` | 只有 `/box` 需要写；`extra-dirs` 保持只读 |
-| 编译超时（`COMPILATION_ERROR: 编译超时`） | `compile-time-seconds` / `compile-wall-time-seconds` 太小 | 分别上调 CPU 与墙钟限制 |
+| 编译超时（`COMPILATION_ERROR: Compile Time Exceeded`） | `compile-time-seconds` / `compile-wall-time-seconds` 太小 | 分别上调 CPU 与墙钟限制 |
 | 判题结束后 `/var/lib/isolate` 有残留目录 | 进程被强杀，没执行 `--cleanup` | 确认日志告警；用同一用户 `isolate --cg --box-id=N --cleanup` |
 | 提交一直 `PENDING` | worker 被关闭（`IOJ_JUDGE_ENABLED=false`）或任务积压 | 查配置、`GET /api/v1/submissions?status=PENDING`、后端日志 |
 | 判题正常但 `memoryUsedKb` 为 `null` | 引擎是 `local` 回退，或 meta 里没有 `cg-mem` | 确认 `IOJ_JUDGE_ENGINE=isolate`，并手工跑一次看 meta |

@@ -199,8 +199,9 @@ public class IsolateJudgeEngine implements JudgeEngine {
      * @param dir     host working directory bind-mounted as {@code /box}: the source file is written here
      *                and the compiled artifacts stay here for the run phase
      * @return {@code null} when compilation succeeded or the language has no compile step; otherwise a
-     *         {@code COMPILATION_ERROR} outcome carrying the compiler output (or "compile timed out"), or a
-     *         {@code SYSTEM_ERROR} outcome when isolate itself failed
+     *         {@code COMPILATION_ERROR} outcome carrying the compiler output (or {@code Compile Time Exceeded}
+     *         when the compile step ran out of time), or a {@code SYSTEM_ERROR} outcome when isolate itself
+     *         failed
      * @throws Exception when the source file cannot be written or the isolate process cannot be started
      */
     private JudgeOutcome compile(JudgeContext context, int boxId, Path dir) throws Exception {
@@ -236,7 +237,7 @@ public class IsolateJudgeEngine implements JudgeEngine {
             return JudgeOutcome.systemError("isolate failed while compiling");
         }
         if ("TO".equals(meta.status())) {
-            return JudgeOutcome.compilationError("编译超时");
+            return JudgeOutcome.compilationError("Compile Time Exceeded");
         }
         if (process.exitCode() != 0 || meta.exitCode() != 0) {
             String message = readText(compileErr, properties.getMaxCompileOutputBytes());

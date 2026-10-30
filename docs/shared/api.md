@@ -794,7 +794,7 @@ Authorization: Bearer <token>
 | `status` / `statusText` | 状态枚举 / 中文文案，见 6.4 |
 | `timeUsedMs` | 已执行测试点中的**最大耗时**（毫秒）；编译错误时为 `null` |
 | `memoryUsedKb` | 内存峰值（KB）；该次评测未提供该项统计时为 `null`，前端需判空 |
-| `compileMessage` | 编译错误信息，只有 `COMPILATION_ERROR` 时有值 |
+| `compileMessage` | 编译器输出，只有 `COMPILATION_ERROR` 时有值；编译超时时为固定英文说明 `Compile Time Exceeded` |
 | `judgeMessage` | 系统级错误说明，只有 `SYSTEM_ERROR` 时有值 |
 | `createdAt` / `judgedAt` | 提交时间 / 评测完成时间；未完成时 `judgedAt` 为 `null` |
 | `cases` | 逐个测试点的结果；无权限时为 `[]` |

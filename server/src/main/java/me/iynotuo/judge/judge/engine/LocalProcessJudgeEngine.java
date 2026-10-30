@@ -77,7 +77,7 @@ public class LocalProcessJudgeEngine implements JudgeEngine {
             CommandResult compile = execute(language.getCompileCommand(), workDir, null,
                     properties.getCompileTimeoutMs(), properties.getMaxCompileOutputBytes());
             if (compile.timedOut()) {
-                return JudgeOutcome.compilationError("编译超时（>" + properties.getCompileTimeoutMs() + "ms）");
+                return JudgeOutcome.compilationError("Compile Time Exceeded");
             }
             if (compile.exitCode() != 0) {
                 return JudgeOutcome.compilationError(
