@@ -1,8 +1,8 @@
 package me.iynotuo.judge.common.enums;
 
 /**
- * 题目状态。
- * DRAFT: 草稿（仅作者可见）；PENDING_REVIEW: 待审核；PUBLISHED: 已发布；HIDDEN: 已下架/驳回。
+ * Problem publication status.
+ * DRAFT: visible to the author only; PENDING_REVIEW: waiting for review; PUBLISHED: live; HIDDEN: taken down or rejected.
  */
 public enum ProblemStatus {
     DRAFT,

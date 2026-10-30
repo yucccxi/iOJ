@@ -26,14 +26,14 @@ mybatis:
 
 ioj:
   jwt:
-    # 生产环境务必用环境变量覆盖，长度 >= 32 字节
+# Always override this with an environment variable in production; at least 32 bytes.
     secret: ${IOJ_JWT_SECRET:ioj-development-secret-key-please-change-me}
     expiration: 7d
     issuer: iOJ
   cors:
     allowed-origins: ${IOJ_CORS_ORIGINS:http://localhost:5173}
   problem:
-    # 俱乐部内部使用：true 表示用户上传后直接发布；对外开放注册时建议改为 false 走审核
+# Club use: true publishes uploaded problems immediately; set it to false to require review when registration is public.
     auto-publish: ${IOJ_PROBLEM_AUTO_PUBLISH:true}
     max-testcases: 100
     max-testcase-bytes: 1048576
@@ -41,12 +41,32 @@ ioj:
     max-code-length: 65536
   judge:
     enabled: ${IOJ_JUDGE_ENABLED:true}
-    engine: local
+    engine: ${IOJ_JUDGE_ENGINE:isolate}
     concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
     poll-interval-ms: 1000
     max-output-bytes: 16777216
     max-compile-output-bytes: 65536
     compile-timeout-ms: 30000
+    isolate:
+      binary: /usr/bin/isolate
+      # Box 0 is commonly created by root during manual tests; start at 1 so a non-root
+      # service user does not collide with root-owned boxes.
+      box-id-start: 1
+      box-id-count: 8
+      check-on-startup: true
+      compile-processes: 64
+      compile-time-seconds: 10
+      compile-wall-time-seconds: 30
+      compile-cg-mem-kb: 524288
+      compile-fsize-kb: 16384
+      wall-time-extra-seconds: 3
+      setup-timeout-ms: 10000
+      # Read-only host directories the sandbox needs. Debian JDK reads
+      # /etc/java-21-openjdk/security/java.security; drop this on distributions
+      # where the JDK keeps that file inside the JDK directory.
+      extra-dirs:
+        - /etc/java-21-openjdk
+      resolve-executables: true
     languages:
       JAVA:
         display-name: Java 21
@@ -55,6 +75,8 @@ ioj:
         run-command: java -Xmx{memoryMb}m -Xss64m -XX:+UseSerialGC Main
         run-wrapper: exec {command}
         time-multiplier: 2.0
+        isolate-processes: 64
+        isolate-memory-extra-mb: 256
       CPP:
         display-name: C++17
         source-file: main.cpp
@@ -62,6 +84,8 @@ ioj:
         run-command: ./main
         run-wrapper: ulimit -v {memoryKb}; ulimit -s 65536; exec {command}
         time-multiplier: 1.0
+        isolate-processes: 1
+        isolate-memory-extra-mb: 16
       C:
         display-name: C11
         source-file: main.c
@@ -69,12 +93,16 @@ ioj:
         run-command: ./main
         run-wrapper: ulimit -v {memoryKb}; ulimit -s 65536; exec {command}
         time-multiplier: 1.0
+        isolate-processes: 1
+        isolate-memory-extra-mb: 16
       PYTHON3:
         display-name: Python 3
         source-file: main.py
         run-command: python3 main.py
         run-wrapper: ulimit -v {memoryKb}; exec {command}
         time-multiplier: 3.0
+        isolate-processes: 1
+        isolate-memory-extra-mb: 64
 
 logging:
   level:

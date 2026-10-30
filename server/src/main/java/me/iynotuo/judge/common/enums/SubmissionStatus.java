@@ -1,7 +1,7 @@
 package me.iynotuo.judge.common.enums;
 
 /**
- * 提交状态，同时用于单个测试点的判题结果。
+ * Submission status, also used as the result of a single test case.
  */
 public enum SubmissionStatus {
 

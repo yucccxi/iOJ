@@ -1,7 +1,7 @@
 package me.iynotuo.judge.common.api;
 
 /**
- * 分页参数。page 从 1 开始，size 最大 100，越界时自动收敛到合法区间，避免恶意大分页拖垮数据库。
+ * Pagination parameters. page is 1-based and size is capped at 100; out-of-range values are clamped so huge pages cannot overload the database.
  */
 public record PageQuery(int page, int size) {
 

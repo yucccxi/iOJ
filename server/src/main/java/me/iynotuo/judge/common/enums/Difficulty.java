@@ -1,7 +1,7 @@
 package me.iynotuo.judge.common.enums;
 
 /**
- * 题目难度，供列表筛选使用。
+ * Problem difficulty, used for filtering problem lists.
  */
 public enum Difficulty {
     EASY,

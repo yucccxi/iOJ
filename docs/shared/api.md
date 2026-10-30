@@ -758,12 +758,12 @@ Authorization: Bearer <token>
   "userId": 12, "userNickname": "Alice", "language": "JAVA",
   "code": "import java.util.Scanner;\n ... \n}\n",
   "status": "ACCEPTED", "statusText": "通过",
-  "timeUsedMs": 46, "memoryUsedKb": null,
+  "timeUsedMs": 46, "memoryUsedKb": 33116,
   "compileMessage": null, "judgeMessage": null,
   "createdAt": "2026-10-30T11:18:05", "judgedAt": "2026-10-30T11:18:06",
   "cases": [
-    { "ordinal": 1, "status": "ACCEPTED", "statusText": "通过", "timeUsedMs": 44, "memoryUsedKb": null, "message": null },
-    { "ordinal": 2, "status": "ACCEPTED", "statusText": "通过", "timeUsedMs": 46, "memoryUsedKb": null, "message": null }
+    { "ordinal": 1, "status": "ACCEPTED", "statusText": "通过", "timeUsedMs": 44, "memoryUsedKb": 33116, "message": null },
+    { "ordinal": 2, "status": "ACCEPTED", "statusText": "通过", "timeUsedMs": 46, "memoryUsedKb": 31060, "message": null }
   ]
 }
 ```
@@ -776,7 +776,7 @@ Authorization: Bearer <token>
   "userId": 12, "userNickname": "Alice", "language": "JAVA",
   "code": null,
   "status": "ACCEPTED", "statusText": "通过",
-  "timeUsedMs": 46, "memoryUsedKb": null,
+  "timeUsedMs": 46, "memoryUsedKb": 33116,
   "compileMessage": null, "judgeMessage": null,
   "createdAt": "2026-10-30T11:18:05", "judgedAt": "2026-10-30T11:18:06",
   "cases": []
@@ -793,7 +793,7 @@ Authorization: Bearer <token>
 | `code` | 源代码；无权限时为 `null` |
 | `status` / `statusText` | 状态枚举 / 中文文案，见 6.4 |
 | `timeUsedMs` | 已执行测试点中的**最大耗时**（毫秒）；编译错误时为 `null` |
-| `memoryUsedKb` | 内存峰值（KB）；当前版本暂不提供该项统计，恒为 `null` |
+| `memoryUsedKb` | 内存峰值（KB）；Isolate 引擎会返回实际值，本机进程回退模式下为 `null` |
 | `compileMessage` | 编译错误信息，只有 `COMPILATION_ERROR` 时有值 |
 | `judgeMessage` | 系统级错误说明，只有 `SYSTEM_ERROR` 时有值 |
 | `createdAt` / `judgedAt` | 提交时间 / 评测完成时间；未完成时 `judgedAt` 为 `null` |
@@ -806,7 +806,7 @@ Authorization: Bearer <token>
 | `ordinal` | 对应测试数据的编号（从 1 开始） |
 | `status` / `statusText` | 该测试点的结果 |
 | `timeUsedMs` | 该测试点耗时 |
-| `memoryUsedKb` | 恒为 `null`（同上） |
+| `memoryUsedKb` | 该测试点的内存峰值（KB）；回退模式下为 `null` |
 | `message` | 失败原因：超时会写"超过时间限制 xxx ms"；运行错误会给出程序错误输出；答案错误一般为 `null`。不会包含期望输出 |
 
 > 评测遇到第一个未通过的测试点就会停止，所以 `cases` 可能少于测试数据总数。
@@ -836,7 +836,7 @@ Authorization: Bearer <token>
       "id": 500, "problemId": 12, "problemTitle": "A+B Problem",
       "userId": 12, "userNickname": "Alice", "language": "JAVA",
       "status": "ACCEPTED", "statusText": "通过",
-      "timeUsedMs": 46, "memoryUsedKb": null,
+      "timeUsedMs": 46, "memoryUsedKb": 33116,
       "createdAt": "2026-10-30T11:18:05"
     }
   ],
@@ -851,7 +851,7 @@ Authorization: Bearer <token>
 | `userId` / `userNickname` | 提交者 id / 昵称 |
 | `language` | 语言 |
 | `status` / `statusText` | 结果状态 / 中文文案 |
-| `timeUsedMs` / `memoryUsedKb` | 最大耗时 / 内存（当前恒为 `null`） |
+| `timeUsedMs` / `memoryUsedKb` | 最大耗时 / 内存峰值（Isolate 引擎有值，回退模式为 `null`） |
 | `createdAt` | 提交时间 |
 
 ### 6.4 评测状态
@@ -863,7 +863,7 @@ Authorization: Bearer <token>
 | `ACCEPTED` | 通过 | 全部测试点通过 | 是 |
 | `WRONG_ANSWER` | 答案错误 | 有测试点输出与期望不一致 | 是 |
 | `TIME_LIMIT_EXCEEDED` | 超出时间限制 | 运行超时 | 是 |
-| `MEMORY_LIMIT_EXCEEDED` | 超出内存限制 | 内存超限（当前版本一般不会出现） | 是 |
+| `MEMORY_LIMIT_EXCEEDED` | 超出内存限制 | 内存超限（Isolate 引擎通过 cgroup OOM 判定） | 是 |
 | `OUTPUT_LIMIT_EXCEEDED` | 输出超出限制 | 程序输出内容过大 | 是 |
 | `RUNTIME_ERROR` | 运行错误 | 程序异常退出 | 是 |
 | `COMPILATION_ERROR` | 编译错误 | 代码编译失败 | 是 |
@@ -1116,7 +1116,7 @@ async function waitForJudge(id, token, onUpdate) {
 | 提交详情 | `compileMessage` | 只有编译错误时有值 |
 | 提交详情 | `judgeMessage` | 只有系统错误时有值 |
 | 提交详情 | `timeUsedMs` | 编译错误或尚未开始评测 |
-| 提交详情 | `memoryUsedKb` | 当前版本恒为 `null` |
+| 提交详情 | `memoryUsedKb` | 本机进程回退模式下为 `null`；Isolate 引擎返回实际峰值 |
 | 提交详情 | `judgedAt` | 尚未评测完成 |
 | 提交详情 | `cases` | 无权限或编译错误时为 `[]` |
 | 列表 | `items` | 无数据或超出页码时为 `[]`，此时 `total` 可能不为 0 |

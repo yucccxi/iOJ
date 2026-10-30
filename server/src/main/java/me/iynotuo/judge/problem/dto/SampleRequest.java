@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
- * 题面展示样例。允许空字符串（例如只有输入的样例）。
+ * A sample shown on the problem page. Empty strings are allowed (for example a sample with input only).
  */
 public record SampleRequest(
 

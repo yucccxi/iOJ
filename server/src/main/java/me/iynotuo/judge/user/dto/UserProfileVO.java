@@ -6,7 +6,7 @@ import me.iynotuo.judge.user.entity.User;
 import java.time.LocalDateTime;
 
 /**
- * 公开的个人主页信息，额外带上通过题目数。
+ * Public profile information, including the number of solved problems.
  */
 public record UserProfileVO(Long id, String username, String nickname, UserRole role,
                             LocalDateTime createdAt, long solvedCount) {

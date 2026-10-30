@@ -34,7 +34,7 @@
 | 账号 | 注册、登录、个人主页、修改昵称、修改密码 |
 | 题库 | 列表（标题搜索、难度、标签）、题目详情、题面样例 |
 | 出题 | 上传 / 编辑 / 删除题目、标签、隐藏测试数据、草稿/待审核/已发布/已下架 |
-| 评测 | Java、C++、C、Python 3；异步评测；逐测试点结果 |
+| 评测 | Java、C++、C、Python 3；Isolate 沙箱异步评测；逐测试点结果 |
 | 管理 | 题目审核与上下架、用户角色、封禁与解封 |
 
 ## 仓库结构
@@ -65,30 +65,32 @@ iOJ/
 | [docs/server/README.md](docs/server/README.md) | 后端总览：启动、配置、数据库初始化、测试、常见问题 |
 | [docs/server/01-architecture.md](docs/server/01-architecture.md) | 架构、模块划分、请求链路、评测流程、权限矩阵、设计取舍 |
 | [docs/server/02-database.md](docs/server/02-database.md) | ER 图、表结构、枚举、索引、容量估算、备份 |
-| [docs/server/03-judge.md](docs/server/03-judge.md) | 评测状态机、沙箱与资源限制、语言配置、生产环境加固 |
+| [docs/server/03-judge.md](docs/server/03-judge.md) | 评测状态机、引擎选择、Isolate 沙箱与限额、语言配置、生产环境加固 |
 | [docs/server/04-deployment.md](docs/server/04-deployment.md) | 建库、配置项、systemd/Nginx、备份、上线检查清单 |
 | [docs/server/05-development.md](docs/server/05-development.md) | 分层规范、扩展方式、测试说明、踩坑记录 |
+| [docs/server/06-isolate.md](docs/server/06-isolate.md) | Isolate 安装、cgroup 服务、手动验证、接入说明 |
 
 ## 项目状态
 
 已完成：
 
 - 后端接口：账号、题库、测试数据、提交、评测、管理后台
-- 评测：四种语言、逐测试点结果、异步执行
+- 评测：Isolate 沙箱（默认）、四种语言、逐测试点结果、异步执行
 - 文档：接口文档（前端视角）+ 后端技术文档（架构、数据库、评测、部署、开发）
+- 评测机：Isolate 2.7 接入完成（编译/运行隔离、MLE 判定、内存统计）
 
 计划中：
 
 - [ ] 前端（`client/`）
 - [ ] 比赛与榜单
-- [ ] 容器化评测沙箱（对公网开放注册前必须）
+- [ ] 可选：容器化评测（在 Isolate 之上进一步隔离判题机）
 - [ ] 题解 / 评论 / 收藏
 - [ ] 刷新令牌、提交频率限制
 
 ## 部署提示
 
 - 生产环境必须修改默认管理员密码与登录令牌密钥（见 [docs/server/README.md](docs/server/README.md)）。
-- 只在校园内网或邀请注册的场景，内置评测足够；**对公网开放注册前请改用容器沙箱**，参见 [docs/server/03-judge.md](docs/server/03-judge.md)。
+- 判题默认使用 Isolate 沙箱，需要判题机安装 Isolate、保持 `isolate.service` 运行并给运行用户 `isolate` 组权限（见 [docs/server/06-isolate.md](docs/server/06-isolate.md)）。只有可信环境才建议用 `engine=local` 回退。
 
 ## License
 

@@ -18,11 +18,11 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * 解析 {@code Authorization: Bearer <token>}，校验通过后把 {@link LoginUser} 放入 SecurityContext。
- * 每次请求都会读一次用户表，保证封禁/改角色能立即生效（俱乐部规模下开销可接受）。
+ * Parses Authorization: Bearer <token> and, once validated, puts a LoginUser into the SecurityContext.
+ * Reads the user row on every request so bans and role changes take effect immediately, which is cheap at club scale.
  *
- * <p>注意：本类刻意不加 {@code @Component}，而是由 {@link me.iynotuo.judge.config.SecurityConfig}
- * 以 Bean 形式声明，只挂在 Security 过滤器链上，避免被 Servlet 容器重复注册。</p>
+ * <p>This class deliberately has no @Component annotation; me.iynotuo.judge.config.SecurityConfig
+ * declares it as a bean so it only runs in the security filter chain and is not registered twice by the servlet container.</p>
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 

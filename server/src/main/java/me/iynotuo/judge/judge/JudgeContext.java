@@ -8,7 +8,7 @@ import me.iynotuo.judge.submission.entity.Submission;
 import java.util.List;
 
 /**
- * 一次判题所需的全部输入。
+ * Everything needed to judge one submission.
  */
 public record JudgeContext(Submission submission,
                            Problem problem,

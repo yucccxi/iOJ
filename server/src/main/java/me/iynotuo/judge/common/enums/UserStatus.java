@@ -1,7 +1,7 @@
 package me.iynotuo.judge.common.enums;
 
 /**
- * 用户状态。
+ * User account status.
  */
 public enum UserStatus {
     ACTIVE,

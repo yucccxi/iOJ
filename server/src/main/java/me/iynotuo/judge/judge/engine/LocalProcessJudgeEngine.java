@@ -1,7 +1,10 @@
-package me.iynotuo.judge.judge;
+package me.iynotuo.judge.judge.engine;
 
 import me.iynotuo.judge.common.enums.SubmissionStatus;
 import me.iynotuo.judge.config.JudgeProperties;
+import me.iynotuo.judge.judge.JudgeContext;
+import me.iynotuo.judge.judge.JudgeOutcome;
+import me.iynotuo.judge.judge.OutputComparator;
 import me.iynotuo.judge.problem.entity.ProblemTestcase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,11 +23,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /**
- * 本机进程判题引擎：编译 + 逐测试点运行。
+ * Local process judge engine: compiles the code and runs every test case.
  *
- * <p>隔离手段：独立临时目录、bash ulimit（内存/文件大小）、墙钟超时、输出上限。
- * 它适合校内小规模使用和本地开发；如果对公网开放注册，请换成 Docker / nsjail 引擎，
- * 因为本地进程无法完全限制 CPU 抢占、fork bomb、网络访问等行为。</p>
+ * <p>Isolation: a dedicated temporary directory, bash ulimit (memory and file size), a wall-clock timeout and an output size cap.
+ * It suits small club deployments and local development; before opening registration to the internet, switch to a Docker or nsjail engine,
+ * because a local process cannot fully prevent CPU starvation, fork bombs or network access.</p>
  */
 @Component
 @ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "local", matchIfMissing = true)
@@ -37,6 +40,12 @@ public class LocalProcessJudgeEngine implements JudgeEngine {
 
     private final JudgeProperties properties;
 
+    /**
+     * Creates the fallback engine that runs submissions directly on the host.
+     *
+     * @param properties judge configuration; supplies the per-language commands, limits and the
+     *                   maximum captured output size. Never {@code null}
+     */
     public LocalProcessJudgeEngine(JudgeProperties properties) {
         this.properties = properties;
     }
@@ -90,7 +99,7 @@ public class LocalProcessJudgeEngine implements JudgeEngine {
                     null, caseMessage(run, status, timeLimitMs)));
             if (status != SubmissionStatus.ACCEPTED) {
                 overall = status;
-                // fail-fast：失败后不再跑后续测试点，节省机器资源
+                // Fail fast: stop after the first failing test case to save machine time
                 break;
             }
         }
@@ -211,7 +220,7 @@ public class LocalProcessJudgeEngine implements JudgeEngine {
                 try {
                     Files.deleteIfExists(path);
                 } catch (IOException ignored) {
-                    // 清理失败不影响判题结果
+                    // Cleanup failures must not change the judge result
                 }
             });
         } catch (IOException ex) {

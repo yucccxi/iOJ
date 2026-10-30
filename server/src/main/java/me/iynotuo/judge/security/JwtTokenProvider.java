@@ -16,7 +16,7 @@ import java.time.Instant;
 import java.util.Date;
 
 /**
- * 负责签发与校验 JWT（HS256）。payload 中只放 id/username/role，权限以数据库为准。
+ * Issues and verifies JWTs (HS256). The payload only carries id, username and role; authorities always come from the database.
  */
 @Component
 public class JwtTokenProvider {
@@ -52,7 +52,7 @@ public class JwtTokenProvider {
     }
 
     /**
-     * @return 用户 id；token 非法/过期/签名不匹配时返回 null（由过滤器决定是否放行匿名请求）。
+     * @return the user id, or null when the token is invalid, expired or signed with another key
      */
     public Long parseUserId(String token) {
         try {

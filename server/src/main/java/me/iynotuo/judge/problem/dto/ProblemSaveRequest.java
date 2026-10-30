@@ -12,7 +12,7 @@ import me.iynotuo.judge.common.enums.Difficulty;
 import java.util.List;
 
 /**
- * 创建 / 全量更新题目。tags 传名称即可，不存在的标签会自动创建。
+ * Creates or fully replaces a problem. Tags are sent by name and unknown names are created automatically.
  */
 public record ProblemSaveRequest(
 

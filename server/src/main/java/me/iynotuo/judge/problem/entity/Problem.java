@@ -7,7 +7,7 @@ import me.iynotuo.judge.common.enums.ProblemStatus;
 import java.time.LocalDateTime;
 
 /**
- * 题目表映射。
+ * Problem table mapping.
  */
 @Data
 public class Problem {
@@ -19,7 +19,7 @@ public class Problem {
     private Difficulty difficulty;
 
     /**
-     * 题面（纯文本或 Markdown，由前端渲染）。
+     * Problem statement (plain text or Markdown, rendered by the client).
      */
     private String description;
 
@@ -30,7 +30,7 @@ public class Problem {
     private String hint;
 
     /**
-     * 题目来源，如 "2025 校赛 A"。
+     * Problem source, for example "2025 Campus Contest A".
      */
     private String source;
 

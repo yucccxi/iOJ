@@ -7,7 +7,7 @@ import me.iynotuo.judge.common.enums.SubmissionStatus;
 import java.time.LocalDateTime;
 
 /**
- * 提交记录。code 可能较大，仅在详情接口对本人/管理员/题目作者可见。
+ * A submission. The source code can be large and is only returned to the submitter, the problem author and administrators.
  */
 @Data
 public class Submission {
@@ -29,12 +29,12 @@ public class Submission {
     private Integer memoryUsedKb;
 
     /**
-     * 编译输出，编译错误时用于展示。
+     * Compiler output, shown when compilation fails.
      */
     private String compileMessage;
 
     /**
-     * 系统级错误信息（如测试点缺失），不包含测试数据。
+     * System-level error message (for example missing test data); never contains test data.
      */
     private String judgeMessage;
 

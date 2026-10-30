@@ -26,8 +26,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * 无状态 JWT 鉴权。公开接口（浏览题目、题目详情、公开提交列表）允许匿名访问，
- * 其余接口要求登录，{@code /api/v1/admin/**} 要求 ADMIN 角色。
+ * Stateless JWT authentication. Public endpoints (problem browsing, problem detail, public submission list) allow anonymous access;
+ * all other endpoints require authentication, and /api/v1/admin/** requires the ADMIN role.
  */
 @Configuration
 @EnableWebSecurity
@@ -40,7 +40,7 @@ public class SecurityConfig {
     }
 
     /**
-     * 以 Bean 方式声明，保证这个过滤器只出现在 Security 过滤器链中（不会被 Servlet 容器再注册一次）。
+     * Declared as a bean so the filter only runs inside the security filter chain and is not registered again by the servlet container.
      */
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserMapper userMapper) {
@@ -61,7 +61,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(registry -> registry
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
-                        // 测试数据只有作者/管理员可见，必须在下面的公开 GET 规则之前拦截
+                        // Test data is visible to the author and administrators only, so this rule must come before the public GET rules below.
                         .requestMatchers("/api/v1/problems/*/testcases/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/problems/mine").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me").authenticated()

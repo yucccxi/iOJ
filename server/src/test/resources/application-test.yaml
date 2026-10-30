@@ -1,6 +1,6 @@
 spring:
   datasource:
-    # 每个 Spring 上下文使用独立的 H2 内存库，保证 schema.sql 可以重复执行
+# Each Spring context gets its own in-memory H2 database so schema.sql can run repeatedly.
     url: jdbc:h2:mem:ioj-${random.uuid};MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
@@ -15,8 +15,9 @@ ioj:
   jwt:
     secret: ioj-test-secret-key-at-least-32-bytes-long
   judge:
-    # 集成测试手动调用 JudgeService，避免定时任务引入不确定性
+# Integration tests call JudgeService directly instead of relying on the scheduled worker.
     enabled: false
+    engine: local
     compile-timeout-ms: 60000
     poll-interval-ms: 200
 

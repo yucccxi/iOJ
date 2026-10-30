@@ -6,7 +6,7 @@ import me.iynotuo.judge.user.entity.User;
 import java.time.LocalDateTime;
 
 /**
- * 用户信息（不含密码哈希、邮箱等敏感字段）。
+ * User information without sensitive fields such as the password hash or email address.
  */
 public record UserVO(Long id, String username, String nickname, UserRole role, LocalDateTime createdAt) {
 

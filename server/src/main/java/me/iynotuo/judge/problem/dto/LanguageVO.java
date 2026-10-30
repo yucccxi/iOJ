@@ -1,7 +1,7 @@
 package me.iynotuo.judge.problem.dto;
 
 /**
- * 可选语言（来自 ioj.judge.languages 配置）。
+ * A selectable language, derived from the ioj.judge.languages configuration.
  */
 public record LanguageVO(String code, String displayName) {
 }

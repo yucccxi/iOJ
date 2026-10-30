@@ -1,4 +1,4 @@
-package me.iynotuo.judge.judge;
+package me.iynotuo.judge.judge.engine;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -6,7 +6,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
- * 读取子进程输出，超过上限后继续消费但不再保存，避免进程因管道写满而阻塞或撑爆内存。
+ * Reads child process output. After the limit is reached it keeps draining the stream without buffering, so the process never blocks on a full pipe and memory stays bounded.
  */
 final class StreamCollector implements Runnable {
 
@@ -35,7 +35,7 @@ final class StreamCollector implements Runnable {
                 }
             }
         } catch (IOException ignored) {
-            // 进程被 kill 时读取会抛异常，忽略即可
+            // Reading throws when the process is killed; that is expected and ignored
         }
     }
 

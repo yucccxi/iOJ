@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 提交详情。非本人/题目作者/管理员查看时，code、compileMessage、cases 会被置空。
+ * Submission detail. For callers other than the submitter, the problem author or an administrator, code, compileMessage and cases are blanked out.
  */
 public record SubmissionDetailVO(Long id, Long problemId, String problemTitle, Long userId, String userNickname,
                                  Language language, String code, SubmissionStatus status, String statusText,

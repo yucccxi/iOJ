@@ -3,7 +3,7 @@ package me.iynotuo.judge.problem.mapper;
 import lombok.Data;
 
 /**
- * 题目-标签关联行，用于批量查询后按 problemId 分组。
+ * Problem-tag row, grouped by problem id after a batch query.
  */
 @Data
 public class ProblemTagRow {

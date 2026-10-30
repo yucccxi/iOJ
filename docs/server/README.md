@@ -13,6 +13,7 @@ iOJ 的后端服务：一个 Spring Boot 单体应用，同时提供 **REST API*
 | 鉴权 | 无状态令牌（jjwt 0.12.6）+ BCrypt 密码哈希 |
 | 参数校验 | Jakarta Validation |
 | 测试 | JUnit 5 + AssertJ + H2（MySQL 兼容模式），含真实编译运行的端到端测试 |
+| 评测 | Isolate 沙箱（默认引擎）；本机进程作为无沙箱环境的回退 |
 
 ## 代码结构
 
@@ -28,7 +29,8 @@ server/
     │   ├── user/          注册登录、个人资料、管理员用户管理
     │   ├── problem/       题目、样例、测试数据、标签
     │   ├── submission/    提交记录
-    │   └── judge/         评测引擎、评测调度、输出比对
+    │   └── judge/         评测调度（JudgeService/JudgeWorker）、评测模型、输出比对
+    │       └── engine/    JudgeEngine 接口与实现（isolate / local）、isolate meta 解析
     ├── main/resources/
     │   ├── application.yaml
     │   ├── db/schema.sql  建表脚本（MySQL / H2 通用）
@@ -46,7 +48,19 @@ server/
 - JDK 21（评测 Java 代码也依赖 `javac`）
 - MySQL 8
 - 评测机工具链：`g++`（C++17）、`gcc`（C11）、`python3`——按需要安装
+- Isolate 沙箱（默认引擎）：`isolate.service` 运行中，运行后端的用户能执行 `/usr/bin/isolate`（通常在 `isolate` 组）
 - 不需要单独安装 Maven，仓库自带 `./mvnw`
+
+安装/授权示例（Debian 13，详见 [06-isolate.md](./06-isolate.md)）：
+
+```bash
+sudo apt install isolate
+sudo systemctl enable --now isolate.service
+sudo usermod -aG isolate "$USER"     # 重新登录后生效
+isolate --check-config               # 无输出且退出码为 0 即可
+```
+
+> 如果暂时没有 Isolate，可设置 `IOJ_JUDGE_ENGINE=local` 使用本机进程回退（仅适合可信用户）。
 
 ### 2. 建库并初始化
 
@@ -121,6 +135,7 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `ServerApplicationTests` | Spring 上下文可启动、全部 Mapper 可加载 |
 | `JwtTokenProviderTest` | 令牌签发/解析、篡改、过期、弱密钥拒绝 |
 | `OutputComparatorTest` | 输出比对规则（行尾空白、换行、空输出等） |
+| `IsolateMetaTest` | Isolate meta 解析（时间/内存/退出码/信号/OOM/缺省值） |
 | `ApiFlowIntegrationTest` | 注册→登录→建题→传测试数据→提交→评测→AC/WA→字段裁剪 |
 | `AdminModerationIntegrationTest` | 测试数据增删改查、题目上下架、用户搜索与封禁 |
 
@@ -142,13 +157,27 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `ioj.problem.max-testcase-bytes` | — | `1048576` | 单条输入/输出内容上限（字节） |
 | `ioj.submission.max-code-length` | — | `65536` | 单次提交代码字符数上限 |
 | `ioj.judge.enabled` | `IOJ_JUDGE_ENABLED` | `true` | 是否启用评测；关闭后提交停留在排队状态 |
-| `ioj.judge.engine` | — | `local` | 评测引擎，目前只有本机进程实现 |
+| `ioj.judge.engine` | `IOJ_JUDGE_ENGINE` | `isolate` | 评测引擎：`isolate`（默认）/ `local`（本机进程回退）/ `docker`（未实现） |
+| `ioj.judge.isolate.*` | — | 见下 | Isolate 路径、box 编号、编译限制、额外目录等 |
 | `ioj.judge.concurrency` | `IOJ_JUDGE_CONCURRENCY` | `1` | 同时评测的提交数 |
 | `ioj.judge.poll-interval-ms` | — | `1000` | 拉取待评测提交的间隔 |
 | `ioj.judge.max-output-bytes` | — | `16777216` | 单个测试点允许的最大输出 |
 | `ioj.judge.max-compile-output-bytes` | — | `65536` | 编译输出保留上限 |
-| `ioj.judge.compile-timeout-ms` | — | `30000` | 编译超时 |
-| `ioj.judge.languages.*` | — | JAVA / CPP / C / PYTHON3 | 各语言的源码文件、编译/运行命令、时间系数 |
+| `ioj.judge.compile-timeout-ms` | — | `30000` | 编译超时（本机进程引擎使用） |
+| `ioj.judge.languages.*` | — | JAVA / CPP / C / PYTHON3 | 各语言源码、编译/运行命令、时间系数、`isolate-processes`、`isolate-memory-extra-mb` |
+
+Isolate 相关默认值（`application.yaml` 中可改）：
+
+| 配置 | 默认 | 说明 |
+| --- | --- | --- |
+| `isolate.binary` | `/usr/bin/isolate` | 可执行文件路径；启动时检查可执行 |
+| `isolate.box-id-start` / `box-id-count` | `1` / `8` | box 编号区间，避免与 root 手工测试的 box 0 冲突 |
+| `isolate.compile-processes` | `64` | 编译进程/线程上限（javac 需要较多线程） |
+| `isolate.compile-time-seconds` / `compile-wall-time-seconds` | `10` / `30` | 编译 CPU / 墙钟限制 |
+| `isolate.compile-cg-mem-kb` / `compile-fsize-kb` | `524288` / `16384` | 编译内存 / 文件大小限制 |
+| `isolate.wall-time-extra-seconds` | `3` | 运行墙钟 = CPU 限制 + 该值 |
+| `isolate.extra-dirs` | `/etc/java-21-openjdk` | 只读绑定进沙箱的宿主机目录（Debian JDK 的 `java.security`） |
+| `isolate.resolve-executables` | `true` | 把命令第一个词解析成真实路径，避免 `/etc/alternatives` 符号链接 |
 
 ## 数据库
 
@@ -170,14 +199,17 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 
 ## 评测说明
 
-- **流程**：提交入库为"排队中" → 评测线程取任务并标记"评测中" → 编译 → 逐测试点运行 → 写回逐点结果与最终状态。
-- **隔离**：每次评测使用独立临时目录；限制运行时间、内存（`ulimit` / JVM `-Xmx`）、文件大小与输出上限；超时强制结束进程。
+- **引擎**：默认 `isolate`，编译与运行都在 Isolate 沙箱内；没有 Isolate 时可回退到 `local`（本机进程 + `ulimit`）。
+- **流程**：提交入库为"排队中" → worker 取任务并标记"评测中" → 沙箱编译 → 逐测试点新建沙箱运行 → 写回逐点结果与最终状态。
+- **资源限制**：`--time`（CPU）、`--wall-time`、`--cg-mem`、`--fsize`、`--processes`；JVM 需要更多线程与额外内存，已在语言配置中单独设置。
+- **统计**：Isolate 返回 `time` 与 `cg-mem`，会写入逐点结果，因此 `memoryUsedKb` 有值，OOM 可判为 `MEMORY_LIMIT_EXCEEDED`。
 - **输出比对**：忽略每行行尾空格/Tab 与文末多余空行，其余逐字符比较。
 - **失败即停**：某个测试点未通过后不再执行后续测试点，所以结果里的 `cases` 可能少于测试数据总数。
-- **局限**：本机进程方案无法精确统计内存峰值，`MEMORY_LIMIT_EXCEEDED` 基本不会出现；也无法阻止网络访问、fork bomb 等行为。
-  对公网开放注册前请切换到容器化评测，设计与扩展方式见 [./03-judge.md](./03-judge.md)。
+- **清理**：每个阶段结束都会 `isolate --cleanup`，工作目录在 `finally` 中删除；残留会在日志中告警。
 
-新增一门语言：在 `common/enums/Language.java` 增加枚举值，在 `application.yaml` 的 `ioj.judge.languages` 下补配置，评测机安装对应工具链即可，无需改评测代码。
+沙箱前置条件、参数映射与常见错误见 [./03-judge.md](./03-judge.md) 与 [./06-isolate.md](./06-isolate.md)。
+
+新增一门语言：在 `common/enums/Language.java` 增加枚举值，在 `application.yaml` 的 `ioj.judge.languages` 下补配置（含 `isolate-processes` / `isolate-memory-extra-mb`），评测机安装对应工具链即可，无需改评测代码。
 
 ## 接口
 
@@ -206,9 +238,10 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | [./01-architecture.md](./01-architecture.md) | 架构、模块、请求链路、评测时序、权限矩阵、设计取舍 |
 | [./02-database.md](./02-database.md) | ER 图、表结构、枚举、索引、容量估算、备份 |
 | [../shared/api.md](../shared/api.md) | 接口文档（面向前端） |
-| [./03-judge.md](./03-judge.md) | 评测状态机、沙箱与限额、语言配置、生产加固 |
+| [./03-judge.md](./03-judge.md) | 评测状态机、引擎选择、Isolate 沙箱与限额、语言配置、生产加固 |
 | [./04-deployment.md](./04-deployment.md) | 建库、配置、systemd/Nginx、备份、上线检查清单 |
 | [./05-development.md](./05-development.md) | 开发规范、扩展方式、测试说明、踩坑记录 |
+| [./06-isolate.md](./06-isolate.md) | Isolate 安装、cgroup 服务、手动验证命令、接入说明 |
 
 ## 常见问题
 
@@ -217,6 +250,11 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | 启动报 `CannotCreateTransactionException` | 看启动日志里的"实际使用的 JDBC URL / 用户名"：说明账号密码没生效。检查 `IOJ_DB_*` 是否设置在**当前进程**上；bash 中要一行一个 `export`，不要用分号串成一行；IDEA 中在 Run Configuration 的 Environment variables 里配置 |
 | 启动报端口占用 | 换端口：`java -jar ... --server.port=8081`，并同步调整前端与 Nginx |
 | 提交一直"排队中" | 检查 `IOJ_JUDGE_ENABLED` 是否为 `true`；查看日志是否有评测异常；确认评测机装有对应编译器 |
+| 启动报 `isolate binary is not executable` | 运行用户没有执行权限：`sudo usermod -aG isolate <user>` 后重新登录，确认 `isolate --version` 可用 |
+| `isolate --init` 报 `This box belongs to a different user` | box 编号被其他用户（常见 root）占用：换 `box-id-start`，或让原用户 `isolate --box-id=N --cleanup` |
+| 编译报 `javac: No such file or directory` | 沙箱内无法跟随 `/etc/alternatives`：保持 `resolve-executables: true`，或改用绝对路径 |
+| JVM 报 `Error loading java.security file` | `extra-dirs` 缺少 `/etc/java-21-openjdk`（Debian） |
+| JVM 报 `pthread_create failed (EAGAIN)` | `isolate-processes` 太小：Java 建议 64 |
 | 评测报编译错误但代码没问题 | 评测机缺少工具链：`apt install -y g++ gcc python3`；Java 代码需使用 `public class Main` |
 | `schema.sql` 执行报"表已存在" | 该脚本不是幂等的，按上文"数据库"小节重建库，或手动删除旧表 |
 | 多个实例间登录互相 401 | 各实例的 `IOJ_JWT_SECRET` 必须一致 |

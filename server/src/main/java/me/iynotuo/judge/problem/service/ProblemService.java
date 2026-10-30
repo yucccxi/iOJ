@@ -41,7 +41,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * 题目相关业务：上传、编辑、列表、审核。
+ * Problem business logic: upload, edit, list and review.
  */
 @Service
 public class ProblemService {
@@ -76,7 +76,7 @@ public class ProblemService {
         Problem problem = new Problem();
         applyRequest(problem, request);
         problem.setAuthorId(current.id());
-        // 管理员或开启自动发布时直接上线，否则进入待审核队列
+        // Publish immediately for administrators or when auto-publish is enabled; otherwise queue for review
         problem.setStatus(current.isAdmin() || properties.isAutoPublish()
                 ? ProblemStatus.PUBLISHED : ProblemStatus.PENDING_REVIEW);
         problem.setSubmitCount(0);
@@ -109,7 +109,7 @@ public class ProblemService {
     }
 
     /**
-     * 公开题目列表：只返回已发布题目。
+     * Public problem list: published problems only.
      */
     public PageResult<ProblemSummaryVO> page(String keyword, Difficulty difficulty, Long tagId,
                                              PageQuery query) {
@@ -122,7 +122,7 @@ public class ProblemService {
     }
 
     /**
-     * 我上传的题目：包含草稿、待审核、已下架。
+     * Problems uploaded by the current user, including drafts, pending review and hidden ones.
      */
     public PageResult<ProblemSummaryVO> pageMine(LoginUser current, String keyword, PageQuery query) {
         ProblemCriteria criteria = new ProblemCriteria();
@@ -132,7 +132,7 @@ public class ProblemService {
     }
 
     /**
-     * 管理员使用：按状态筛选所有题目。
+     * Administrator view: all problems, optionally filtered by status.
      */
     public PageResult<ProblemSummaryVO> pageForAdmin(String keyword, ProblemStatus status, PageQuery query) {
         ProblemCriteria criteria = new ProblemCriteria();
@@ -163,7 +163,7 @@ public class ProblemService {
     }
 
     /**
-     * 管理员审核 / 上架 / 下架。上架前必须至少有一个测试点，避免出现"空题"。
+     * Administrator review: publish or take down. A problem must have at least one test case before it can be published.
      */
     @Transactional
     public void updateStatus(Long id, ProblemStatus status) {
@@ -178,7 +178,7 @@ public class ProblemService {
     }
 
     /**
-     * 供测试点服务复用：校验当前用户是否有权管理题目。
+     * Reused by the test case service: rejects callers who may not manage this problem.
      */
     public void assertManageable(LoginUser current, Long problemId) {
         assertCanManage(current, requireProblem(problemId));
@@ -245,7 +245,7 @@ public class ProblemService {
             tagMapper.insert(tag);
             return tag;
         } catch (DuplicateKeyException ex) {
-            // 并发创建同名标签，重新读取即可
+            // A concurrent request created the same tag; just read it back
             Tag created = tagMapper.findByName(name);
             if (created == null) {
                 throw ex;

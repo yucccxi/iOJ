@@ -4,7 +4,7 @@ import lombok.Data;
 import me.iynotuo.judge.common.enums.SubmissionStatus;
 
 /**
- * 提交列表查询条件。
+ * Query criteria for submission lists.
  */
 @Data
 public class SubmissionCriteria {

@@ -4,7 +4,7 @@ import lombok.Data;
 import me.iynotuo.judge.common.enums.SubmissionStatus;
 
 /**
- * 单次提交中某个测试点的结果。
+ * The result of one test case within a submission.
  */
 @Data
 public class SubmissionCase {
@@ -22,7 +22,7 @@ public class SubmissionCase {
     private Integer memoryUsedKb;
 
     /**
-     * 不包含期望输出，避免泄露测试数据。
+     * Never contains the expected output, to avoid leaking test data.
      */
     private String message;
 }

@@ -1,7 +1,7 @@
 package me.iynotuo.judge.common.api;
 
 /**
- * 统一响应体。code == 0 表示成功，其余为业务错误码（见 {@code ErrorCode}）。
+ * Unified response body. code == 0 means success; any other value is a business error code (see ErrorCode).
  */
 public record ApiResponse<T>(int code, String message, T data) {
 

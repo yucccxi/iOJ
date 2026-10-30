@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 输出比对：忽略行尾多余空格/Tab，忽略文末多余空行（大多数 OJ 的行为）。
+ * Output comparison: ignores trailing spaces and tabs on each line and trailing blank lines at the end (the usual OJ behaviour).
  */
 public final class OutputComparator {
 

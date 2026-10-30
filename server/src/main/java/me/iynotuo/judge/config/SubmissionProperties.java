@@ -3,13 +3,13 @@ package me.iynotuo.judge.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 提交相关配置。
+ * Submission configuration.
  */
 @ConfigurationProperties(prefix = "ioj.submission")
 public class SubmissionProperties {
 
     /**
-     * 单次提交代码的最大字符数（约 64KB）。
+     * Maximum source length per submission (about 64 KB).
      */
     private int maxCodeLength = 64 * 1024;
 

@@ -7,7 +7,7 @@ import me.iynotuo.judge.common.enums.UserStatus;
 import java.time.LocalDateTime;
 
 /**
- * 用户表映射。
+ * User table mapping.
  */
 @Data
 public class User {
@@ -19,7 +19,7 @@ public class User {
     private String email;
 
     /**
-     * BCrypt 哈希，任何情况下都不能返回给前端。
+     * BCrypt hash. It must never be returned to clients.
      */
     private String passwordHash;
 

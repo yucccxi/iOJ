@@ -11,6 +11,10 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Unit tests for {@link JwtTokenProvider}: token round-tripping plus rejection of
+ * tampered, wrongly signed and expired tokens and of secrets that are too short.
+ */
 class JwtTokenProviderTest {
 
     private User user() {
@@ -31,6 +35,9 @@ class JwtTokenProviderTest {
         return properties;
     }
 
+    /**
+     * Creates a token and verifies that the subject (user id) and the lifetime can be read back.
+     */
     @Test
     void createsTokenThatCanBeParsed() {
         JwtTokenProvider provider = new JwtTokenProvider(properties(Duration.ofHours(1)));
@@ -42,6 +49,9 @@ class JwtTokenProviderTest {
         assertThat(provider.expirationSeconds()).isEqualTo(3600);
     }
 
+    /**
+     * Rejects a token whose signature no longer matches the payload.
+     */
     @Test
     void rejectsTamperedToken() {
         JwtTokenProvider provider = new JwtTokenProvider(properties(Duration.ofHours(1)));
@@ -51,6 +61,9 @@ class JwtTokenProviderTest {
         assertThat(provider.parseUserId(tampered)).isNull();
     }
 
+    /**
+     * Rejects a valid token that was signed with a different secret.
+     */
     @Test
     void rejectsTokenFromAnotherSecret() {
         JwtTokenProvider issuer = new JwtTokenProvider(properties(Duration.ofHours(1)));
@@ -61,6 +74,9 @@ class JwtTokenProviderTest {
         assertThat(verifier.parseUserId(issuer.createToken(user()))).isNull();
     }
 
+    /**
+     * Rejects a token whose expiration time is already in the past.
+     */
     @Test
     void rejectsExpiredToken() {
         JwtTokenProvider provider = new JwtTokenProvider(properties(Duration.ofSeconds(-10)));
@@ -68,6 +84,9 @@ class JwtTokenProviderTest {
         assertThat(provider.parseUserId(provider.createToken(user()))).isNull();
     }
 
+    /**
+     * Refuses to start when the configured secret is shorter than 32 bytes.
+     */
     @Test
     void refusesTooShortSecret() {
         JwtProperties weak = properties(Duration.ofHours(1));

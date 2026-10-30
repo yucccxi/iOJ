@@ -1,7 +1,7 @@
 package me.iynotuo.judge.common.exception;
 
 /**
- * 可预期的业务异常，由 {@link GlobalExceptionHandler} 统一转换成响应。
+ * A predictable business exception, converted into an API response by GlobalExceptionHandler.
  */
 public class BusinessException extends RuntimeException {
 

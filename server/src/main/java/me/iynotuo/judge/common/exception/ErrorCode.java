@@ -3,7 +3,7 @@ package me.iynotuo.judge.common.exception;
 import org.springframework.http.HttpStatus;
 
 /**
- * 业务错误码。HTTP 状态码用于网关/前端快速判断，code 用于前端做精确提示。
+ * Business error codes. The HTTP status gives a quick signal; code lets the client show a precise message.
  */
 public enum ErrorCode {
 

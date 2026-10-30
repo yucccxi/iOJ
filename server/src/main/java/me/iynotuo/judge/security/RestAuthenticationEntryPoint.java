@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
- * 未登录访问受保护接口时返回统一 JSON（默认会返回 403 + 空 body，不利于前端处理）。
+ * Returns unified JSON when an unauthenticated user hits a protected endpoint (the default 403 with an empty body is hard for clients to handle).
  */
 @Component
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {

@@ -3,7 +3,7 @@ package me.iynotuo.judge.problem.entity;
 import lombok.Data;
 
 /**
- * 题目展示样例（题面中可见），与判题用的隐藏测试点分开存放。
+ * A sample shown on the problem page. Kept separate from the hidden test cases used for judging.
  */
 @Data
 public class ProblemSample {
@@ -13,7 +13,7 @@ public class ProblemSample {
     private Long problemId;
 
     /**
-     * 从 1 开始的展示顺序。
+     * Display order, starting at 1.
      */
     private Integer ordinal;
 

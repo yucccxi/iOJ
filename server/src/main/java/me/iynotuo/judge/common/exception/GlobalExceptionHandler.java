@@ -22,7 +22,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.util.stream.Collectors;
 
 /**
- * 全局异常处理：所有异常都转换成统一响应体，避免把堆栈/SQL 细节暴露给前端。
+ * Global exception handling: every exception becomes the unified response body, so stack traces and SQL details never reach the client.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {

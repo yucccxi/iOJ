@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 隐藏测试点的增删改查。所有方法都会校验操作者是题目作者或管理员。
+ * CRUD for hidden test cases. Every method checks that the caller is the author or an administrator.
  */
 @Service
 public class TestcaseService {
@@ -63,7 +63,7 @@ public class TestcaseService {
         testcase.setOutputData(request.output());
         testcase.setCreatedAt(LocalDateTime.now());
         testcaseMapper.insertBatch(List.of(testcase));
-        // insertBatch 不回填自增主键，用 (problem_id, ordinal) 唯一键再查一次
+        // insertBatch does not return generated keys, so read the row back by the (problem_id, ordinal) unique key
         TestcaseSummaryVO summary = testcaseMapper.findSummary(problemId, testcase.getOrdinal());
         if (summary == null) {
             throw BusinessException.of(ErrorCode.TESTCASE_NOT_FOUND);
@@ -72,7 +72,7 @@ public class TestcaseService {
     }
 
     /**
-     * 全量覆盖测试点，适合"上传后一次性保存"的前端交互。
+     * Replaces all test cases at once, which suits the upload-then-save-once client flow.
      */
     @Transactional
     public List<TestcaseSummaryVO> replace(LoginUser current, Long problemId, List<TestcaseRequest> requests) {

@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 用户表访问层，SQL 见 resources/mapper/UserMapper.xml。
+ * Data access for users; the SQL lives in resources/mapper/UserMapper.xml.
  */
 @Mapper
 public interface UserMapper {
@@ -22,7 +22,7 @@ public interface UserMapper {
     User findByEmail(@Param("email") String email);
 
     /**
-     * 支持用户名或邮箱登录。
+     * Allows logging in with either the username or the email address.
      */
     User findByAccount(@Param("account") String account);
 

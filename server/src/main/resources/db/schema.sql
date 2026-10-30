@@ -1,9 +1,9 @@
--- iOJ 数据库结构
--- 说明：
---   1. 生产环境使用 MySQL 8.x（库建议 utf8mb4 / utf8mb4_general_ci）。
---   2. 为了让集成测试可以用 H2(MySQL 模式) 执行同一份脚本，这里刻意不使用
---      ENGINE/CHARSET/行内 COMMENT 等 MySQL 专有语法，索引统一用 CREATE INDEX。
---   3. 建库命令见 docs/server/04-deployment.md。
+-- iOJ database schema
+-- Notes:
+--   1. Production uses MySQL 8.x (utf8mb4 / utf8mb4_general_ci recommended).
+--   2. The same script must also run on H2 (MySQL mode) for integration tests, so MySQL-specific
+--      syntax such as ENGINE/CHARSET/inline COMMENT is avoided; indexes use CREATE INDEX.
+--   3. See docs/server/04-deployment.md for the database setup commands.
 
 CREATE TABLE users (
     id            BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,

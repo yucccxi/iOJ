@@ -7,7 +7,7 @@ import me.iynotuo.judge.common.enums.ProblemStatus;
 import java.time.LocalDateTime;
 
 /**
- * 题目列表的数据库行（已 join 作者昵称，避免 N+1）。
+ * Database row for a problem list (author nickname joined in to avoid N+1 queries).
  */
 @Data
 public class ProblemSummaryRow {

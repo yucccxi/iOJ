@@ -3,24 +3,24 @@ package me.iynotuo.judge.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 题目相关配置。
+ * Problem configuration.
  */
 @ConfigurationProperties(prefix = "ioj.problem")
 public class ProblemProperties {
 
     /**
-     * 普通用户上传的题目是否直接发布。false 时进入 PENDING_REVIEW，等待管理员审核。
-     * 学校俱乐部内部使用建议 true，开放注册时建议 false。
+     * Whether problems uploaded by regular users are published immediately. When false they enter PENDING_REVIEW until an administrator approves them.
+     * Recommended true for a trusted club and false when registration is open to the public.
      */
     private boolean autoPublish = true;
 
     /**
-     * 单题测试点数量上限。
+     * Maximum number of test cases per problem.
      */
     private int maxTestcases = 100;
 
     /**
-     * 单个测试点输入/输出各自的最大字节数。
+     * Maximum size of a single test case input or output, in bytes.
      */
     private int maxTestcaseBytes = 1024 * 1024;
 

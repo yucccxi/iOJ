@@ -7,7 +7,7 @@ import me.iynotuo.judge.common.enums.SubmissionStatus;
 import java.time.LocalDateTime;
 
 /**
- * 提交列表的数据库行（已 join 题目标题与用户昵称）。
+ * Database row for a submission list (problem title and user nickname joined in).
  */
 @Data
 public class SubmissionSummaryRow {

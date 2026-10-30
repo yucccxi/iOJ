@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 题目表访问层。
+ * Data access for problems.
  */
 @Mapper
 public interface ProblemMapper {

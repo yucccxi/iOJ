@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * 提交表访问层。判题 worker 通过 {@link #lockNextPendingId()} 抢占任务。
+ * Data access for submissions. The judge worker claims work through lockNextPendingId().
  */
 @Mapper
 public interface SubmissionMapper {
@@ -23,7 +23,7 @@ public interface SubmissionMapper {
     int countAccepted(@Param("userId") Long userId, @Param("problemId") Long problemId);
 
     /**
-     * 抢占最早的一条待评测提交（行锁 + 短事务）。
+     * Locks the oldest pending submission (row lock in a short transaction).
      */
     Long lockNextPendingId();
 
@@ -32,7 +32,7 @@ public interface SubmissionMapper {
     int updateResult(Submission submission);
 
     /**
-     * 服务重启时把残留的 JUDGING 重置为 PENDING。
+     * Resets leftover JUDGING submissions to PENDING when the service restarts.
      */
     int resetJudgingToPending();
 }

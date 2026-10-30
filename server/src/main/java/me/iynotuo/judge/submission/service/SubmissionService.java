@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 提交与提交记录查询。
+ * Code submission and submission history.
  */
 @Service
 public class SubmissionService {
@@ -61,7 +61,7 @@ public class SubmissionService {
     }
 
     /**
-     * 提交代码。写入 PENDING 后由判题 worker 异步消费。
+     * Submits code. The row is stored as PENDING and picked up asynchronously by the judge worker.
      */
     @Transactional
     public SubmissionDetailVO submit(LoginUser current, SubmitRequest request) {
@@ -96,7 +96,7 @@ public class SubmissionService {
     }
 
     /**
-     * 提交详情。代码、编译信息、逐点结果仅本人/题目作者/管理员可见。
+     * Submission detail. Source code, compiler output and per-case results are only visible to the submitter, the problem author and administrators.
      */
     public SubmissionDetailVO getDetail(Long id, LoginUser current) {
         Submission submission = requireSubmission(id);
@@ -122,7 +122,7 @@ public class SubmissionService {
     }
 
     /**
-     * 提交记录列表（公开，不返回代码）。
+     * Public submission list; source code is never included.
      */
     public PageResult<SubmissionSummaryVO> page(Long problemId, Long userId, SubmissionStatus status,
                                                 PageQuery query) {

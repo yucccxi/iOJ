@@ -8,152 +8,206 @@ stateDiagram-v2
     PENDING --> JUDGING: worker 抢占（FOR UPDATE）
     JUDGING --> ACCEPTED: 全部测试点通过
     JUDGING --> WRONG_ANSWER: 输出不一致
-    JUDGING --> TIME_LIMIT_EXCEEDED: 超过墙钟时间
+    JUDGING --> TIME_LIMIT_EXCEEDED: 超过 CPU/墙钟限制
+    JUDGING --> MEMORY_LIMIT_EXCEEDED: cgroup OOM kill
     JUDGING --> OUTPUT_LIMIT_EXCEEDED: 输出超过上限
-    JUDGING --> RUNTIME_ERROR: 非零退出码
+    JUDGING --> RUNTIME_ERROR: 非零退出码/信号
     JUDGING --> COMPILATION_ERROR: 编译失败/超时
-    JUDGING --> SYSTEM_ERROR: 题目/测试点/语言/引擎异常
+    JUDGING --> SYSTEM_ERROR: 题目/测试点/语言/沙箱异常
     ACCEPTED --> [*]
     WRONG_ANSWER --> [*]
     TIME_LIMIT_EXCEEDED --> [*]
+    MEMORY_LIMIT_EXCEEDED --> [*]
     OUTPUT_LIMIT_EXCEEDED --> [*]
     RUNTIME_ERROR --> [*]
     COMPILATION_ERROR --> [*]
     SYSTEM_ERROR --> [*]
 ```
 
-- `MEMORY_LIMIT_EXCEEDED` 已在枚举中预留，本地引擎无法可靠判定，留给 Docker 引擎（用 cgroup OOM 事件）。
-- 所有终态都会被写入 `judged_at`；`SYSTEM_ERROR` 同时写 `judge_message`。
+- 使用 `engine=isolate` 时，内存超限由 cgroup OOM 事件可靠判定；`engine=local` 回退模式一般只表现为运行时错误。
+- 所有终态都会写入 `judged_at`；`SYSTEM_ERROR` 同时写 `judge_message`。
+- 判题采用 fail-fast：某个测试点失败后不再执行后续测试点。
 
-## 2. 一次判题做了什么
+## 2. 判题引擎选择
+
+`JudgeEngine` 是接口（`me.iynotuo.judge.judge.engine.JudgeEngine`），实现类通过 Spring 的条件装配选择：
+
+| `ioj.judge.engine` | 实现类 | 说明 |
+| --- | --- | --- |
+| `isolate`（默认） | `IsolateJudgeEngine` | 编译与运行都在 Isolate 沙箱内，资源限制与统计最完整 |
+| `local` | `LocalProcessJudgeEngine` | 本机进程 + `ulimit`，用于没有 Isolate 的开发机或测试环境 |
+| `docker` | 未实现 | 预留，需要自行实现 `JudgeEngine` |
+
+- 选择方式：`application.yaml` 的 `ioj.judge.engine`，或环境变量 `IOJ_JUDGE_ENGINE`。
+- 选择机制是 `@ConditionalOnProperty`（不是运行时工厂）：值不匹配任何实现时，应用启动会失败（`JudgeService` 缺少 `JudgeEngine` Bean），这是有意的 fail-fast。
+- 与 `ioj.judge.enabled` 正交：后者只控制 worker 是否消费待评测任务。
+- 测试环境使用 `local`（`src/test/resources/application-test.yaml`），生产使用 `isolate`。
+
+## 3. 一次判题做了什么（isolate）
 
 ```
 JudgeService.judge(submissionId)
 ├── 读取 submission / problem / problem_testcases / 语言配置
-├── LocalProcessJudgeEngine.judge(context)
-│   ├── mkdtemp：/tmp/ioj-judge-xxxx
-│   ├── 写入源码（Main.java / main.cpp / main.c / main.py）
-│   ├── 编译（有 compileCommand 时）
-│   │   └── 超时 → COMPILATION_ERROR；退出码 ≠ 0 → COMPILATION_ERROR
-│   └── 逐个测试点：
-│       ├── 把 input_data 写入 stdin.txt
-│       ├── bash -c "<runWrapper>"（内嵌 ulimit）→ 运行
-│       ├── 墙钟超时 → TLE；输出超限 → OLE；退出码 ≠ 0 → RE
-│       ├── 比对 stdout 与 output_data → WA / AC
-│       └── 失败即 break（fail-fast）
+├── IsolateJudgeEngine.judge(context)
+│   ├── 从 box-id 池取一个编号，创建临时工作目录
+│   ├── 编译阶段
+│   │   ├── isolate --init（新 box）
+│   │   ├── 把工作目录挂到 /box，写入源码
+│   │   ├── isolate --run -- javac/g++ ...（受限 CPU/墙钟/内存/进程数）
+│   │   ├── 读取 meta 与编译输出；失败 → COMPILATION_ERROR
+│   │   └── isolate --cleanup
+│   ├── 每个测试点
+│   │   ├── isolate --init（干净 box）
+│   │   ├── 复制编译产物与 input.txt 到新的工作目录
+│   │   ├── isolate --run -- java/g++ 程序（题限 × 语言系数）
+│   │   ├── 解析 meta：status / time / cg-mem / exitcode / cg-oom-killed
+│   │   ├── 输出比对 → WA / AC；失败即停止
+│   │   └── isolate --cleanup
+│   └── 汇总取最大耗时/内存，返回 JudgeOutcome
 └── persist：重写 submission_cases + 更新 submissions + accepted_count
 ```
 
-## 3. 语言配置
+要点：
+
+- **编译也在沙箱内**，不把宿主机当作可信环境。
+- 每个测试点使用**独立 box 与独立工作目录**，前一个测试点无法留下文件或修改程序。
+- 工作目录通过 `--dir=/box=<host_dir>:rw` 绑定，worker 不需要写 Isolate 的 box 根目录。
+- 外层还有 `Process.waitFor` 看门狗，Isolate 自身挂起时会被强制结束。
+
+## 4. 语言配置
 
 配置位于 `application.yaml` 的 `ioj.judge.languages`，key 是提交时的 `language` 枚举名。
-三个占位符会在运行时替换：
+占位符在运行时替换：
 
 | 占位符 | 含义 |
 | --- | --- |
 | `{memoryMb}` / `{memoryKb}` | 题目的内存限制（MB / KB） |
 | `{timeMs}` | 本题实际时间限制（已乘语言系数） |
-| `{command}` | 仅用于 `runWrapper`，会被展开后的 `runCommand` 替换 |
+| `{command}` | 仅用于 `runWrapper`（isolate 引擎不使用），会被展开后的 `runCommand` 替换 |
 
-默认四种语言：
+默认四种语言（isolate 引擎）：
 
-| Language | 源码文件 | 编译命令 | 运行包装 | 时间系数 |
-| --- | --- | --- | --- | --- |
-| JAVA | Main.java | `javac -encoding UTF-8 -d . Main.java` | `exec {command}`（JVM 由 `-Xmx{memoryMb}m` 限堆） | 2.0 |
-| CPP | main.cpp | `g++ -O2 -std=c++17 -pipe -o main main.cpp` | `ulimit -v {memoryKb}; ulimit -s 65536; exec {command}` | 1.0 |
-| C | main.c | `gcc -O2 -std=c11 -pipe -o main main.c` | 同上 | 1.0 |
-| PYTHON3 | main.py | 无 | `ulimit -v {memoryKb}; exec {command}` | 3.0 |
+| Language | 源码文件 | 编译命令 | 运行命令 | 时间系数 | 进程数 | 额外内存 |
+| --- | --- | --- | --- | --- | --- | --- |
+| JAVA | Main.java | `javac -encoding UTF-8 -d . Main.java` | `java -Xmx{memoryMb}m -Xss64m -XX:+UseSerialGC Main` | 2.0 | 64 | +256MB |
+| CPP | main.cpp | `g++ -O2 -std=c++17 -pipe -o main main.cpp` | `./main` | 1.0 | 1 | +16MB |
+| C | main.c | `gcc -O2 -std=c11 -pipe -o main main.c` | `./main` | 1.0 | 1 | +16MB |
+| PYTHON3 | main.py | 无 | `python3 main.py` | 3.0 | 1 | +64MB |
 
-时间系数存在的原因：JVM/Python 启动有固定开销（几十到上百毫秒），如果题目限时 1000ms，Java 程序可能"没写任何逻辑"就 TLE。系数只对运行阶段生效。
+- **时间系数**：抵消 JVM/Python 启动的固定开销，只作用于运行阶段。
+- **进程数**：Isolate 的 `--processes` 统计的是任务/线程数。JVM 需要大量线程，因此 Java 设为 64；C/C++/Python 用 1。
+- **额外内存**：JVM 需要 metaspace、code cache、线程栈等，`--cg-mem` 在题目限制上另加 256MB；C++/Python 留少量余量。
+- 命令的第一个词会解析成**宿主机真实路径**（例如 `javac` → `/usr/lib/jvm/.../bin/javac`），避免沙箱内跟随 `/etc/alternatives` 符号链接失败。
+- Python 这类解释型语言没有编译产物，运行阶段会把源文件复制到运行目录。
 
-新增语言只需两步：在 `common/enums/Language.java` 加枚举值（决定数据库取值与前端选项），在 `application.yaml` 加一段配置。代码无需改动。
+新增语言仍是两步：`common/enums/Language.java` 加枚举值，`application.yaml` 补一段配置；然后确认裁判机安装了对应工具链。
 
-## 4. 资源限制与沙箱
+## 5. Isolate 沙箱
 
-### 4.1 本地引擎（默认，`ioj.judge.engine=local`）
+### 5.1 前置条件
 
-| 风险 | 处理 |
+| 项 | 要求 |
 | --- | --- |
-| 无限输出撑爆磁盘/内存 | stdout 上限 `ioj.judge.max-output-bytes`（16MB），读取线程达到上限后继续消费但不再保存；stderr 只留 8KB |
-| 死循环 | 墙钟超时（`题限 × 语言系数`），超时 `destroyForcibly` |
-| 内存爆炸 | C/C++/Python 用 `ulimit -v`；Java 用 `-Xmx`；**无法精确统计峰值**，故 `memoryUsedKb` 通常为 null |
-| 文件写满磁盘 | `ulimit -f 65536`（64MB，cpp/c） |
-| 临时文件残留 | `finally` 中递归删除 `/tmp/ioj-judge-*` |
-| fork bomb / 网络访问 / 提权 | **本地引擎无法阻止**，必须换容器方案 |
-| 编译期跑代码 | 编译命令只执行编译器；源码是文件，不执行 |
+| 服务 | `systemctl status isolate.service` 为 active（cgroup 委派） |
+| cgroup | cgroup v2（`stat -fc %T /sys/fs/cgroup` 输出 `cgroup2fs`），内存统计需要 Linux 5.19+ |
+| 权限 | 运行后端的用户能执行 `/usr/bin/isolate`（通常在 `isolate` 组，`sudo usermod -aG isolate <user>` 后重新登录） |
+| box id | 同一台机器上唯一；不要与 root 手工测试留下的 box 冲突（本项目默认从 1 开始） |
+| 额外目录 | Debian JDK 需要只读绑定 `/etc/java-21-openjdk`（`java.security`） |
 
-### 4.2 生产加固（重要）
+命令与安装步骤见 [06-isolate.md](06-isolate.md)。
 
-如果站点只对校内成员开放（注册需要审核/邀请码），本地引擎可以接受；**一旦对公网开放注册，请务必换成容器化判题**：
-
-1. 使用 Docker + 只读根文件系统 + tmpfs 工作目录，`--network none`、`--pids-limit 64`、`--memory`、`--cpus`、`--read-only`。
-2. 运行用户为非 root（`--user 65534`），并开启 `--security-opt no-new-privileges`、seccomp 默认 profile。
-3. 判题机与 Web 分离部署，Web 只写 `submissions`，判题机消费；数据库账号只给判题机 `SELECT/UPDATE` 所需权限。
-4. 给判题目录设置配额，定期清理；限制提交频率（每用户每分钟 N 次）。
-5. 关闭 8080 以外端口；不要让判题容器访问内网管理接口。
-
-### 4.3 扩展一个 Docker 判题引擎
-
-只需实现 `JudgeEngine` 并由配置切换：
-
-```java
-@Component
-@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "docker")
-public class DockerJudgeEngine implements JudgeEngine {
-
-    @Override
-    public JudgeOutcome judge(JudgeContext context) {
-        // 1. 生成容器内工作目录（挂载临时目录）
-        // 2. 编译：docker run --rm --network none --cpus 1 --memory {mem}m {image} javac ...
-        // 3. 每个测试点：docker run --rm -i --network none --memory {mem}m ... 
-        //    用 `docker stats`/cgroup 或 /usr/bin/time -v 取内存峰值
-        // 4. 复用 OutputComparator 比对输出
-        // 5. 返回 JudgeOutcome（状态语义与本地引擎保持一致）
-    }
-}
-```
-
-`LocalProcessJudgeEngine` 里的 `StreamCollector`、`OutputComparator`、命令渲染逻辑可以直接复用。
-切换方式：`IOJ_JUDGE_ENGINE=docker`（配置项已存在，当前只有 `local` 有实现）。
-
-## 5. 输出比对
-
-`OutputComparator.matches(expected, actual)` 规则：
-
-1. 统一换行符（`\r\n`、`\r` → `\n`）。
-2. 去掉每行行尾的空格和 Tab。
-3. 去掉文末的空行。
-4. 其余逐字符比较（行首空格敏感）。
-
-这样能避免"多输出一个空行"、"行尾多了空格"这类无意义的 WA，同时保留真正的格式错误。
-如果需要浮点误差（`1e-6`）或忽略大小写，应实现 special judge（`checker`），当前版本未提供。
-
-## 6. 异步与并发调参
+### 5.2 配置项
 
 | 配置 | 默认 | 说明 |
 | --- | --- | --- |
-| `ioj.judge.enabled` | true | 关闭后提交停在 PENDING（只做接口开发时用） |
-| `ioj.judge.concurrency` | 1 | 同时判题数 = `judgeExecutor` 线程数 = 信号量许可数 |
-| `ioj.judge.poll-interval-ms` | 1000 | 空队列时每秒一次的轮询开销可以忽略 |
-| `ioj.judge.compile-timeout-ms` | 30000 | 编译超时 |
-| `ioj.judge.max-output-bytes` | 16777216 | 单测试点输出上限 |
+| `ioj.judge.isolate.binary` | `/usr/bin/isolate` | 可执行文件路径 |
+| `ioj.judge.isolate.box-id-start` / `box-id-count` | `1` / `8` | 本实例可用的 box 编号区间；应不小于并发数 |
+| `ioj.judge.isolate.check-on-startup` | `true` | 启动时检查 binary 可执行，失败直接终止 |
+| `ioj.judge.isolate.compile-processes` | `64` | 编译阶段进程/线程上限（javac 需要较多） |
+| `ioj.judge.isolate.compile-time-seconds` / `compile-wall-time-seconds` | `10` / `30` | 编译 CPU / 墙钟上限 |
+| `ioj.judge.isolate.compile-cg-mem-kb` | `524288` | 编译内存上限（512MB） |
+| `ioj.judge.isolate.compile-fsize-kb` | `16384` | 编译阶段文件大小上限（16MB） |
+| `ioj.judge.isolate.wall-time-extra-seconds` | `3` | 运行阶段墙钟 = CPU 限制 + 该值 |
+| `ioj.judge.isolate.extra-dirs` | `/etc/java-21-openjdk` | 只读绑定进沙箱的宿主机目录 |
+| `ioj.judge.isolate.resolve-executables` | `true` | 把命令第一个词解析成真实路径 |
+| `ioj.judge.isolate.setup-timeout-ms` | `10000` | init/cleanup 的超时 |
 
-判题机核数建议：`concurrency = CPU 核数 - 1`（留一个给 Web/MySQL）。判题任务对 CPU 敏感，超卖会互相拖慢导致 TLE 误判。
+每次运行传给 Isolate 的限制：
 
-## 7. 常见问题
-
-| 现象 | 原因 / 处理 |
+| Isolate 参数 | 来源 |
 | --- | --- |
-| Java 提交全部 CE 且提示"类名错误" | 必须使用 `public class Main`，文件名固定为 `Main.java` |
-| C/C++ 提示找不到 `bits/stdc++.h` | 判题机没装 g++ 或版本过老，`apt install g++` |
-| 本机测试通过、判题机上 RE | 环境差异（如缺少动态库、Python 版本）或栈溢出，检查 stderr |
-| 内存超限被判成 RE | 本地引擎靠 `ulimit`/`-Xmx`，超限通常以异常/非零码退出；需要精确 MLE 请用 Docker 引擎 |
-| 所有提交停在 PENDING | `ioj.judge.enabled=false`，或判题线程池被关闭，或 worker 没抢到任务（看日志） |
-| 重启后提交卡在 JUDGING | 启动时会自动重置为 PENDING；若多实例部署，注意其他实例仍在处理 |
-| 编译很慢导致判题排队 | 提高 `concurrency`，或把 `javac`/`g++` 换成预编译缓存（本版本未做） |
+| `--time` | `题限 × 语言系数`（秒，CPU） |
+| `--wall-time` | 上式向上取整 + `wall-time-extra-seconds` |
+| `--cg-mem` | `(题目内存 + 语言额外内存) × 1024` KB |
+| `--fsize` | `max-output-bytes / 1024 + 64` KB |
+| `--processes` | 语言的 `isolate-processes` |
+| `--dir` | 工作目录挂到 `/box`（rw），`extra-dirs` 原路径只读 |
+| `--chdir` | `/box` |
+| `--stdin` / `--stdout` / `--stderr` | `/box/input.txt`、`/box/output.txt`、`/box/stderr.txt` |
+| `--meta` | 沙箱外的临时文件 |
+| `--env` | `PATH=/usr/bin:/bin`、`TMPDIR=/box`、`LANG=C.UTF-8` |
 
-## 8. 可观测性
+### 5.3 meta → 判题状态
 
-`JudgeService` 在完成时输出一条日志：`判题完成 submissionId=xx status=ACCEPTED`。
-`JudgeWorker` 在抢占失败/任务异常时输出 error 日志。
-生产环境建议采集：提交量、各状态占比、判题耗时 P95、队列长度（`SELECT COUNT(*) FROM submissions WHERE status='PENDING'`）。
+| meta / 进程信息 | 判题结果 |
+| --- | --- |
+| `status=TO` | `TIME_LIMIT_EXCEEDED` |
+| `cg-oom-killed` 存在 | `MEMORY_LIMIT_EXCEEDED` |
+| 输出文件达到 `max-output-bytes` | `OUTPUT_LIMIT_EXCEEDED` |
+| `status=SG` / `status=RE` / `exitcode≠0` | `RUNTIME_ERROR` |
+| `status=XX` 或外层看门狗超时 | `SYSTEM_ERROR` |
+| 输出一致 | `ACCEPTED` |
+
+`time`（CPU 秒）与 `cg-mem`（KB）会写入 `submissions` 与 `submission_cases`，所以使用 isolate 后 `memoryUsedKb` 不再是 `null`。
+
+## 6. 本机进程回退（`engine=local`）
+
+用于没有 Isolate 的开发机、CI 或单元测试（测试 profile 固定使用该引擎）。它把用户程序作为普通子进程运行：
+
+| 手段 | 实现 |
+| --- | --- |
+| 超时 | `Process.waitFor(timeLimit)`，超时 `destroyForcibly` |
+| 内存 | C/C++/Python 使用 `ulimit -v`，Java 使用 `-Xmx`；**无法精确统计峰值** |
+| 输出 | 读取线程限流，超出上限停止保存 |
+| 文件 | `ulimit -f`（C/C++） |
+
+限制：无法阻止 fork bomb、网络访问、提权；内存超限通常表现为运行时错误而不是 MLE。因此**仅适合校内/可信用户**，生产环境应使用 isolate。
+
+## 7. 并发与调参
+
+| 配置 | 作用 | 建议 |
+| --- | --- | --- |
+| `ioj.judge.concurrency` | 同时评测的提交数（worker 线程数） | CPU 核数 - 1 |
+| `ioj.judge.isolate.box-id-count` | 本实例可用 box 数 | ≥ 并发数；多实例部署时用 `box-id-start` 分段 |
+| `ioj.judge.isolate.compile-processes` | 编译阶段进程/线程上限 | 保持 64，javac 需要较多线程 |
+| 语言的 `isolate-processes` | 运行阶段线程上限 | Java 64；C/C++/Python 1 |
+| 语言的 `isolate-memory-extra-mb` | 运行时额外内存 | Java 256；其余按需 |
+
+注意：
+
+- 同一台机器上 box id 不能冲突。两个判题实例要么共用一段 id（由不同进程竞争会出错），要么用不同的 `box-id-start` 区间。
+- 逐任务的 Isolate 限制不能替代整机容量管理：给系统、数据库和 worker 留出余量。
+- 编译器与运行库版本应固定，避免不同节点产生差异。
+
+## 8. 常见问题
+
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| 启动报 `isolate binary is not executable` | 运行用户没有执行权限 | `sudo usermod -aG isolate <user>` 后重新登录；确认 `isolate --version` 可用 |
+| `isolate --init` 报 `This box belongs to a different user` | 该 box 编号被其他用户（常见是 root）创建过 | 换 `box-id-start`（默认已从 1 开始），或让原用户执行 `isolate --box-id=N --cleanup` |
+| 编译报 `execve("javac"): No such file or directory` | `/usr/bin/javac` 指向 `/etc/alternatives`，沙箱未挂载该目录 | 保持 `resolve-executables: true`（默认），或改用绝对路径 |
+| JVM 启动报 `Error loading java.security file` | 沙箱内缺少 `/etc/java-21-openjdk` | 在 `extra-dirs` 中保留该目录（Debian），或按发行版调整 |
+| `pthread_create failed (EAGAIN)` | `--processes` 太小，JVM 无法创建线程 | 提高 Java 的 `isolate-processes`（默认 64）或 `compile-processes` |
+| 内存超限没有判成 MLE | 使用了 `engine=local` | 切换到 isolate；isolate 通过 cgroup OOM 检测 |
+| 提交一直 `PENDING` | worker 被关闭或队列积压 | 检查 `IOJ_JUDGE_ENABLED`、`GET /submissions?status=PENDING`、服务日志 |
+| 编译超时 | `compile-time-seconds` / `compile-wall-time-seconds` 太小 | 提高配置，注意编译与运行限制分开设置 |
+| `/var/lib/isolate` 残留目录 | 进程被强杀，未执行 cleanup | 确认服务日志；用对应用户执行 `isolate --cg --box-id=N --cleanup` |
+
+## 9. 可观测性
+
+- 判题完成日志：`判题完成 submissionId=... status=...`。
+- 沙箱清理失败会打印 `isolate --cleanup failed for box ...`，需要关注是否有残留 box。
+- 建议采集：待判队列长度、各状态占比、判题耗时 P95、`cg-mem` 分布、Isolate 内部错误（`status=XX`）次数。
+- 首次上线前用已知程序验证：正常 AC、死循环（TLE）、越界（RE）、超量输出（OLE）、内存压力（MLE），确认分类符合预期。
+
+

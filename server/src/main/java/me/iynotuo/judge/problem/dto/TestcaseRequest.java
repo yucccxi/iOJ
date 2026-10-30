@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
- * 单个隐藏测试点。input/output 为完整文本内容，建议单点不超过 1MB。
+ * A single hidden test case. input and output hold the full text; one case should stay below 1 MB.
  */
 public record TestcaseRequest(
 

@@ -3,7 +3,7 @@ package me.iynotuo.judge.problem.entity;
 import lombok.Data;
 
 /**
- * 题目标签，如 "dp"、"图论"。
+ * A problem tag, for example "dp" or "graphs".
  */
 @Data
 public class Tag {

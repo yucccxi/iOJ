@@ -5,18 +5,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.time.Duration;
 
 /**
- * JWT 相关配置。
+ * JWT configuration.
  */
 @ConfigurationProperties(prefix = "ioj.jwt")
 public class JwtProperties {
 
     /**
-     * HMAC-SHA256 密钥，长度必须 >= 32 字节，生产环境请通过环境变量 IOJ_JWT_SECRET 注入。
+     * HMAC-SHA256 secret. It must be at least 32 bytes and should come from the IOJ_JWT_SECRET environment variable in production.
      */
     private String secret = "ioj-development-secret-key-please-change-me";
 
     /**
-     * access token 有效期。
+     * Access token lifetime.
      */
     private Duration expiration = Duration.ofDays(7);
 

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
- * 已登录但权限不足时返回统一 JSON。
+ * Returns a unified JSON response when an authenticated user lacks permission.
  */
 @Component
 public class RestAccessDeniedHandler implements AccessDeniedHandler {

@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 /**
- * 标签与题目-标签关联。
+ * Tags and problem-tag links.
  */
 @Mapper
 public interface TagMapper {

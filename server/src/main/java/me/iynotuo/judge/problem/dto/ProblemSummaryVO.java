@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 题目列表项。
+ * A problem list item.
  */
 public record ProblemSummaryVO(Long id, String title, Difficulty difficulty, ProblemStatus status,
                                long submitCount, long acceptedCount, Long authorId, String authorNickname,

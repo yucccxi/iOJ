@@ -18,9 +18,10 @@
 | [server/README.md](server/README.md) | 后端总览：技术栈、代码结构、启动、配置项、测试、常见问题 |
 | [server/01-architecture.md](server/01-architecture.md) | 架构、模块划分、请求链路、评测流程、权限矩阵、设计取舍 |
 | [server/02-database.md](server/02-database.md) | ER 图、表结构、枚举、索引、容量估算、初始化与备份 |
-| [server/03-judge.md](server/03-judge.md) | 评测状态机、沙箱与资源限制、语言配置、输出比对、生产环境加固 |
+| [server/03-judge.md](server/03-judge.md) | 评测状态机、引擎选择、Isolate 沙箱与限额、语言配置、生产环境加固 |
 | [server/04-deployment.md](server/04-deployment.md) | 环境要求、建库、配置项、systemd/Nginx、备份、上线检查清单 |
 | [server/05-development.md](server/05-development.md) | 代码结构、分层规范、扩展方式、测试说明、踩坑记录 |
+| [server/06-isolate.md](server/06-isolate.md) | Isolate 安装、cgroup 服务、手动验证命令、接入说明 |
 
 ## 文档结构
 
@@ -35,7 +36,8 @@ docs/
     ├── 02-database.md
     ├── 03-judge.md
     ├── 04-deployment.md
-    └── 05-development.md
+    ├── 05-development.md
+    └── 06-isolate.md
 ```
 
 ## 阅读建议
@@ -44,7 +46,7 @@ docs/
 | --- | --- |
 | 前端开发 | [根 README](../README.md) 了解功能 → [shared/api.md](shared/api.md) 对接接口 |
 | 后端开发 | [server/README.md](server/README.md) 跑起来 → [01-architecture](server/01-architecture.md) → [02-database](server/02-database.md) → [03-judge](server/03-judge.md) → [05-development](server/05-development.md) |
-| 部署 / 运维 | [server/04-deployment.md](server/04-deployment.md)（含上线检查清单） |
+| 部署 / 运维 | [server/04-deployment.md](server/04-deployment.md)（含上线检查清单）→ [server/06-isolate.md](server/06-isolate.md)（判题沙箱） |
 
 ## 维护约定
 

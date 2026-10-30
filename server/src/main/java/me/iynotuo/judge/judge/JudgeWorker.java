@@ -14,10 +14,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 
 /**
- * 判题 worker：定时从数据库拉取待评测提交，交给判题线程池执行。
+ * Judge worker: periodically fetches pending submissions from the database and hands them to the judge thread pool.
  *
- * <p>没有引入 MQ —— 对校内规模（每天几百次提交）来说，用数据库队列 + 行锁实现最简单，
- * 也方便排查问题。如果以后提交量上升，可以把 {@link JudgeService#claimNext()} 换成 MQ 消费。</p>
+ * <p>No message queue is used. For a club-scale workload (a few hundred submissions per day) a database queue with row locks is the simplest option
+ * and is easy to inspect. If submission volume grows, claimNext() can be replaced by a message queue consumer.</p>
  */
 @Component
 @ConditionalOnProperty(prefix = "ioj.judge", name = "enabled", havingValue = "true", matchIfMissing = true)

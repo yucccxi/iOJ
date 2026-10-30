@@ -14,8 +14,9 @@ me.iynotuo.judge
 ├── user           entity(User) / mapper / service / controller / dto
 ├── problem        entity(Problem, Sample, Testcase, Tag) / mapper / service / controller / dto
 ├── submission     entity(Submission, SubmissionCase) / mapper / service / controller / dto
-└── judge          JudgeEngine / LocalProcessJudgeEngine / JudgeService / JudgeWorker
-                  JudgeContext / JudgeOutcome / OutputComparator / StreamCollector
+└── judge           JudgeService / JudgeWorker / JudgeContext / JudgeOutcome / OutputComparator
+    └── engine      JudgeEngine（接口）/ IsolateJudgeEngine / LocalProcessJudgeEngine
+                    StreamCollector / IsolateMeta
 ```
 
 分层职责：
@@ -99,12 +100,13 @@ ioj:
 
 ## 4. 新增/替换判题引擎
 
-见 `03-judge.md` 的 4.3 节。要点：
+见 `03-judge.md` 的「判题引擎选择」与「Isolate 沙箱」。要点：
 
-- 实现 `JudgeEngine`，用 `@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "docker")` 限定生效条件，避免两个实现同时注册。
-- 返回的 `JudgeOutcome` 语义要与本地引擎一致：`status` 取第一个失败测试点的状态，`cases` 按执行顺序，失败即停。
+- 实现 `JudgeEngine`（放在 `me.iynotuo.judge.judge.engine` 包，与现有实现同级），用 `@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "docker")` 限定生效条件，避免两个实现同时注册。
+- 返回的 `JudgeOutcome` 语义要与现有引擎（`isolate` / `local`）一致：`status` 取第一个失败测试点的状态，`cases` 按执行顺序，失败即停。
 - 复用 `OutputComparator`，保持比对规则一致。
-- `MEMORY_LIMIT_EXCEEDED` 在容器引擎里可以通过 OOM 事件精确判定，记得同时写入 `memoryUsedKb`。
+- `MEMORY_LIMIT_EXCEEDED` 通过 OOM 事件判定，同时写入 `memoryUsedKb`（Isolate 引擎已提供参考实现）。
+- 在 `application.yaml` 中把 `ioj.judge.engine` 设为新实现对应的值，并确认启动日志/失败信息符合预期。
 
 ## 5. 数据库脚本规则
 
@@ -181,7 +183,7 @@ class MyFeatureTest {
 | 无 refresh token | 7 天后需重新登录 | 增加 refresh token + 轮换 |
 | 无提交频率限制 | 恶意用户可以刷提交 | 每用户每分钟限 N 次（Redis 或 DB 计数） |
 | 无比赛/榜单 | 只能练题 | 新增 contest 相关表与聚合查询 |
-| 判题为本地进程 | 无法防 fork bomb / 网络访问 | Docker / nsjail 引擎 |
+| 判题默认使用 Isolate 沙箱 | 需要安装与授权（不在 `isolate` 组则无法执行） | 按 06-isolate.md 配置；开发/CI 可用 `engine=local` 回退 |
 | 计数冗余字段 | 极端并发下可能略有偏差 | 定时对账任务修正 `submit_count` / `accepted_count` |
 | 无审计日志 | 管理员操作不可追溯 | 增加 `admin_audit_logs` |
 

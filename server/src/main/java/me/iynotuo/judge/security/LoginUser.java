@@ -3,7 +3,7 @@ package me.iynotuo.judge.security;
 import me.iynotuo.judge.common.enums.UserRole;
 
 /**
- * 放入 SecurityContext 的登录用户信息，避免每次请求都查库拿角色。
+ * Authenticated user stored in the SecurityContext, so controllers can read the current user without extra lookups.
  */
 public record LoginUser(Long id, String username, String nickname, UserRole role) {
 

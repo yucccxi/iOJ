@@ -3,7 +3,7 @@ package me.iynotuo.judge.problem.dto;
 import lombok.Data;
 
 /**
- * 测试点元信息（不返回测试数据内容，避免列表响应过大）。
+ * Test case metadata. The content itself is omitted so the list response stays small.
  */
 @Data
 public class TestcaseSummaryVO {

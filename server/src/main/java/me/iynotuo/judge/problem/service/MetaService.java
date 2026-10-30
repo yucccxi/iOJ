@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * 前端初始化需要的元数据：可选语言、标签。
+ * Reference data for client initialisation: available languages and tags.
  */
 @Service
 public class MetaService {

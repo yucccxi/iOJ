@@ -1,7 +1,7 @@
--- iOJ 初始数据
--- 默认管理员：admin / admin123456（BCrypt 哈希），首次登录后请立即修改密码。
--- 使用：mysql -u ioj -p ioj < seed.sql
--- 使用 INSERT IGNORE，重复执行不会报主键/唯一键冲突。
+-- iOJ seed data
+-- Default administrator: admin / admin123456 (BCrypt hash). Change the password after the first login.
+-- Usage: mysql -u ioj -p ioj < seed.sql
+-- INSERT IGNORE keeps the script idempotent (no duplicate-key errors).
 
 INSERT IGNORE INTO users (username, email, password_hash, nickname, role, status, created_at, updated_at)
 VALUES ('admin', 'admin@example.com',

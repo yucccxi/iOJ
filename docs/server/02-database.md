@@ -139,7 +139,7 @@ erDiagram
 | code | MEDIUMTEXT | NOT NULL | 源代码（≤ 64KB，服务层校验） |
 | status | VARCHAR(24) | NOT NULL DEFAULT 'PENDING' | 判题状态 |
 | time_used_ms | INT | NULL | 已执行测试点的最大耗时 |
-| memory_used_kb | INT | NULL | 内存峰值（本地引擎暂不统计，见 03-judge.md） |
+| memory_used_kb | INT | NULL | 内存峰值（Isolate 引擎写入 `cg-mem`；本机进程回退模式下为 null，见 03-judge.md） |
 | compile_message | MEDIUMTEXT | NULL | 编译错误输出 |
 | judge_message | VARCHAR(512) | NULL | 系统错误信息，不含测试数据 |
 | created_at | DATETIME | NOT NULL | 提交时间 |

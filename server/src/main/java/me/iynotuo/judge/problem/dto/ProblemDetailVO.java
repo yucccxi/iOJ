@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 题目详情。solved 表示当前登录用户是否已通过（匿名访问时为 false）。
+ * Problem detail. solved tells whether the current user has already passed it (always false for anonymous callers).
  */
 public record ProblemDetailVO(Long id, String title, Difficulty difficulty, String description, String inputFormat,
                               String outputFormat, String hint, String source, int timeLimitMs, int memoryLimitMb,

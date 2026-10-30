@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 /**
- * 在 Spring Security 过滤器链中（此时还没有进入 MVC 异常处理）直接写统一格式的 JSON 错误响应。
+ * Writes a unified JSON error response directly from the Spring Security filter chain, before MVC exception handling is involved.
  */
 public final class JsonResponses {
 

@@ -14,11 +14,11 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 
 /**
- * 启动时做一次数据库连通性检查。
+ * Runs a database connectivity check once at startup.
  *
- * <p>目的：把"环境变量没生效 / 账号密码错误"这类配置问题提前到启动阶段暴露，
- * 并打印**实际生效**的 JDBC URL 与用户名（不含密码），而不是等到第一个请求才抛
- * {@code CannotCreateTransactionException: Could not open JDBC Connection for transaction}。</p>
+ * <p>Goal: surface configuration problems (missing environment variables, wrong credentials) at startup
+ * and print the effective JDBC URL and username (never the password) instead of failing on the first request
+ * {@code CannotCreateTransactionException: Could not open JDBC Connection for transaction}.</p>
  */
 @Component
 @ConditionalOnProperty(prefix = "ioj.datasource-check", name = "enabled",

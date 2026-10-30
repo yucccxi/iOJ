@@ -53,7 +53,9 @@ me.iynotuo.judge
 ├── user/          entity / mapper / service / controller / dto
 ├── problem/       entity / mapper / service / controller / dto（含测试点、标签）
 ├── submission/    提交记录
-└── judge/         JudgeEngine 抽象 + LocalProcessJudgeEngine + JudgeService + JudgeWorker
+└── judge/         JudgeService、JudgeWorker、JudgeContext、JudgeOutcome、OutputComparator
+    └── engine/    JudgeEngine（接口）、IsolateJudgeEngine（默认）、LocalProcessJudgeEngine（回退）、
+                   StreamCollector、IsolateMeta
 ```
 
 约定（详见 05-development.md）：
@@ -99,7 +101,7 @@ sequenceDiagram
     participant W as JudgeWorker
     participant JS as JudgeService
     participant DB as MySQL
-    participant E as LocalProcessJudgeEngine
+    participant E as IsolateJudgeEngine
 
     Sched->>W: poll()
     W->>W: slots.tryAcquire()（并发上限）
@@ -146,7 +148,7 @@ sequenceDiagram
 - 密码：BCrypt（strength 10），只存哈希；登录失败统一提示"用户名或密码错误"。
 - JWT：HS256，密钥必须 ≥ 32 字节（启动时校验，太短直接启动失败）；默认 7 天过期；校验 `iss` 与签名。
 - 隐藏数据：测试点内容、他人代码、编译信息都不出现在公共响应里（详见 ../shared/api.md）。
-- 判题：独立临时目录、`ulimit` 限制内存/文件大小、墙钟超时、输出上限；详见 03-judge.md。
+- 判题：默认在 Isolate 沙箱内编译与运行（独立 box、cgroup 限制、CPU/墙钟/内存/文件大小/进程数）；也可回退到本机进程 + `ulimit`；详见 03-judge.md。
 - SQL：全部使用 MyBatis `#{}` 预编译参数，动态排序字段不来自用户输入，无拼接注入面。
 - CORS：默认只放行 `http://localhost:5173`，通过 `IOJ_CORS_ORIGINS` 配置。
 - 错误响应：不返回堆栈与 SQL，只返回 `code` + 可读消息。

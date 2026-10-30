@@ -8,11 +8,15 @@
 | MySQL | 8.0+ | 需要支持 `FOR UPDATE`、`utf8mb4` |
 | Maven | 3.9+（或用仓库自带 `./mvnw`） | 构建 |
 | 判题工具链 | `g++`（C++17）、`gcc`（C11）、`python3` | 按需要的语言安装 |
-| 系统 | Linux | 判题依赖 `/bin/bash` 与 `ulimit` |
+| 判题沙箱 | Isolate（默认引擎） | `isolate.service` 运行中，运行用户可执行 `/usr/bin/isolate` |
+| 系统 | Linux | 判题依赖 cgroup v2、`/bin/bash`；本机进程回退模式还依赖 `ulimit` |
 
 ```bash
 # Debian/Ubuntu 判题机依赖
-sudo apt install -y openjdk-21-jdk maven g++ gcc python3
+sudo apt install -y openjdk-21-jdk maven g++ gcc python3 isolate
+sudo systemctl enable --now isolate.service
+sudo usermod -aG isolate "$USER"     # 重新登录后生效
+isolate --check-config
 ```
 
 ## 2. 初始化数据库
@@ -46,6 +50,7 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_CORS_ORIGINS` | `http://localhost:5173` | 前端地址，多个用逗号分隔 |
 | `IOJ_PROBLEM_AUTO_PUBLISH` | `true` | 普通用户上传的题目是否直接发布；对外开放注册时建议 `false` |
 | `IOJ_JUDGE_ENABLED` | `true` | 是否启用判题 worker |
+| `IOJ_JUDGE_ENGINE` | `isolate` | 判题引擎：`isolate`（默认）/ `local`（本机进程回退） |
 | `IOJ_JUDGE_CONCURRENCY` | `1` | 同时判题数，建议 CPU 核数 - 1 |
 | `ioj.datasource-check.enabled`（yaml） | `true` | 启动时做一次数据库连通性自检；失败会打印实际生效的 URL/用户名并终止启动 |
 
@@ -144,6 +149,20 @@ server {
 
 ## 6. 判题机部署建议
 
+判题机需要 Isolate 与对应语言工具链。以 Debian 13 为例：
+
+```bash
+sudo apt install isolate g++ gcc python3 openjdk-21-jdk
+sudo systemctl enable --now isolate.service
+sudo usermod -aG isolate <运行后端的用户>   # 重新登录后生效
+isolate --check-config
+```
+
+- 运行后端的用户必须能执行 `/usr/bin/isolate`；否则启动时会报 `isolate binary is not executable`。
+- Debian 的 JDK 需要把 `/etc/java-21-openjdk` 只读绑定进沙箱（已作为默认 `extra-dirs`）。
+- `box-id-start` 默认从 1 开始，避开 root 手工测试留下的 box 0；多判题实例请分配不同区间。
+- 详细安装与验证命令见 [06-isolate.md](06-isolate.md)。
+
 小规模（单机）：
 
 ```
@@ -158,13 +177,14 @@ flowchart LR
     W1 --> DB[(MySQL)]
     J1[Judge 实例 1<br/>IOJ_JUDGE_ENABLED=true] --> DB
     J2[Judge 实例 2] --> DB
-    J1 --> D1[Docker/nsjail 沙箱]
+    J1 --> D1[Isolate 沙箱]
 ```
 
 注意：
 
 - 判题实例启动时会把**所有** `JUDGING` 重置为 `PENDING`。多判题实例场景下，重启其中一个会把另一个正在判的提交重新排队（会重复判一次，但结果最终一致）。如果介意，改成只重置 `judged_at IS NULL AND created_at < NOW() - INTERVAL 10 MINUTE`。
 - 判题实例不需要对外开放端口。
+- 多个判题实例之间 `box-id-start` / `box-id-count` 不能重叠。
 
 ## 7. 备份与恢复
 
@@ -207,7 +227,8 @@ sudo systemctl start ioj
 - [ ] 数据库密码已替换，MySQL 只监听内网/本机
 - [ ] 管理员密码已从 `admin123456` 改掉
 - [ ] `IOJ_PROBLEM_AUTO_PUBLISH` 按开放程度设置
-- [ ] 需要公网开放注册时，判题已切换为 Docker/nsjail 沙箱
+- [ ] 判题机已安装 Isolate，`isolate.service` 为 active，运行用户已在 `isolate` 组，`isolate --check-config` 通过
+- [ ] 需要公网开放注册时，未使用 `engine=local` 回退（回退模式无法防 fork bomb/网络访问）
 - [ ] Nginx 已开启 HTTPS；`client_max_body_size` 足够上传测试数据
 - [ ] 备份任务已配置并验证过一次恢复
 - [ ] 判题用户为非 root，`/tmp` 有独立配额或定期清理

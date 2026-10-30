@@ -5,14 +5,14 @@ import me.iynotuo.judge.common.enums.SubmissionStatus;
 import java.util.List;
 
 /**
- * 一次判题的输出结果。
+ * The result of judging one submission.
  *
- * @param status         整体状态（第一个未通过的测试点状态，或 ACCEPTED）
- * @param compileMessage 编译错误信息，非编译错误时为 null
- * @param judgeMessage   系统错误信息（如测试点缺失），不包含测试数据
- * @param cases          逐个测试点结果（fail-fast，失败后不再继续）
- * @param timeUsedMs     所有已执行测试点中的最大耗时
- * @param memoryUsedKb   内存峰值；本地引擎无法精确统计，一般返回 null
+ * @param status         overall status: the status of the first failing test case, or ACCEPTED
+ * @param compileMessage compiler output, null unless the submission failed to compile
+ * @param judgeMessage   system-level error message (for example missing test data); never contains test data
+ * @param cases          per-test-case results (fail-fast: judging stops at the first failure)
+ * @param timeUsedMs     slowest executed test case, in milliseconds
+ * @param memoryUsedKb   peak memory; the local engine cannot measure it precisely, so it is usually null
  */
 public record JudgeOutcome(SubmissionStatus status,
                            String compileMessage,

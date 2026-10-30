@@ -27,7 +27,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 用户与登录相关的业务逻辑。
+ * User account and login logic.
  */
 @Service
 public class UserService {
@@ -63,7 +63,7 @@ public class UserService {
         try {
             userMapper.insert(user);
         } catch (DuplicateKeyException ex) {
-            // 并发注册时由唯一索引兜底
+            // Unique indexes guard against concurrent registrations
             throw BusinessException.of(ErrorCode.CONFLICT, "用户名或邮箱已被占用");
         }
         return UserVO.from(user);

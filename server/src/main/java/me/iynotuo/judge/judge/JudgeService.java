@@ -1,6 +1,7 @@
 package me.iynotuo.judge.judge;
 
 import me.iynotuo.judge.config.JudgeProperties;
+import me.iynotuo.judge.judge.engine.JudgeEngine;
 import me.iynotuo.judge.problem.entity.Problem;
 import me.iynotuo.judge.problem.entity.ProblemTestcase;
 import me.iynotuo.judge.problem.mapper.ProblemMapper;
@@ -21,10 +22,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 判题调度与结果落库。
+ * Schedules judging and persists the results.
  *
- * <p>流程：worker 在短事务中抢占一条 PENDING 提交并标记为 JUDGING →
- * 事务外执行编译/运行（耗时操作不占用数据库连接）→ 新事务写入逐点结果与最终状态。</p>
+ * <p>Flow: the worker claims one PENDING submission in a short transaction and marks it JUDGING, then
+ * compiles and runs it outside any transaction (long work never holds a database connection), and finally writes the per-case results and the final status in a new transaction.</p>
  */
 @Service
 public class JudgeService {
@@ -39,7 +40,7 @@ public class JudgeService {
     private final JudgeProperties judgeProperties;
 
     /**
-     * 判题线程自行控制事务边界（judge() 内部调用 persist() 属于自调用，注解事务不会生效）。
+     * The judge thread manages its own transaction boundary: judge() calls persist() internally, so a @Transactional annotation there would not take effect.
      */
     private final TransactionTemplate transactionTemplate;
 
@@ -60,9 +61,9 @@ public class JudgeService {
     }
 
     /**
-     * 抢占一条待评测提交。行锁保证多实例/多线程下同一条提交只被处理一次。
+     * Claims the next pending submission. A row lock guarantees each submission is processed once, even with multiple instances or threads.
      *
-     * @return 提交 id；队列为空时返回 null
+     * @return the submission id, or null when the queue is empty
      */
     @Transactional
     public Long claimNext() {
@@ -75,7 +76,7 @@ public class JudgeService {
     }
 
     /**
-     * 执行判题并落库。异常会转换成 SYSTEM_ERROR，保证提交不会永远停在 JUDGING。
+     * Judges a submission and persists the result. Any exception becomes SYSTEM_ERROR so a submission never stays in JUDGING forever.
      */
     public void judge(Long submissionId) {
         Submission submission = submissionMapper.findById(submissionId);
@@ -147,7 +148,7 @@ public class JudgeService {
     }
 
     /**
-     * 重启后恢复：上一次进程被杀时可能留下 JUDGING 状态的提交。
+     * Recovery after restart: a killed process may leave submissions in JUDGING.
      */
     @Transactional
     public void recoverStuckSubmissions() {

@@ -1,7 +1,7 @@
 package me.iynotuo.judge.common.enums;
 
 /**
- * 支持的提交语言。具体编译/运行命令见 {@code ioj.judge.languages.<LANG>} 配置。
+ * Supported submission languages. Compile and run commands live under ioj.judge.languages.
  */
 public enum Language {
     JAVA,
