@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.iynotuo.judge.submission.mapper.SubmissionMapper">
+
+    <sql id="pageWhere">
+        <where>
+            <if test="problemId != null">
+                AND s.problem_id = #{problemId}
+            </if>
+            <if test="userId != null">
+                AND s.user_id = #{userId}
+            </if>
+            <if test="status != null">
+                AND s.status = #{status}
+            </if>
+        </where>
+    </sql>
+
+    <insert id="insert" parameterType="me.iynotuo.judge.submission.entity.Submission"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO submissions (problem_id, user_id, language, code, status, time_used_ms, memory_used_kb,
+                                 compile_message, judge_message, created_at, judged_at)
+        VALUES (#{problemId}, #{userId}, #{language}, #{code}, #{status}, #{timeUsedMs}, #{memoryUsedKb},
+                #{compileMessage}, #{judgeMessage}, #{createdAt}, #{judgedAt})
+    </insert>
+
+    <select id="findById" resultType="me.iynotuo.judge.submission.entity.Submission">
+        SELECT id, problem_id, user_id, language, code, status, time_used_ms, memory_used_kb,
+               compile_message, judge_message, created_at, judged_at
+        FROM submissions
+        WHERE id = #{id}
+    </select>
+
+    <select id="findPage" resultType="me.iynotuo.judge.submission.mapper.SubmissionSummaryRow">
+        SELECT s.id, s.problem_id, p.title AS problem_title, s.user_id, u.nickname AS user_nickname,
+               s.language, s.status, s.time_used_ms, s.memory_used_kb, s.created_at
+        FROM submissions s
+        JOIN problems p ON p.id = s.problem_id
+        JOIN users u ON u.id = s.user_id
+        <include refid="pageWhere"/>
+        ORDER BY s.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*)
+        FROM submissions s
+        <include refid="pageWhere"/>
+    </select>
+
+    <select id="countAccepted" resultType="int">
+        SELECT COUNT(*)
+        FROM submissions
+        WHERE user_id = #{userId} AND problem_id = #{problemId} AND status = 'ACCEPTED'
+    </select>
+
+    <select id="lockNextPendingId" resultType="java.lang.Long">
+        SELECT id
+        FROM submissions
+        WHERE status = 'PENDING'
+        ORDER BY id
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <update id="markJudging">
+        UPDATE submissions SET status = 'JUDGING' WHERE id = #{id}
+    </update>
+
+    <update id="updateResult" parameterType="me.iynotuo.judge.submission.entity.Submission">
+        UPDATE submissions
+        SET status = #{status},
+            time_used_ms = #{timeUsedMs},
+            memory_used_kb = #{memoryUsedKb},
+            compile_message = #{compileMessage},
+            judge_message = #{judgeMessage},
+            judged_at = #{judgedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="resetJudgingToPending">
+        UPDATE submissions SET status = 'PENDING' WHERE status = 'JUDGING'
+    </update>
+
+</mapper>

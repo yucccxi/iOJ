@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.iynotuo.judge.user.mapper.UserMapper">
+
+    <sql id="columns">
+        id, username, email, password_hash, nickname, role, status, created_at, updated_at, last_login_at
+    </sql>
+
+    <select id="findById" resultType="me.iynotuo.judge.user.entity.User">
+        SELECT <include refid="columns"/> FROM users WHERE id = #{id}
+    </select>
+
+    <select id="findByUsername" resultType="me.iynotuo.judge.user.entity.User">
+        SELECT <include refid="columns"/> FROM users WHERE username = #{username}
+    </select>
+
+    <select id="findByEmail" resultType="me.iynotuo.judge.user.entity.User">
+        SELECT <include refid="columns"/> FROM users WHERE email = #{email}
+    </select>
+
+    <select id="findByAccount" resultType="me.iynotuo.judge.user.entity.User">
+        SELECT <include refid="columns"/>
+        FROM users
+        WHERE username = #{account} OR email = #{account}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="me.iynotuo.judge.user.entity.User"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (username, email, password_hash, nickname, role, status, created_at, updated_at)
+        VALUES (#{username}, #{email}, #{passwordHash}, #{nickname}, #{role}, #{status}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateProfile">
+        UPDATE users SET nickname = #{nickname}, updated_at = #{updatedAt} WHERE id = #{id}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE users SET password_hash = #{passwordHash}, updated_at = #{updatedAt} WHERE id = #{id}
+    </update>
+
+    <update id="updateLastLogin">
+        UPDATE users SET last_login_at = #{lastLoginAt} WHERE id = #{id}
+    </update>
+
+    <update id="updateRole">
+        UPDATE users SET role = #{role}, updated_at = #{updatedAt} WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE users SET status = #{status}, updated_at = #{updatedAt} WHERE id = #{id}
+    </update>
+
+    <select id="findPage" resultType="me.iynotuo.judge.user.entity.User">
+        SELECT <include refid="columns"/>
+        FROM users
+        <where>
+            <if test="keyword != null and keyword != ''">
+                (username LIKE CONCAT('%', #{keyword}, '%') OR email LIKE CONCAT('%', #{keyword}, '%')
+                OR nickname LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*) FROM users
+        <where>
+            <if test="keyword != null and keyword != ''">
+                (username LIKE CONCAT('%', #{keyword}, '%') OR email LIKE CONCAT('%', #{keyword}, '%')
+                OR nickname LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <select id="countAcceptedProblems" resultType="long">
+        SELECT COUNT(DISTINCT problem_id)
+        FROM submissions
+        WHERE user_id = #{userId} AND status = 'ACCEPTED'
+    </select>
+
+</mapper>

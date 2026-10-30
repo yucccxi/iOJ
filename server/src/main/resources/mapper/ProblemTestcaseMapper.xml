@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.iynotuo.judge.problem.mapper.ProblemTestcaseMapper">
+
+    <select id="findByProblemId" resultType="me.iynotuo.judge.problem.entity.ProblemTestcase">
+        SELECT id, problem_id, ordinal, input_data, output_data, created_at
+        FROM problem_testcases
+        WHERE problem_id = #{problemId}
+        ORDER BY ordinal
+    </select>
+
+    <select id="findSummaries" resultType="me.iynotuo.judge.problem.dto.TestcaseSummaryVO">
+        SELECT id,
+               ordinal,
+               OCTET_LENGTH(input_data) AS input_bytes,
+               OCTET_LENGTH(output_data) AS output_bytes,
+               created_at
+        FROM problem_testcases
+        WHERE problem_id = #{problemId}
+        ORDER BY ordinal
+    </select>
+
+    <select id="findById" resultType="me.iynotuo.judge.problem.entity.ProblemTestcase">
+        SELECT id, problem_id, ordinal, input_data, output_data, created_at
+        FROM problem_testcases
+        WHERE id = #{id}
+    </select>
+
+    <select id="findSummary" resultType="me.iynotuo.judge.problem.dto.TestcaseSummaryVO">
+        SELECT id,
+               ordinal,
+               OCTET_LENGTH(input_data) AS input_bytes,
+               OCTET_LENGTH(output_data) AS output_bytes,
+               created_at
+        FROM problem_testcases
+        WHERE problem_id = #{problemId} AND ordinal = #{ordinal}
+    </select>
+
+    <select id="countByProblemId" resultType="int">
+        SELECT COUNT(*) FROM problem_testcases WHERE problem_id = #{problemId}
+    </select>
+
+    <select id="findMaxOrdinal" resultType="java.lang.Integer">
+        SELECT COALESCE(MAX(ordinal), 0) FROM problem_testcases WHERE problem_id = #{problemId}
+    </select>
+
+    <delete id="deleteByProblemId">
+        DELETE FROM problem_testcases WHERE problem_id = #{problemId}
+    </delete>
+
+    <delete id="deleteById">
+        DELETE FROM problem_testcases WHERE id = #{id} AND problem_id = #{problemId}
+    </delete>
+
+    <insert id="insertBatch">
+        INSERT INTO problem_testcases (problem_id, ordinal, input_data, output_data, created_at) VALUES
+        <foreach collection="testcases" item="testcase" separator=",">
+            (#{testcase.problemId}, #{testcase.ordinal}, #{testcase.inputData}, #{testcase.outputData},
+             #{testcase.createdAt})
+        </foreach>
+    </insert>
+
+</mapper>

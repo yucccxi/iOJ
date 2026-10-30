@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.iynotuo.judge.problem.mapper.ProblemSampleMapper">
+
+    <select id="findByProblemId" resultType="me.iynotuo.judge.problem.entity.ProblemSample">
+        SELECT id, problem_id, ordinal, input_data, output_data, explanation
+        FROM problem_samples
+        WHERE problem_id = #{problemId}
+        ORDER BY ordinal
+    </select>
+
+    <delete id="deleteByProblemId">
+        DELETE FROM problem_samples WHERE problem_id = #{problemId}
+    </delete>
+
+    <insert id="insertBatch">
+        INSERT INTO problem_samples (problem_id, ordinal, input_data, output_data, explanation) VALUES
+        <foreach collection="samples" item="sample" separator=",">
+            (#{sample.problemId}, #{sample.ordinal}, #{sample.inputData}, #{sample.outputData}, #{sample.explanation})
+        </foreach>
+    </insert>
+
+</mapper>

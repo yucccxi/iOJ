@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.iynotuo.judge.problem.mapper.ProblemMapper">
+
+    <sql id="summaryColumns">
+        p.id, p.title, p.difficulty, p.status, p.submit_count, p.accepted_count, p.author_id,
+        u.nickname AS author_nickname, p.created_at
+    </sql>
+
+    <sql id="pageWhere">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND p.title LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="difficulty != null">
+                AND p.difficulty = #{difficulty}
+            </if>
+            <if test="authorId != null">
+                AND p.author_id = #{authorId}
+            </if>
+            <if test="tagId != null">
+                AND EXISTS (SELECT 1 FROM problem_tags pt WHERE pt.problem_id = p.id AND pt.tag_id = #{tagId})
+            </if>
+            <if test="statuses != null and statuses.size() > 0">
+                AND p.status IN
+                <foreach collection="statuses" item="status" open="(" separator="," close=")">#{status}</foreach>
+            </if>
+        </where>
+    </sql>
+
+    <insert id="insert" parameterType="me.iynotuo.judge.problem.entity.Problem"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO problems (title, difficulty, description, input_format, output_format, hint, source,
+                              time_limit_ms, memory_limit_mb, author_id, status, submit_count, accepted_count,
+                              created_at, updated_at)
+        VALUES (#{title}, #{difficulty}, #{description}, #{inputFormat}, #{outputFormat}, #{hint}, #{source},
+                #{timeLimitMs}, #{memoryLimitMb}, #{authorId}, #{status}, #{submitCount}, #{acceptedCount},
+                #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update" parameterType="me.iynotuo.judge.problem.entity.Problem">
+        UPDATE problems
+        SET title = #{title},
+            difficulty = #{difficulty},
+            description = #{description},
+            input_format = #{inputFormat},
+            output_format = #{outputFormat},
+            hint = #{hint},
+            source = #{source},
+            time_limit_ms = #{timeLimitMs},
+            memory_limit_mb = #{memoryLimitMb},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM problems WHERE id = #{id}
+    </delete>
+
+    <select id="findById" resultType="me.iynotuo.judge.problem.entity.Problem">
+        SELECT id, title, difficulty, description, input_format, output_format, hint, source,
+               time_limit_ms, memory_limit_mb, author_id, status, submit_count, accepted_count,
+               created_at, updated_at
+        FROM problems
+        WHERE id = #{id}
+    </select>
+
+    <select id="findPage" resultType="me.iynotuo.judge.problem.mapper.ProblemSummaryRow">
+        SELECT <include refid="summaryColumns"/>
+        FROM problems p
+        JOIN users u ON u.id = p.author_id
+        <include refid="pageWhere"/>
+        ORDER BY p.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPage" resultType="long">
+        SELECT COUNT(*)
+        FROM problems p
+        <include refid="pageWhere"/>
+    </select>
+
+    <update id="increaseSubmitCount">
+        UPDATE problems SET submit_count = submit_count + 1 WHERE id = #{id}
+    </update>
+
+    <update id="increaseAcceptedCount">
+        UPDATE problems SET accepted_count = accepted_count + 1 WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE problems SET status = #{status}, updated_at = #{updatedAt} WHERE id = #{id}
+    </update>
+
+</mapper>

@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    # 每个 Spring 上下文使用独立的 H2 内存库，保证 schema.sql 可以重复执行
+    url: jdbc:h2:mem:ioj-${random.uuid};MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      encoding: UTF-8
+
+ioj:
+  jwt:
+    secret: ioj-test-secret-key-at-least-32-bytes-long
+  judge:
+    # 集成测试手动调用 JudgeService，避免定时任务引入不确定性
+    enabled: false
+    compile-timeout-ms: 60000
+    poll-interval-ms: 200
+
+logging:
+  level:
+    root: warn
+    me.iynotuo.judge: info

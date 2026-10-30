@@ -1,0 +1,50 @@
+package me.iynotuo.judge.problem.controller;
+
+import me.iynotuo.judge.common.api.ApiResponse;
+import me.iynotuo.judge.problem.dto.LanguageVO;
+import me.iynotuo.judge.problem.dto.TagVO;
+import me.iynotuo.judge.problem.service.MetaService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * Reference-data endpoints used to bootstrap the front end.
+ *
+ * <p>Both endpoints are public, so the submission form and the problem editor can be
+ * rendered before a user logs in. The language list is derived from the
+ * {@code ioj.judge.languages} configuration map, which means enabling a new language
+ * never requires a change in this class.</p>
+ */
+@RestController
+@RequestMapping("/api/v1/meta")
+public class MetaController {
+
+    private final MetaService metaService;
+
+    public MetaController(MetaService metaService) {
+        this.metaService = metaService;
+    }
+
+    /**
+     * Lists the languages a submission is allowed to use.
+     *
+     * @return enabled languages with their codes and display names
+     */
+    @GetMapping("/languages")
+    public ApiResponse<List<LanguageVO>> languages() {
+        return ApiResponse.ok(metaService.languages());
+    }
+
+    /**
+     * Lists every tag available for labelling problems.
+     *
+     * @return all tags
+     */
+    @GetMapping("/tags")
+    public ApiResponse<List<TagVO>> tags() {
+        return ApiResponse.ok(metaService.tags());
+    }
+}
