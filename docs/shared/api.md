@@ -807,7 +807,7 @@ Authorization: Bearer <token>
 | `status` / `statusText` | 该测试点的结果 |
 | `timeUsedMs` | 该测试点耗时 |
 | `memoryUsedKb` | 该测试点的内存峰值（KB）；未提供该项统计时为 `null` |
-| `message` | 失败原因：超时会写"超过时间限制 xxx ms"；运行错误会给出程序错误输出；答案错误一般为 `null`。不会包含期望输出 |
+| `message` | 失败原因：超时/超内存/输出超限写固定的英文说明（如 `Time Limit Exceeded`），不带耗时、内存等具体数值；运行错误会给出程序错误输出（程序自身无输出时为 `Killed by signal` / `Non-zero exit code`）；答案错误一般为 `null`。不会包含期望输出 |
 
 > 评测遇到第一个未通过的测试点就会停止，所以 `cases` 可能少于测试数据总数。
 > 例如答案错误时通常只有 1 条 `WRONG_ANSWER`。

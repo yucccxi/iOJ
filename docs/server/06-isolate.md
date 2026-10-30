@@ -1,53 +1,66 @@
-# Isolate 判题沙箱使用指南
+# Isolate 沙箱运维
 
-本文介绍如何在 Linux 上安装 Isolate，在沙箱内编译和运行 C++ 程序，读取执行结果，并接入 Java 判题 worker。
+本文只讲**机器侧**的事：Isolate 怎么装、权限怎么给、后端传了哪些参数、怎么手工复现一次评测、出问题怎么查。
 
-安装示例适用于 Debian 13（trixie）、amd64 架构。命令按 Isolate 官方当前文档整理于 2026 年 10 月 30 日，并已在本项目的判题机上实际执行验证（Isolate 2.7）；其他发行版或旧版 Isolate 的安装与 cgroup 配置可能不同。
+- 判题状态机、引擎选择、meta → 状态的映射：见 [03-judge.md](03-judge.md)
+- 整机部署、systemd、Nginx：见 [04-deployment.md](04-deployment.md)
+- 接口契约（前端视角）：见 [../shared/api.md](../shared/api.md)
 
-## 1 Isolate 的作用与边界
+> 文中命令与输出均已在 **Debian 13 (trixie) + Isolate 2.7 + OpenJDK 21.0.11 + 内核 6.12.94** 上逐条执行（2026-10-30）。
+> 换发行版请先核对 cgroup v2、内核版本与包来源。
 
-Isolate 是用于执行不可信程序的 Linux 沙箱，利用 namespaces、cgroups 等机制隔离环境、限制资源。它负责运行隔离和资源统计，不负责题目管理、任务分发、答案比较或最终判定 AC。
+## 1. 本项目如何调用 Isolate
 
-在 OJ 中，职责可以这样划分：
+后端**不链接任何 Isolate 库**，只通过命令行调用 `/usr/bin/isolate`。一次评测的生命周期：
+
+```
+从 box id 池取一个编号（默认 1..8）
+├── 编译（仅编译型语言）
+│   ├── isolate --init
+│   ├── isolate --run -- <javac/g++/gcc ...>
+│   └── isolate --cleanup
+├── 每个测试点（全新 box、全新目录）
+│   ├── isolate --init
+│   ├── isolate --run -- <java/./main/python3>
+│   └── isolate --cleanup
+└── 归还 box id、删除临时工作目录
+```
 
 | 组件 | 职责 |
 | --- | --- |
-| OJ 后端 | 保存提交、分配任务、保存判题结果 |
-| 判题 worker | 准备文件、调用 Isolate、解析运行信息、比较答案 |
-| Isolate | 隔离运行环境、限制资源、输出执行元数据 |
+| `JudgeWorker` | 轮询待评测提交，用信号量限制并发，交给判题线程池 |
+| `JudgeService` | 读提交 / 题目 / 测试点，调用引擎，落库 |
+| `IsolateJudgeEngine` | 取 box、建工作目录、拼 `isolate` 命令行、解析 meta、判定状态 |
+| `isolate` | 建命名空间、cgroup 限额、降权执行、输出 meta |
 
-编译用户代码也要放进沙箱。不要直接在宿主机编译用户代码后，仅隔离最终可执行文件。
+- 代码：`server/src/main/java/me/iynotuo/judge/judge/engine/IsolateJudgeEngine.java`
+- 开关：`ioj.judge.engine=isolate`（默认，环境变量 `IOJ_JUDGE_ENGINE`）
+- 创建引擎 Bean 时会做一次可执行性自检（见 §4.3）
 
-沙箱仍然共享宿主机内核，不能视为绝对安全保证。公开运行用户代码时使用独立判题机器，持续更新系统与 Isolate；不要向沙箱暴露数据库、节点凭据或个人目录。
+## 2. 环境要求
 
-## 2 安装与环境检查
+| 项 | 要求 | 本机实测 |
+| --- | --- | --- |
+| 操作系统 | Debian 13 (trixie) amd64，使用官方 Isolate 包 | Debian 13 |
+| cgroup | v2：`stat -fc %T /sys/fs/cgroup` 输出 `cgroup2fs` | `cgroup2fs` |
+| 内核 | ≥ 5.19（`--cg-mem` 的内存统计依赖它） | `6.12.94+deb13-amd64` |
+| Isolate | 2.7 | 2.7 |
+| JDK | 21（判 Java 题，同时用于运行后端） | OpenJDK 21.0.11 |
+| 工具链 | `g++`（C++17）、`gcc`（C11）、`python3` | 已安装 |
+| 资源 | 至少能给编译器留出 1 核 + 512MB | 20 核 / 16GB |
 
-### 2.1 确认系统
+Isolate 与宿主机**共享内核**，不是虚拟机级隔离：面向公网时应使用独立判题机、及时更新系统与 Isolate，
+并且不要在该机器上存放数据库凭据或证书。详见 §11。
 
-```bash
-cat /etc/os-release
-dpkg --print-architecture
-uname -r
-stat -fc %T /sys/fs/cgroup
-```
-
-下面的软件源针对 Debian 13 和 amd64。最后一条命令在 cgroup v2 环境通常输出 `cgroup2fs`。当前官方 Isolate 的 cgroup 模式要求 cgroup v2，内存统计还要求 Linux 5.19 或更新版本。
-
-### 2.2 添加官方软件源
+## 3. 安装
 
 ```bash
 sudo apt update
-sudo apt install curl ca-certificates g++
-
+sudo apt install -y curl ca-certificates openjdk-21-jdk g++ gcc python3
 sudo install -d -m 0755 /etc/apt/keyrings
-
 curl -fsSL https://www.ucw.cz/isolate/debian/signing-key.asc \
     | sudo tee /etc/apt/keyrings/isolate.asc >/dev/null
-```
 
-写入软件源配置：
-
-```bash
 sudo tee /etc/apt/sources.list.d/isolate.sources >/dev/null <<'EOF'
 Types: deb
 URIs: http://www.ucw.cz/isolate/debian/
@@ -58,317 +71,418 @@ Signed-By: /etc/apt/keyrings/isolate.asc
 EOF
 
 sudo apt update
-sudo apt install isolate
+sudo apt install -y isolate
+sudo systemctl enable --now isolate.service
 ```
 
-该配置来自官方 README。安装其他系统时，应先核对官方支持的软件包，而不是直接复用 `trixie-isolate`。
+安装后三条自检，输出应与下面一致：
 
-### 2.3 启动 cgroup 管理服务
+```console
+$ isolate --version
+The process isolator 2.7
+(c) 2012--2026 Martin Mares and Bernard Blackham
 
-```bash
-sudo systemctl start isolate.service
-systemctl status isolate.service --no-pager
-isolate --check-config
+$ isolate --check-config          # 无输出即通过
+$ echo $?
+0
+
+$ systemctl is-active isolate.service
+active
 ```
 
-使用 systemd 时，当前官方版本通过 `isolate.service` 和 keeper 进程维护委派给 Isolate 的 cgroup。不要为排查权限错误而给整个 Java worker 开放 root 权限。
+`isolate.service` 是一个常驻的 `isolate-cg-keep` 进程，唯一职责是**维持 cgroup 层级被委派**给 Isolate：
+它把根 cgroup 路径写进 `/run/isolate/cgroup`，而 `/etc/isolate` 里是 `cg_root = auto:/run/isolate/cgroup`：
 
-Isolate 按安装配置使用特权建立隔离环境，再将被执行程序切换到受限 UID。官方包应处理所需安装权限；遇到权限异常时先检查包、配置和服务日志。
-
-## 3 跑通第一个 C++ 程序
-
-以下命令在同一个 Bash 会话中依次执行。使用沙箱编号 `0`，请确保没有其他任务正在使用它。示例复用一个沙箱便于入门，正式判题应分离编译环境，并为各测试点准备干净运行环境。
-
-### 3.1 初始化
-
-```bash
-BOX_ROOT=$(isolate --cg --box-id=0 --init)
-printf '%s\n' "$BOX_ROOT"
+```console
+$ cat /run/isolate/cgroup
+/sys/fs/cgroup/isolate.slice/isolate.service
 ```
 
-必须确认初始化成功、输出是有效目录后，再执行后续文件操作。自动化程序应检查退出码及路径，避免初始化失败后继续处理。
+因此它**必须一直运行**。服务停掉后 `isolate --init` 会失败，症状是**所有提交都变成 `SYSTEM_ERROR`**，
+但 `isolate --version` 依然正常——这类“看起来装好了却判不了题”的情况优先查这里。
 
-| 位置 | 工作目录路径 |
+## 4. 权限与目录
+
+### 4.1 二进制权限
+
+```console
+$ ls -l /usr/bin/isolate
+-rwsr-xr-x 1 root isolate 59824 Aug 24 06:43 /usr/bin/isolate
+```
+
+`-rwsr-xr-x` 即 **4755 + setuid root**：无论哪个用户执行，进程都以 root 建沙箱、再降权到隔离 UID。
+所以 Debian 官方包**不要求**把运行用户加进 `isolate` 组——本机 `yuchenxi` 不在 `isolate` 组，
+`isolate --cg --box-id=N --init` 依然成功。
+
+| 打包方式 | 是否需要 `isolate` 组 |
 | --- | --- |
-| 宿主机 | `"$BOX_ROOT/box"` |
-| 沙箱内 | `/box` |
+| `4755 root:isolate`（官方包，setuid） | 不需要 |
+| `4750` / `0750`（去掉 setuid，靠组授权） | 需要：`sudo usermod -aG isolate <user>`，**重新登录**后生效 |
+| `/etc/isolate` 中 `restricted_init = 1` | 只有 root 能建 box，普通用户无法运行后端 |
 
-不要硬编码初始化输出的绝对路径。后续使用返回值定位工作目录。
+统一把用户加进组是安全的兼容做法，对 setuid 包无副作用。
 
-### 3.2 写入源代码和输入
+### 4.2 沙箱目录与 UID 区间
 
-```bash
-cat > "$BOX_ROOT/box/main.cpp" <<'EOF'
-#include <iostream>
-using namespace std;
+```console
+$ isolate --cg --box-id=12 --init
+/var/lib/isolate/12
 
-int main()
-{
-    long long a,b;
-    cin>>a>>b;
-    cout<<a+b<<'\n';
-    return 0;
-}
-EOF
+$ ls -ld /var/lib/isolate/12 /var/lib/isolate/12/box
+drwxr-xr-x 3 root     root     4096 /var/lib/isolate/12
+drwx------ 2 yuchenxi yuchenxi 4096 /var/lib/isolate/12/box
 
-printf '2 3\n' > "$BOX_ROOT/box/input.txt"
+$ grep '^isolate:' /etc/subuid /etc/subgid
+/etc/subuid:isolate:165536:65536
+/etc/subgid:isolate:165536:65536
 ```
 
-标准答案放在沙箱外，不要把完整题目数据目录和标准答案一起映射给用户程序。
-
-### 3.3 在沙箱内编译
-
-```bash
-isolate --cg --box-id=0 \
-    --processes=16 \
-    --time=10 \
-    --wall-time=30 \
-    --cg-mem=524288 \
-    --fsize=16384 \
-    --env=PATH=/usr/bin:/bin \
-    --env=TMPDIR=/box \
-    --stdin=/dev/null \
-    --stdout=/box/compile.out \
-    --stderr=/box/compile.err \
-    --meta="$PWD/compile.meta" \
-    --run -- \
-    /usr/bin/g++ /box/main.cpp -std=c++17 -O2 -o /box/main
-```
-
-编译器会创建子进程，因此允许最多 16 个进程或线程。编译的时间、内存限制与运行限制分开设置，示例值不是所有题目或语言的通用配置。
-
-查看结果：
-
-```bash
-cat compile.meta
-cat "$BOX_ROOT/box/compile.err"
-```
-
-确认编译成功后再继续。自动化时应立即保存命令退出码，不要执行 `cat` 后再读取 `$?`，那样拿到的是 `cat` 的退出码。
-
-编译器拒绝源代码属于 CE；沙箱内部错误、编译器缺失等属于系统故障，不应统一标记为 CE。
-
-### 3.4 在沙箱内运行
-
-```bash
-isolate --cg --box-id=0 \
-    --processes=1 \
-    --time=1 \
-    --wall-time=5 \
-    --cg-mem=262144 \
-    --fsize=1024 \
-    --stdin=/box/input.txt \
-    --stdout=/box/output.txt \
-    --stderr=/box/runtime.err \
-    --meta="$PWD/run.meta" \
-    --run -- \
-    /box/main
-```
-
-查看输出：
-
-```bash
-cat "$BOX_ROOT/box/output.txt"
-cat "$BOX_ROOT/box/runtime.err"
-cat run.meta
-```
-
-`output.txt` 应包含 `5`。程序正常结束只表示执行成功，还要由 worker 比较输出，才能判定 AC 或 WA。
-
-### 3.5 清理
-
-```bash
-isolate --cg --box-id=0 --cleanup
-```
-
-无论成功、超时、异常还是取消，都应执行清理。Java 中放在 `finally`；只有清理完成后，才释放该 box-id。清理失败的执行槽应暂停复用并报警。
-
-## 4 常用参数
-
-| 参数 | 含义 |
+| 位置 | 说明 |
 | --- | --- |
-| `--box-id=0` | 沙箱编号，同机并发任务使用不同编号 |
-| `--cg` | 启用 cgroup，初始化、运行和清理时保持一致 |
-| `--time=1` | CPU 时间限制 1 秒 |
-| `--wall-time=5` | 实际经过时间限制 5 秒，包含等待和休眠 |
-| `--cg-mem=262144` | 整个 cgroup 内存限制，单位 KB，示例约 256 MiB |
-| `--mem=262144` | 地址空间限制，不能当作实际物理内存统计 |
-| `--processes=16` | 最多允许 16 个进程或线程 |
-| `--fsize=1024` | 每个文件的大小限制，单位 KB |
-| `--quota=blocks,inodes` | 初始化时设置磁盘配额，需要底层文件系统支持 |
-| `--stdin=/box/input.txt` | 标准输入文件，路径位于沙箱内 |
-| `--stdout=/box/output.txt` | 标准输出文件，路径位于沙箱内 |
-| `--stderr=/box/runtime.err` | 标准错误文件，路径位于沙箱内 |
-| `--meta=/path/run.meta` | 宿主机上的执行元数据文件 |
-| `--env=NAME=value` | 显式设置一个环境变量 |
-| `--dir=/data=/host/data` | 映射目录，默认只读；仅暴露必要目录 |
+| `/var/lib/isolate/<id>` | box 根目录，`--init` 打印的就是它（不是 `/box`）；属 root，由 Isolate 管理 |
+| `/var/lib/isolate/<id>/box` | 沙箱内 `/box` 的宿主目录，归**调用者**，权限 `0700` |
+| `/etc/subuid`、`/etc/subgid` | 隔离 UID 区间；沙箱内进程 UID 从这里分配（实测 `165543`） |
+| `/tmp/ioj-isolate-*` | 本项目的工作目录（见 §4.3），通过绑定挂载给沙箱使用 |
 
-CPU 时间和实际经过时间应同时限制，避免休眠程序长期占用任务槽。不要使用不带数量的 `--processes`，它会允许任意数量的进程。
+沙箱内 UID 与宿主机用户不同，因此本项目把工作目录**放开为 `777`**，否则沙箱写不进去。
+这只适用于“只放源码 / 输入 / 输出”的临时目录，不要往里面放敏感文件。
 
-`--fsize` 只限制单个文件，无法阻止程序创建大量小文件。正式环境还要限制总磁盘容量、inode 数量，并核对 `/tmp` 和共享内存等可写区域的约束。
+### 4.3 启动自检与工作目录
 
-默认创建隔离网络命名空间，无法访问外部网络。不要给判题程序添加 `--share-net`。不要通过 `--full-env` 将 worker 的凭据传入沙箱。
+`IsolateJudgeEngine` 构造时检查 `ioj.judge.isolate.binary` 是否可执行，失败直接终止启动：
 
-## 5 元数据解析与判题结果
-
-meta 文件是 `key:value` 格式，程序中按第一个冒号拆分每行，不要依赖字段顺序，不要假定所有字段都存在。
-
-| 字段 | 含义 |
-| --- | --- |
-| `time` | CPU 用时，秒 |
-| `time-wall` | 实际经过时间，秒 |
-| `cg-mem` | cgroup 内存用量，KB |
-| `max-rss` | 进程最大常驻内存，KB |
-| `exitcode` | 程序正常退出时的退出码 |
-| `exitsig` | 导致程序终止的信号 |
-| `cg-oom-killed` | 存在时表示发生了 cgroup OOM kill |
-| `status` | 异常状态码 |
-| `message` | 面向人的说明，不能用于稳定的程序判断 |
-
-| `status` 值 | 含义 | worker 处理方向 |
-| --- | --- | --- |
-| `TO` | 超时 | 通常判为 TLE |
-| `RE` | 非零退出 | 通常判为 RE |
-| `SG` | 被信号终止 | 根据信号、OOM 等信息进一步分类 |
-| `XX` | 沙箱内部错误 | 系统故障，记录原因并按策略重试 |
-| 不存在 | 正常运行时可能没有此字段 | 继续检查退出码和答案 |
-
-Isolate 自身退出码为 0 表示程序正确结束，1 表示程序执行失败，其他返回码表示内部错误。最终分类要结合 meta，不能只看一个退出码。
-
-不要将所有 SIGSEGV 都判为 MLE；非法内存访问同样可能触发该信号。内存分配失败也不一定触发 OOM kill，MLE 需要统一且经过验证的分类策略。
-
-如果反复使用同一个 cgroup 运行程序，缓存可能影响后续 `cg-mem` 统计。正式评测应使用干净环境，并验证内存统计口径。
-
-## 6 接入 Java 判题 worker
-
-Java 负责构造固定参数、启动 Isolate、等待完成、解析结果和清理。不要把用户输入拼接进 `sh -c`。
-
-下面片段只演示运行阶段的进程调用；假定沙箱、输入和可执行文件已准备好，`logPath`、`metaPath` 位于沙箱外，`boxId` 由 worker 分配。
-
-```java
-ProcessBuilder builder = new ProcessBuilder(
-        "isolate",
-        "--cg",
-        "--box-id=" + boxId,
-        "--processes=1",
-        "--time=1",
-        "--wall-time=5",
-        "--cg-mem=262144",
-        "--fsize=1024",
-        "--stdin=/box/input.txt",
-        "--stdout=/box/output.txt",
-        "--stderr=/box/runtime.err",
-        "--meta=" + metaPath.toAbsolutePath(),
-        "--run", "--", "/box/main"
-);
-
-builder.redirectErrorStream(true);
-builder.redirectOutput(logPath.toFile());
-
-Process process = builder.start();
-int isolateExitCode = process.waitFor();
+```text
+isolate binary is not executable: /usr/bin/isolate.
+Add the service user to the 'isolate' group and log in again: sudo usermod -aG isolate <user>
 ```
 
-需要使用 `java.lang.ProcessBuilder`、`java.lang.Process`，路径通常由 `java.nio.file.Path` 表示。此片段省略外层异常处理和 worker 级看门狗，不是完整生产实现。
+这是**有意的 fail-fast**：配置错了在启动时暴露，而不是等第一个提交失败。
+只有二进制由外部机制延迟就绪（例如容器里启动后才挂载）时，才建议设 `check-on-startup: false`。
 
-将管理进程输出重定向到文件，可以避免无人读取管道时阻塞；该日志也应有容量管理。用户 stdout、stderr 已通过 Isolate 参数分别重定向。
+工作目录策略：
 
-worker 的外层看门狗应覆盖初始化、启动、运行和清理，处理挂起或取消。仅杀死 Java 启动的父进程，不能作为所有用户子进程已经退出的证明，必须通过沙箱清理确认任务被回收。
+- 每次判题在 `/tmp` 下建 `ioj-isolate-XXXX`，编译产物放 `compile/`，每个测试点放 `run-<ordinal>/`；
+- 测试点之间**复制**编译产物，前一个测试点无法污染后一个；
+- `finally` 中删除整个目录并归还 box id，异常路径也不会泄漏。
 
-建议 worker 流程：
+## 5. 后端配置
 
-1. 从有限执行槽池分配 box-id，生成任务专用外部日志目录。
-2. 初始化编译沙箱，写入固定名称的源文件。
-3. 编译并检查退出码、meta 和编译产物。
-4. 将所需产物复制到干净运行沙箱，为测试点准备输入。
-5. 执行，解析资源和错误状态，交给可信比较器检查答案。
-6. 保存结果，在 `finally` 中清理，确认完成后释放执行槽。
-
-同一服务器的 box-id 不能冲突；不同服务器上的编号可以重复。编号范围和对应 UID 由 Isolate 配置决定。编译参数、路径和语言命令由服务端白名单生成，不能允许用户任意指定 Isolate 参数。
-
-## 7 正式上线前的必要补充
-
-- 编译环境与运行环境分离，每个测试点使用干净环境，避免前一测试点留下文件或修改程序。
-- 标准答案和 checker 不暴露给用户代码。处理沙箱输出时防止符号链接等路径替换问题，自定义 checker 也应受限执行。
-- 同时限制 stdout、stderr、工作目录总容量和文件数量，验证临时目录和共享内存不会绕过预期限制。
-- 固定编译器、运行库、测试数据及 checker 版本，避免不同节点产生环境差异。
-- Java 等运行时需要多线程和不同内存策略，不能直接套用 `--processes=1` 的 C++ 配置。
-- 限制整个节点的并发量，给操作系统和 worker 留出资源；逐任务限制不能替代整机容量管理。
-- 官方不建议默认在容器内运行 Isolate，因为 cgroup 委派等配置容易不完整；优先直接部署在独立 Linux 判题机或虚拟机中。
-- 官方建议判题环境关闭 swap，检查 core dump 配置。系统调优应针对独立判题机执行，不要直接照搬到日常电脑。
-
-## 8 常见问题
-
-### 初始化或运行提示 cgroup 权限错误
-
-确认正在使用与官方文档匹配的版本、cgroup v2 和已启动的 `isolate.service`。检查服务日志：
-
-```bash
-journalctl -u isolate.service -n 100 --no-pager
-```
-
-### 提示找不到程序或动态链接库
-
-区分宿主机路径与沙箱路径。确认编译产物存在，具有执行权限，并核对默认目录映射、动态链接器和运行库是否可见。不要通过映射整个宿主机根目录解决。
-
-### 编译器无法创建进程
-
-编译阶段设置有限的 `--processes=N` 并启用 cgroup；保持初始化、运行、清理的 `--cg` 参数一致。具体数量需要针对工具链验证。
-
-### 正常退出但没有 AC
-
-Isolate 不比较答案。worker 应在外部根据题目规则调用比较器；特殊评测和浮点误差不能简单用字符串完全相等代替。
-
-## 9 官方参考
-
-- 项目与安装说明：https://github.com/ioi/isolate
-- 命令参数与运行环境要求：https://www.ucw.cz/isolate/isolate.1.html
-
-首次部署先用已知的正常程序、死循环、越界程序、超量输出和内存压力程序验证限制与分类，再开放用户提交。本文的命令演示基本操作，生产隔离配置与语言支持应结合实际机器验证。
-
-## 10 接入本项目的实现
-
-后端默认 `engine=isolate`，实现类为 `IsolateJudgeEngine`，配置在 `application.yaml` 的 `ioj.judge.isolate` 与 `ioj.judge.languages`。
-
-| 环节 | 做法 |
-| --- | --- |
-| 编译 | 新建 box → 工作目录绑定为 `/box` → 写入源码 → `isolate --run -- javac/g++ ...` → 读取 meta 与编译输出 → `--cleanup` |
-| 运行 | 每个测试点新建 box → 复制编译产物与 `input.txt` → `isolate --run -- 程序` → 读取 `time`/`cg-mem`/`status` → `--cleanup` |
-| 目录 | `--dir=/box=<工作目录>:rw`；`extra-dirs` 中的目录按原路径只读绑定 |
-| 限制 | `--time`、`--wall-time`、`--cg-mem`、`--fsize`、`--processes`（映射关系见 [03-judge.md](03-judge.md)） |
-| 清理 | `finally` 中执行 `--cleanup` 并删除工作目录；失败写日志 |
-
-Debian 13 + OpenJDK 21 下必须/建议的配置：
+`application.yaml` 中与沙箱相关的默认值（带 `${}` 的项可用环境变量覆盖）：
 
 ```yaml
 ioj:
   judge:
-    engine: isolate
+    enabled: ${IOJ_JUDGE_ENABLED:true}
+    engine: ${IOJ_JUDGE_ENGINE:isolate}
+    concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
+    max-output-bytes: 16777216        # 16MB，同时决定 --fsize
+    compile-timeout-ms: 30000
     isolate:
-      box-id-start: 1              # 避免 root 手工测试留下的 box 0
-      compile-processes: 64        # javac 需要较多线程
+      binary: /usr/bin/isolate
+      box-id-start: 1                 # 避开 root 手工测试留下的 box 0
+      box-id-count: 8                 # 应不小于 concurrency
+      check-on-startup: true
+      compile-processes: 64           # javac 需要大量线程
+      compile-time-seconds: 10
+      compile-wall-time-seconds: 30
+      compile-cg-mem-kb: 524288       # 编译期内存上限 512MB
+      compile-fsize-kb: 16384
+      wall-time-extra-seconds: 3
+      setup-timeout-ms: 10000         # init/cleanup 的宿主侧超时
       extra-dirs:
-        - /etc/java-21-openjdk     # java.security，否则 JVM 启动失败
-      resolve-executables: true    # 避开沙箱内不存在的 /etc/alternatives
+        - /etc/java-21-openjdk        # 只读挂载，见 §6.3
+      resolve-executables: true
     languages:
       JAVA:
-        isolate-processes: 64      # JVM 线程数
+        # 省略 display-name / source-file / run-wrapper；run-wrapper 只被 local 引擎使用
+        compile-command: javac -encoding UTF-8 -d . Main.java
+        run-command: java -Xmx{memoryMb}m -Xss64m -XX:+UseSerialGC Main
+        time-multiplier: 2.0
+        isolate-processes: 64
         isolate-memory-extra-mb: 256
 ```
 
-验证结果（Isolate 2.7，实际提交）：
+| 配置 | 作用 | 调整建议 |
+| --- | --- | --- |
+| `engine` | 选择引擎；`local` 为无沙箱回退 | 生产固定 `isolate` |
+| `concurrency` | 同时评测的提交数 | ≤ 核数 - 1，见 §9 |
+| `box-id-start` / `box-id-count` | 本实例独占的 box 编号区间 | `count ≥ concurrency`；多实例分段 |
+| `compile-processes` | 编译期 `--processes` | 保持 64，否则 javac 报 `pthread_create failed` |
+| `compile-cg-mem-kb` | 编译期 `--cg-mem` | 512MB 起，编译大项目可上调 |
+| `wall-time-extra-seconds` | 运行期墙钟 = CPU 限制 + 该值 | 死循环程序靠它兜底 |
+| `extra-dirs` | 只读绑定进沙箱的宿主目录 | 见 §6.3 |
+| `resolve-executables` | 把命令首词解析成真实路径 | 保持 `true` |
+| `setup-timeout-ms` | init/cleanup 的宿主超时 | 机器很慢时上调 |
 
-| 场景 | 结果 |
+box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停在 `boxIds.take()` 等别人归还，
+不会报错也不会丢任务。所以 `box-id-count` 小于并发时，表现是判题变慢，而不是失败。
+
+## 6. 实际下发的命令
+
+### 6.1 编译阶段
+
+以 Java、题目 256MB 内存为例（`resolve-executables` 已把 `javac` 换成真实路径）：
+
+```bash
+/usr/bin/isolate --cg --box-id=1 \
+  --processes=64 --time=10.00 --wall-time=30.00 \
+  --cg-mem=524288 --fsize=16384 \
+  --env=PATH=/usr/bin:/bin --env=TMPDIR=/box --env=LANG=C.UTF-8 \
+  --dir=/box=/tmp/ioj-isolate-XXXX/compile:rw \
+  --dir=/etc/java-21-openjdk=/etc/java-21-openjdk \
+  --chdir=/box --stdin=/box/empty.txt \
+  --stdout=/box/compile.out --stderr=/box/compile.err \
+  --meta=/tmp/ioj-isolate-XXXX/compile.meta \
+  --run -- /usr/lib/jvm/java-21-openjdk-amd64/bin/javac -encoding UTF-8 -d . Main.java
+```
+
+编译前，引擎会在 `compile/` 里写好 `Main.java`、`empty.txt`、`compile.out`、`compile.err` 四个文件。
+
+### 6.2 运行阶段
+
+题目 1000ms、Java 系数 2.0、内存 256MB：
+
+```bash
+/usr/bin/isolate --cg --box-id=1 \
+  --processes=64 --time=2.00 --wall-time=5.00 \
+  --cg-mem=524288 --fsize=16448 \
+  --env=PATH=/usr/bin:/bin --env=TMPDIR=/box --env=LANG=C.UTF-8 \
+  --dir=/box=/tmp/ioj-isolate-XXXX/run-1:rw \
+  --dir=/etc/java-21-openjdk=/etc/java-21-openjdk \
+  --chdir=/box --stdin=/box/input.txt \
+  --stdout=/box/output.txt --stderr=/box/stderr.txt \
+  --meta=/tmp/ioj-isolate-XXXX/run-1.meta \
+  --run -- /usr/lib/jvm/java-21-openjdk-amd64/bin/java -Xmx256m -Xss64m -XX:+UseSerialGC Main
+```
+
+参数来源：
+
+| 参数 | 计算方式 |
 | --- | --- |
-| Java A+B | `ACCEPTED`，`timeUsedMs`/`memoryUsedKb` 有值 |
-| Java 死循环 | `TIME_LIMIT_EXCEEDED` |
-| Java 语法错误 | `COMPILATION_ERROR`（带 javac 输出） |
-| C++ A+B | `ACCEPTED` |
-| C++ 内存压力 | `MEMORY_LIMIT_EXCEEDED`（cgroup OOM） |
-| C++ 超量输出 | `OUTPUT_LIMIT_EXCEEDED` |
-| Python A+B | `ACCEPTED` |
-| 判题完成后 | `/var/lib/isolate` 无残留 box |
+| `--time` | `max(100, ceil(题限 × 语言系数))` 毫秒 → 秒（两位小数） |
+| `--wall-time` | `ceil(CPU 限制) + wall-time-extra-seconds` |
+| `--cg-mem` | `max(16, 题限内存 + 语言额外内存) × 1024` KB |
+| `--fsize` | `max(1024, max-output-bytes / 1024 + 64)` KB |
+| `--processes` | 语言的 `isolate-processes`（下限 1） |
+| `--dir=/box=<工作目录>:rw` | 工作目录绑定为可写 `/box` |
+| `--dir=<extra-dirs>` | 同路径只读挂载（不带 `rw` 即只读） |
+| `--meta` | 写在**沙箱外**的工作目录根下 |
 
-> 权限说明：`/usr/bin/isolate` 通常为 `4750 root:isolate`。若运行后端的用户不在 `isolate` 组，会直接 `Permission denied`；
-> 用 `sudo usermod -aG isolate <user>` 授权后需要重新登录。也可以由管理员调整二进制权限，但不建议放宽到所有用户。
+### 6.3 五个容易踩的细节
 
+1. **`--cg-mem` 必须配 `--cg`**。少了 `--cg` 时 isolate 直接拒绝：
+   ```console
+   $ isolate --box-id=8 --cg-mem=102400 ... --run -- /usr/bin/python3 main.py
+   Options related to control groups require --cg to be set.
+   $ echo $?
+   2
+   ```
+2. **stdio 文件必须事先存在**。`--stdout` 指向不存在的文件时 isolate 不报错，而是**静默丢弃输出**
+   （实测 rc=0、meta 正常），结果是“程序跑完了但输出为空”，容易被误判为 WA。引擎每次都先建空文件。
+3. **`extra-dirs` 默认只读**。往里写会得到：
+   ```text
+   OSError: [Errno 30] Read-only file system: '/etc/java-21-openjdk/probe'
+   ```
+   需要写就加 `:rw`，本项目不需要。
+4. **Debian 上 `/etc/java-21-openjdk` 是必需的**。JDK 里的 `conf/security/java.security` 只是一个软链：
+   ```console
+   $ readlink -f /usr/lib/jvm/java-21-openjdk-amd64/conf/security/java.security
+   /etc/java-21-openjdk/security/java.security
+   ```
+   而沙箱默认**不挂载 `/etc`**（下节有挂载可见性实测），软链因此悬空，`javac` / `java` 一启动就失败：
+   ```text
+   Exception in thread "main" java.lang.InternalError: Error loading java.security file
+       at java.base/java.security.Security.initialize(Security.java:105)
+   ```
+   `--dir=/etc/java-21-openjdk=/etc/java-21-openjdk`（只读、同路径）即可修复。
+   换成 `java.security` 就在 JDK 目录内的发行版时，可以把这个配置留空。
+5. **默认没有网络**。不加 `--share-net` 时沙箱内连外网直接失败：
+   ```text
+   BLOCKED: [Errno 101] Network is unreachable
+   ```
+
+### 6.4 沙箱内能看到的目录
+
+沙箱只挂载固定的一组宿主目录，`/etc` 不在其中（在 box 内用 Python 探测 `os.path.exists` 的实测结果）：
+
+| 路径 | 沙箱内可见 | 说明 |
+| --- | --- | --- |
+| `/usr`、`/lib`、`/bin` | ✅ | 默认只读挂载，编译器和解释器来自这里 |
+| `/dev`、`/proc` | ✅ | 精简版设备与进程视图 |
+| `/box` | ✅ | 本项目绑定为可写工作目录 |
+| `/etc`、`/etc/alternatives` | ❌ | **默认不挂载**，所以 JDK 的 `java.security` 软链会悬空 |
+| `/etc/java-21-openjdk` | ❌ | 由 `extra-dirs` 显式加回，见 §6.3 第 4 条 |
+
+`extra-dirs` 的每一项都会被翻译成 `--dir=<路径>=<同一路径>`：
+
+- **同路径**：JDK 内部用的是绝对路径软链，必须挂到相同位置才能解析；
+- **只读**：不加 `:rw`，用户程序改不了宿主机文件；
+- **按需**：不整目录挂 `/etc`，是为了只暴露运行时真正需要的那一小块。
+
+## 7. 手工验证（不经过后端）
+
+用 box 5 复现一次完整评测。所有路径都要让沙箱用户能访问（读或写），否则会静默失败。
+
+> 手工复现的坑：Isolate 的目录规则在**同一个 box 内跨 `--run` 保留**（同路径规则会被后一次覆盖）。
+> 所以“这次没传 `--dir=/etc/java-21-openjdk` 居然也跑通了”，通常是上一次的规则还活着。
+> 要复现后端的真实行为，先 `--cleanup` 再 `--init`。
+
+```bash
+# 1. 建 box，输出的是 box 根目录
+isolate --cg --box-id=5 --init
+# /var/lib/isolate/5
+
+# 2. 准备“工作目录”，它以 /box 的身份出现在沙箱内
+W=$(mktemp -d /tmp/isolate-demo.XXXX)
+mkdir -p "$W/box"
+: > "$W/box/output.txt"; : > "$W/box/stderr.txt"; : > "$W/box/empty.txt"
+printf 'a, b = map(int, input().split())\nprint(a + b)\n' > "$W/box/main.py"
+echo '1 2' > "$W/box/input.txt"
+chmod -R 777 "$W"
+
+# 3. 运行
+isolate --cg --box-id=5 --processes=1 --time=2.00 --wall-time=5.00 \
+  --cg-mem=102400 --fsize=1024 \
+  --env=PATH=/usr/bin:/bin --env=TMPDIR=/box --env=LANG=C.UTF-8 \
+  --dir=/box="$W/box":rw \
+  --chdir=/box --stdin=/box/input.txt --stdout=/box/output.txt \
+  --stderr=/box/stderr.txt --meta="$W/run.meta" \
+  --run -- /usr/bin/python3 main.py
+
+# 4. 看结果
+cat "$W/box/output.txt"     # 3
+cat "$W/run.meta"
+
+# 5. 收尾
+isolate --cg --box-id=5 --cleanup
+rm -rf "$W"
+```
+
+一次正常运行的 meta（实测）：
+
+```text
+time:0.013
+time-wall:0.014
+max-rss:8428
+csw-voluntary:11
+csw-forced:2
+cg-mem:3180
+exitcode:0
+```
+
+| 字段 | 含义 | 本项目用法 |
+| --- | --- | --- |
+| `time` | CPU 时间（秒） | 写入 `timeUsedMs`（×1000 向上取整） |
+| `time-wall` | 墙钟时间（秒） | 仅排障参考 |
+| `max-rss` | 最大常驻内存（KB） | 仅排障参考 |
+| `cg-mem` | cgroup 内存峰值（KB） | 写入 `memoryUsedKb`（为 0 时存 `null`） |
+| `exitcode` | 退出码 | 非 0 → `RUNTIME_ERROR` |
+| `exitsig` | 终止信号 | 用于生成失败原因 |
+| `status` | `TO` / `RE` / `SG` / `XX` | 见 [03-judge.md](03-judge.md) §5.3 |
+| `killed` / `cg-oom-killed` | 被墙钟 / 内存杀掉 | `cg-oom-killed` → `MEMORY_LIMIT_EXCEEDED` |
+
+### 7.1 失败场景对照
+
+| 场景 | 命令关键参数 | 实测输出 |
+| --- | --- | --- |
+| 死循环（TLE） | `--time=1 --wall-time=3` | `status:TO`、`message:Time limit exceeded`、`killed:1`、`time:1.097`，rc=1 |
+| 申请 300MB、限额 64MB（MLE） | `--cg-mem=65536` | `cg-mem:65536`、`cg-oom-killed:1`、`exitsig:9`、`status:SG`，rc=1 |
+| Java 用 `--processes=1` | `--processes=1` | JVM 起不来线程：`status:RE`、`exitcode:1`，stderr 可能为空 |
+| 往只读挂载目录写 | `--dir=/etc/java-21-openjdk=...`（无 `rw`） | `OSError: [Errno 30] Read-only file system`，rc=1 |
+
+Java 手工验证有两点要注意：编译必须 `--processes=64`；`javac` / `java` 建议写真实路径
+（`/usr/lib/jvm/java-21-openjdk-amd64/bin/...`），否则沙箱内跟随 `/etc/alternatives` 软链会失败。
+
+## 8. 通过后端验证
+
+机器侧验证通过后，再确认后端真的能把提交送进沙箱（需要 MySQL 已就绪，见 [04-deployment.md](04-deployment.md)）。
+
+```bash
+cd server
+export IOJ_DB_USER=ioj IOJ_DB_PASSWORD='...' IOJ_JWT_SECRET="$(openssl rand -base64 48)"
+./mvnw spring-boot:run        # 启动日志中不应出现 isolate 相关报错
+```
+
+```bash
+BASE=http://127.0.0.1:8080/api/v1
+TOKEN=$(curl -s -X POST $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"account":"admin","password":"admin123456"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
+
+# 提交一次 A+B（Java），记下返回的提交 id
+ID=$(curl -s -X POST $BASE/submissions -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"problemId":1,"language":"JAVA","code":"public class Main{public static void main(String[] a){System.out.println(2);}}"}' \
+  | sed -E 's/.*"id":([0-9]+).*/\1/')
+
+# 轮询结果
+curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
+```
+
+判定成功的标志：
+
+| 检查点 | 期望 |
+| --- | --- |
+| `status` | 从 `PENDING` → `JUDGING` → `ACCEPTED`（或预期的错误状态） |
+| `timeUsedMs` | 非空，来自 meta 的 `time` |
+| `memoryUsedKb` | **非空**，来自 meta 的 `cg-mem`（这是"真的跑在 Isolate 里"的直接证据） |
+| 日志 | 无 `Isolate judging failed for submission`、无 `isolate --cleanup failed` |
+| 宿主机 | `ls /var/lib/isolate` 在判题结束后应为空 |
+
+如果 `memoryUsedKb` 一直是 `null`，先确认 `IOJ_JUDGE_ENGINE` 没有被设成 `local`：
+回退引擎不读 cgroup，本来就没有内存统计。
+
+## 9. 容量与调优
+
+| 项 | 建议 | 原因 |
+| --- | --- | --- |
+| `concurrency` | 4–8（20 核机器） | 每个评测会占满 1 核跑用户程序，同时还要跑编译 |
+| `box-id-count` | ≥ `concurrency` | 小于并发只会让判题排队，不会报错 |
+| `compile-processes` | 64 不动 | `javac` 线程多 |
+| `compile-cg-mem-kb` | 512MB 起 | 实测一个 `Main.java` 编译峰值约 64MB，大工程更高 |
+| Java 的 `isolate-memory-extra-mb` | 256 | 实测空跑的 JVM `cg-mem` 就有 61–66MB，还要留 metaspace/线程栈 |
+| 磁盘 | `/tmp` 与 `/var/lib/isolate` 同盘时留足空间 | 每次评测会复制产物到每个测试点目录 |
+
+多实例（同一台机器跑两个判题进程）时 `box-id-start` 必须分段，例如 A 实例 `1..8`、B 实例 `9..16`；
+重叠会互相抢同一个 box，表现为 `isolate --init` 失败或结果串台。跨机器则无需分段。
+
+`--cg-mem` 是按**单次运行**限制的，不是整机配额：并发 8 且每题 512MB 时，峰值可能吃掉 4GB，
+要给数据库和系统留出余量。
+
+## 10. 排障
+
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| 启动即退出，`isolate binary is not executable` | 路径不对，或运行用户没有执行权限（非 setuid 打包时） | 确认 `isolate --version` 可执行；必要时 `sudo usermod -aG isolate <user>` 后重新登录 |
+| 所有提交都 `SYSTEM_ERROR`，日志有 `isolate --init failed for box N` | `isolate.service` 停了（cgroup 没委派），或 box 被别的用户占用 | `systemctl status isolate.service`；`isolate --cg --box-id=N --cleanup` 后再试 |
+| `This box belongs to a different user` | 该编号被其他用户（常见是 root 手工测试）创建过 | 换 `box-id-start`，或让原用户执行 `--cleanup` |
+| 手工调用报 `Options related to control groups require --cg to be set` | 参数里缺 `--cg` | 后端已默认带 `--cg`，只影响手工调试 |
+| `status:XX` | Isolate 自身失败（box 状态异常、cgroup 写入失败） | 看日志里 isolate 的 stderr，清理 box 后重试 |
+| `pthread_create failed` / Java 直接 `exitcode:1` | `--processes` 太小 | Java 的 `isolate-processes` 与 `compile-processes` 都用 64 |
+| 编译报 `execve(...): No such file or directory` | 命令首词是 `/etc/alternatives` 软链，沙箱没挂载 | 保持 `resolve-executables: true` |
+| JVM 报 `Error loading java.security file` | 沙箱默认不挂载 `/etc`，而 Debian 的 `conf/security/java.security` 是指向 `/etc/java-21-openjdk` 的软链 | `extra-dirs` 保留 `/etc/java-21-openjdk`；手工验证时先 `--cleanup` + `--init`，别让上一次的 `--dir` 残留 |
+| 程序正常退出但输出为空 / 莫名 WA | `--stdout` 目标文件不存在，isolate 静默丢弃输出 | 复现时先 `: > output.txt`；后端已自动建空文件 |
+| 写入目录报 `Read-only file system` | `--dir` 没加 `:rw` | 只有 `/box` 需要写；`extra-dirs` 保持只读 |
+| 编译超时（`COMPILATION_ERROR: 编译超时`） | `compile-time-seconds` / `compile-wall-time-seconds` 太小 | 分别上调 CPU 与墙钟限制 |
+| 判题结束后 `/var/lib/isolate` 有残留目录 | 进程被强杀，没执行 `--cleanup` | 确认日志告警；用同一用户 `isolate --cg --box-id=N --cleanup` |
+| 提交一直 `PENDING` | worker 被关闭（`IOJ_JUDGE_ENABLED=false`）或任务积压 | 查配置、`GET /api/v1/submissions?status=PENDING`、后端日志 |
+| 判题正常但 `memoryUsedKb` 为 `null` | 引擎是 `local` 回退，或 meta 里没有 `cg-mem` | 确认 `IOJ_JUDGE_ENGINE=isolate`，并手工跑一次看 meta |
+
+排查顺序建议：`isolate --version` → `systemctl is-active isolate.service` → `cat /run/isolate/cgroup`
+→ 手工 §7 流程 → 再看后端日志。前两步就能覆盖大部分“装好了但判不了”的情况。
+
+## 11. 安全边界
+
+| 事实 | 含义 |
+| --- | --- |
+| 与宿主机共享内核 | 沙箱依赖命名空间 + cgroup + seccomp，内核漏洞可以逃逸；公网场景请用独立判题机并保持系统更新 |
+| 二进制是 setuid root | 任何本机用户都能建沙箱；不要把判题机当作多租户共享机器 |
+| 默认无网络（实测 `Errno 101`） | 用户程序无法外联，也拿不到数据库；除排障外不要加 `--share-net` |
+| 沙箱 UID 来自 `/etc/subuid` | 与宿主机用户不同，因此工作目录被放开为 `777`；该目录只放源码/输入/输出 |
+| 资源限制是逐次的 | `--cg-mem`、`--time`、`--processes` 只约束单次运行，整机容量靠 `concurrency` 控制 |
+
+其它约定：
+
+- 后端**不要用 root 运行**；需要 root 的部分由 setuid 的 `isolate` 自己完成。
+- 不要把数据库密码、JWT 密钥、证书放进判题机的工作目录或 `/tmp`。
+- 提交的代码只允许在沙箱内编译与执行，宿主机上的 `javac`/`g++` 只作为沙箱内可执行文件存在。
+- 上线前用 §7 的失败场景（TLE / MLE / RE / 只读挂载）各跑一遍，确认分类符合预期。

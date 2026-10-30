@@ -241,7 +241,7 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | [./03-judge.md](./03-judge.md) | 评测状态机、引擎选择、Isolate 沙箱与限额、语言配置、生产加固 |
 | [./04-deployment.md](./04-deployment.md) | 建库、配置、systemd/Nginx、备份、上线检查清单 |
 | [./05-development.md](./05-development.md) | 开发规范、扩展方式、测试说明、踩坑记录 |
-| [./06-isolate.md](./06-isolate.md) | Isolate 安装、cgroup 服务、手动验证命令、接入说明 |
+| [./06-isolate.md](./06-isolate.md) | Isolate 安装、权限模型、参数映射、手动验证、容量与排障 |
 
 ## 常见问题
 

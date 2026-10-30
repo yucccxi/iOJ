@@ -236,7 +236,7 @@ public class IsolateJudgeEngine implements JudgeEngine {
             return JudgeOutcome.systemError("isolate failed while compiling");
         }
         if ("TO".equals(meta.status())) {
-            return JudgeOutcome.compilationError("compile timed out");
+            return JudgeOutcome.compilationError("编译超时");
         }
         if (process.exitCode() != 0 || meta.exitCode() != 0) {
             String message = readText(compileErr, properties.getMaxCompileOutputBytes());
@@ -296,24 +296,27 @@ public class IsolateJudgeEngine implements JudgeEngine {
     /**
      * Builds the human readable message stored for a failed case.
      *
+     * <p>The messages are fixed English sentences without any measured value: the limits themselves are not
+     * quoted, so a message does not reveal the concrete limit that was hit.</p>
+     *
      * @param status status returned by {@link #classify}; accepted cases produce no message
-     * @param meta   parsed meta of the run; its signal is used when the program wrote no stderr
+     * @param meta   parsed meta of the run; it only distinguishes a signal from a non-zero exit code when the
+     *               program wrote no stderr
      * @param stderr host-side path of the file bound to {@code /box/stderr.txt}
      * @return a short reason for TLE/MLE/OLE, the trimmed stderr (or a signal/non-zero-exit hint) for a
      *         runtime error, and {@code null} for {@code ACCEPTED}/{@code WRONG_ANSWER} cases
      */
     private String caseMessage(SubmissionStatus status, IsolateMeta meta, Path stderr) {
         return switch (status) {
-            case TIME_LIMIT_EXCEEDED -> "time limit exceeded";
-            case MEMORY_LIMIT_EXCEEDED -> "memory limit exceeded";
-            case OUTPUT_LIMIT_EXCEEDED -> "output limit exceeded";
+            case TIME_LIMIT_EXCEEDED -> "Time Limit Exceeded";
+            case MEMORY_LIMIT_EXCEEDED -> "Memory Limit Exceeded";
+            case OUTPUT_LIMIT_EXCEEDED -> "Output Limit Exceeded";
             case RUNTIME_ERROR -> {
                 String message = readText(stderr, MESSAGE_LIMIT).trim();
                 if (!message.isEmpty()) {
                     yield message;
                 }
-                int signal = meta.signal();
-                yield signal > 0 ? "killed by signal " + signal : "non-zero exit code";
+                yield meta.signal() > 0 ? "Killed by signal" : "Non-zero exit code";
             }
             default -> null;
         };

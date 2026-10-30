@@ -15,7 +15,7 @@
 # Debian/Ubuntu 判题机依赖
 sudo apt install -y openjdk-21-jdk maven g++ gcc python3 isolate
 sudo systemctl enable --now isolate.service
-sudo usermod -aG isolate "$USER"     # 重新登录后生效
+sudo usermod -aG isolate "$USER"     # 官方包是 setuid，非必需；收紧权限时使用，改后需重新登录
 isolate --check-config
 ```
 
@@ -154,7 +154,7 @@ server {
 ```bash
 sudo apt install isolate g++ gcc python3 openjdk-21-jdk
 sudo systemctl enable --now isolate.service
-sudo usermod -aG isolate <运行后端的用户>   # 重新登录后生效
+sudo usermod -aG isolate <运行后端的用户>   # 官方包是 setuid，非必需；收紧权限时使用，改后需重新登录
 isolate --check-config
 ```
 
@@ -227,7 +227,7 @@ sudo systemctl start ioj
 - [ ] 数据库密码已替换，MySQL 只监听内网/本机
 - [ ] 管理员密码已从 `admin123456` 改掉
 - [ ] `IOJ_PROBLEM_AUTO_PUBLISH` 按开放程度设置
-- [ ] 判题机已安装 Isolate，`isolate.service` 为 active，运行用户已在 `isolate` 组，`isolate --check-config` 通过
+- [ ] 判题机已安装 Isolate，`isolate.service` 为 active，运行用户能执行 `isolate --version`，`isolate --check-config` 通过
 - [ ] 需要公网开放注册时，未使用 `engine=local` 回退（回退模式无法防 fork bomb/网络访问）
 - [ ] Nginx 已开启 HTTPS；`client_max_body_size` 足够上传测试数据
 - [ ] 备份任务已配置并验证过一次恢复
