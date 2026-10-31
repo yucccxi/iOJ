@@ -76,3 +76,6 @@
 ## 工作台交付
 
 本轮实现计划见 [workbench-plan.md](workbench-plan.md)。独立 worktree 的 5174 用于候选验收，日常运行入口为主工作区 5173；切换包含新增依赖的版本时，在合并锁外执行 npm ci，再以 npm run dev -- --host 0.0.0.0 恢复主服务。本轮按用户要求禁止推送；验收与候选清理结果见 [handoff.md](handoff.md)。
+
+## 代码草稿刷新恢复
+草稿由 src/stores/codeDrafts.ts 按题目保存到当前标签页 sessionStorage（ioj.code-drafts.v1）。刷新恢复代码与语言，退出或替换认证清空，访客登录保留；关闭标签页后的长期保留不在此契约内。存储禁用或容量不足时仅保留内存。回归：tests/codeDrafts.spec.ts。
