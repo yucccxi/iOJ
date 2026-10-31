@@ -1,22 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-const storageKey = 'ioj:announcement:3588dc9a:dismissed'
 const visible = ref(true)
-
-try {
-  visible.value = window.sessionStorage.getItem(storageKey) !== '1'
-} catch {
-  // Storage may be disabled; the notice still works for this page visit.
-}
 
 function dismiss() {
   visible.value = false
-  try {
-    window.sessionStorage.setItem(storageKey, '1')
-  } catch {
-    // Keep dismissal in memory when storage is unavailable.
-  }
 }
 </script>
 
@@ -36,14 +24,15 @@ function dismiss() {
 
 <style scoped>
 .announcement-notice {
+  --focus: #664d03;
   display: flex;
   flex-shrink: 0;
   align-items: center;
   gap: 8px;
   padding: 4px max(32px, env(safe-area-inset-right)) 4px max(32px, env(safe-area-inset-left));
-  border-bottom: 1px solid var(--line);
-  background: var(--positive-bg);
-  color: var(--ink);
+  border-bottom: 1px solid #e6cc80;
+  background: #fff3cd;
+  color: #664d03;
 }
 
 .announcement-notice p {
@@ -56,6 +45,7 @@ function dismiss() {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+  color: inherit;
   font-weight: 600;
   text-decoration: underline;
 }
@@ -70,14 +60,13 @@ function dismiss() {
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: var(--muted);
+  color: inherit;
   font-size: 24px;
   line-height: 1;
 }
 
 .announcement-close:hover {
-  background: var(--soft);
-  color: var(--ink);
+  background: #ffe69c;
 }
 
 @media (max-width: 480px) {

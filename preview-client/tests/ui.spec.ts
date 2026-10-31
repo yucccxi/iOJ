@@ -224,7 +224,6 @@ describe('基于接口契约的模拟 DOM 交互（不替代真实浏览器验�
     expect(wrapper.find('[aria-label="公告提示"]').exists()).toBe(false)
     expect(wrapper.get('.cm-editor').element).toBe(editor)
     expect(codeText()).toBe('int main() { return 42; }')
-    window.sessionStorage.removeItem('ioj:announcement:3588dc9a:dismissed')
   })
   test('实际 Transition 启用时，退出立即清除私密内容', async () => {
     await login()
