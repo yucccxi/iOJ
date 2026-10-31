@@ -214,6 +214,18 @@ afterEach(() => {
 })
 
 describe('基于接口契约的模拟 DOM 交互（不替代真实浏览器验收）', () => {
+  test('公告位于导航上方，切换作答页和关闭公告不重建页面', async () => {
+    const notice = wrapper.get('[aria-label="公告提示"]')
+    expect(notice.element.nextElementSibling).toBe(wrapper.get('header').element)
+    await go('/problems/42')
+    await setCode('int main() { return 42; }')
+    const editor = wrapper.get('.cm-editor').element
+    await wrapper.get('button[aria-label="关闭公告提示"]').trigger('click')
+    expect(wrapper.find('[aria-label="公告提示"]').exists()).toBe(false)
+    expect(wrapper.get('.cm-editor').element).toBe(editor)
+    expect(codeText()).toBe('int main() { return 42; }')
+    window.sessionStorage.removeItem('ioj:announcement:3588dc9a:dismissed')
+  })
   test('实际 Transition 启用时，退出立即清除私密内容', async () => {
     await login()
     await go('/submissions/99')

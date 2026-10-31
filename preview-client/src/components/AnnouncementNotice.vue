@@ -21,7 +21,7 @@ function dismiss() {
 </script>
 
 <template>
-  <aside v-if="visible" class="announcement-notice" aria-label="公告提示">
+  <aside v-if="visible" class="announcement-notice" role="status" aria-label="公告提示">
     <p>
       如果你第一次来这个网站，请看
       <a href="https://blog.iynotuo.me/posts/3588dc9a" target="_blank" rel="noopener noreferrer"
@@ -36,21 +36,14 @@ function dismiss() {
 
 <style scoped>
 .announcement-notice {
-  position: fixed;
-  z-index: 12;
-  right: max(16px, env(safe-area-inset-right));
-  bottom: max(16px, env(safe-area-inset-bottom));
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 8px;
-  width: 344px;
-  max-width: calc(100% - 32px);
-  padding: 8px 8px 8px 16px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
+  padding: 4px max(32px, env(safe-area-inset-right)) 4px max(32px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--line);
+  background: var(--positive-bg);
   color: var(--ink);
-  box-shadow: 0 4px 20px #00000014;
 }
 
 .announcement-notice p {
@@ -85,5 +78,12 @@ function dismiss() {
 .announcement-close:hover {
   background: var(--soft);
   color: var(--ink);
+}
+
+@media (max-width: 480px) {
+  .announcement-notice {
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-left: max(16px, env(safe-area-inset-left));
+  }
 }
 </style>

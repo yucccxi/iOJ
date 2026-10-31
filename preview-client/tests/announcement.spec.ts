@@ -19,6 +19,7 @@ afterEach(() => {
 test('公告链接正确，关闭后重新挂载仍保持隐藏且不改动认证存储', async () => {
   const wrapper = notice()
   expect(wrapper.text()).toContain('如果你第一次来这个网站，请看')
+  expect(wrapper.get('[role="status"]').attributes('aria-label')).toBe('公告提示')
   expect(wrapper.get('a').attributes()).toMatchObject({
     href: 'https://blog.iynotuo.me/posts/3588dc9a',
     target: '_blank',
