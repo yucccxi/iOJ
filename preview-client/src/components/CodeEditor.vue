@@ -63,9 +63,11 @@ function theme(dark: boolean) {
         paddingRight: '6px',
       },
       '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--editor-active)' },
-      '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
+      '& .cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
         backgroundColor: 'var(--editor-selection)',
       },
+      '.cm-content ::selection': { backgroundColor: 'var(--editor-selection)' },
+      '.cm-activeLine': { backgroundColor: 'transparent' },
       '.cm-cursor': { borderLeftColor: 'var(--ink)' },
       '.cm-tooltip, .cm-panels': {
         color: 'var(--ink)',
