@@ -2,6 +2,7 @@ import { beforeEach, afterEach, describe, test, expect, vi } from 'vitest'
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { createPinia, disposePinia, setActivePinia } from 'pinia'
 import { effectScope } from 'vue'
+import { EditorView } from '@codemirror/view'
 import App from '@/App.vue'
 import router from '@/router'
 import { session } from '@/api/session'
@@ -47,6 +48,19 @@ let submissions: number
 let failProblems: boolean
 let description: string
 let listTotal: number
+function codeView() {
+  const view = EditorView.findFromDOM(wrapper.get('.cm-editor').element as HTMLElement)
+  if (!view) throw new Error('Code editor is not mounted')
+  return view
+}
+function codeText() {
+  return codeView().state.doc.toString()
+}
+async function setCode(value: string) {
+  const view = codeView()
+  view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } })
+  await flushPromises()
+}
 function json(data: unknown, code = 0, status = 200, message = 'ok') {
   return Response.json({ code, message, data }, { status })
 }
@@ -200,10 +214,27 @@ afterEach(() => {
 })
 
 describe('基于接口契约的模拟 DOM 交互（不替代真实浏览器验收）', () => {
+  test('实际 Transition 启用时，退出立即清除私密内容', async () => {
+    await login()
+    await go('/submissions/99')
+    wrapper.unmount()
+    wrapper = mount(App, {
+      attachTo: document.body,
+      global: { plugins: [pinia, router], stubs: { transition: false } },
+    })
+    await vi.waitFor(() => expect(wrapper.find('.source-code').exists()).toBe(true))
+    await wrapper
+      .findAll('header button')
+      .find((button) => button.text() === '退出')!
+      .trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.source-code').exists()).toBe(false)
+    await vi.waitFor(() => expect(wrapper.text()).toContain('源码未公开'))
+  })
   test('未登录作答后登录返回，保留代码与语言', async () => {
     await go('/problems/42')
     await wrapper.get('.editor-toolbar select').setValue('JAVA')
-    await wrapper.get('.code-editor').setValue('public class Main { /* 草稿 */ }')
+    await setCode('public class Main { /* 草稿 */ }')
     await wrapper.get('.editor-footer a').trigger('click')
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/login'))
     await vi.dynamicImportSettled()
@@ -214,34 +245,28 @@ describe('基于接口契约的模拟 DOM 交互（不替代真实浏览器验�
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/problems/42'))
     await vi.dynamicImportSettled()
     await flushPromises()
-    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe(
-      'public class Main { /* 草稿 */ }',
-    )
+    expect(codeText()).toBe('public class Main { /* 草稿 */ }')
     expect((wrapper.get('.editor-toolbar select').element as HTMLSelectElement).value).toBe('JAVA')
   })
   test('不同题目的草稿独立，离开后返回恢复各自内容', async () => {
     await go('/problems/42')
     await wrapper.get('.editor-toolbar select').setValue('CPP')
-    await wrapper.get('.code-editor').setValue('int main() { return 42; }')
+    await setCode('int main() { return 42; }')
     await go('/problems/43')
-    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe('')
+    expect(codeText()).toBe('')
     await wrapper.get('.editor-toolbar select').setValue('JAVA')
-    await wrapper.get('.code-editor').setValue('public class Main { /* 43 */ }')
+    await setCode('public class Main { /* 43 */ }')
     await go('/problems/42')
-    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe(
-      'int main() { return 42; }',
-    )
+    expect(codeText()).toBe('int main() { return 42; }')
     expect((wrapper.get('.editor-toolbar select').element as HTMLSelectElement).value).toBe('CPP')
     await go('/problems/43')
-    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe(
-      'public class Main { /* 43 */ }',
-    )
+    expect(codeText()).toBe('public class Main { /* 43 */ }')
   })
   test.each(['退出', '会话失效'])('%s 后清空作答草稿，其他账号不能恢复', async (mode) => {
     await login()
     await go('/problems/42')
     await wrapper.get('.editor-toolbar select').setValue('JAVA')
-    await wrapper.get('.code-editor').setValue('private code from alice')
+    await setCode('private code from alice')
     if (mode === '退出')
       await wrapper
         .findAll('header button')
@@ -250,10 +275,10 @@ describe('基于接口契约的模拟 DOM 交互（不替代真实浏览器验�
     else session.set(null)
     await vi.dynamicImportSettled()
     await flushPromises()
-    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe('')
+    expect(codeText()).toBe('')
     await login('admin')
     await go('/problems/42')
-    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe('')
+    expect(codeText()).toBe('')
     expect((wrapper.get('.editor-toolbar select').element as HTMLSelectElement).value).toBe('')
   })
   test.each([
@@ -361,7 +386,7 @@ describe('基于接口契约的模拟 DOM 交互（不替代真实浏览器验�
     expect(testcases.length).toBe(1)
     await go('/problems/42')
     await wrapper.get('.editor-toolbar select').setValue('JAVA')
-    await wrapper.get('.code-editor').setValue('public class Main {}')
+    await setCode('public class Main {}')
     await wrapper.get('.code-panel form').trigger('submit')
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/submissions/99'))
     await vi.dynamicImportSettled()

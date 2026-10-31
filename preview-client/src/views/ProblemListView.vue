@@ -6,6 +6,7 @@ import { useResource } from '@/composables/useResource'
 import PageState from '@/components/PageState.vue'
 import ProblemTable from '@/components/ProblemTable.vue'
 import Pagination from '@/components/Pagination.vue'
+import UiIcon from '@/components/UiIcon.vue'
 const route = useRoute(),
   router = useRouter()
 const mine = computed(() => !!route.meta.mine)
@@ -40,61 +41,71 @@ function paginate(next: number) {
 }
 </script>
 <template>
-  <section>
-    <div class="page-heading">
-      <h1>{{ mine ? '我的题目' : '题库' }}</h1>
-      <RouterLink v-if="mine" to="/problems/new" class="button">新建题目</RouterLink>
-    </div>
-    <form class="filter-bar panel" @submit.prevent="navigate()">
-      <label class="search-field"
-        ><span class="sr-only">搜索题目标题</span
-        ><input v-model="keyword" type="search" placeholder="搜索题目标题" maxlength="128"
-      /></label>
-      <template v-if="!mine"
-        ><label
-          ><span class="sr-only">难度</span
-          ><select v-model="difficulty">
-            <option value="">全部难度</option>
-            <option value="EASY">简单</option>
-            <option value="MEDIUM">中等</option>
-            <option value="HARD">困难</option>
-          </select></label
-        >
-        <label
-          ><span class="sr-only">标签</span
-          ><select v-model="tagId">
-            <option value="">全部标签</option>
-            <option v-for="tag in tags.data.value || []" :key="tag.id" :value="String(tag.id)">
-              {{ tag.name }}
-            </option>
-          </select></label
-        ></template
+  <section class="problem-library">
+    <div class="page-heading library-heading">
+      <div class="heading-title">
+        <h1>{{ mine ? '我的题目' : '题库' }}</h1>
+        <span v-if="data && !loading && !error" class="result-count mono">{{ data.total }}</span>
+      </div>
+      <RouterLink v-if="mine" to="/problems/new" class="button"
+        ><UiIcon name="plus" />新建题目</RouterLink
       >
-      <button class="button secondary">查询</button>
-    </form>
-    <p v-if="tags.error.value" class="error" role="alert">
-      {{ tags.error.value }} <button class="text-button" @click="tags.reload">重试标签</button>
-    </p>
-    <div class="panel table-panel">
-      <PageState
-        :loading="loading"
-        :error="error"
-        :empty="!data?.items.length"
-        :empty-text="mine ? '暂无上传的题目' : '暂无题目'"
-        @retry="reload"
-      />
-      <ProblemTable
-        v-if="!loading && !error && data?.items.length"
-        :items="data.items"
-        :manage="mine"
-      />
-      <Pagination
-        v-if="data && !error && !loading"
-        :page="data.page"
-        :size="data.size"
-        :total="data.total"
-        @change="paginate"
-      />
+    </div>
+    <div class="panel library-panel">
+      <form class="filter-bar library-filters" @submit.prevent="navigate()">
+        <label class="search-field"
+          ><span class="sr-only">搜索题目标题</span><UiIcon name="search" /><input
+            v-model="keyword"
+            type="search"
+            placeholder="搜索题目标题"
+            maxlength="128"
+        /></label>
+        <template v-if="!mine"
+          ><label
+            ><span class="sr-only">难度</span
+            ><select v-model="difficulty">
+              <option value="">全部难度</option>
+              <option value="EASY">简单</option>
+              <option value="MEDIUM">中等</option>
+              <option value="HARD">困难</option>
+            </select></label
+          >
+          <label
+            ><span class="sr-only">标签</span
+            ><select v-model="tagId">
+              <option value="">全部标签</option>
+              <option v-for="tag in tags.data.value || []" :key="tag.id" :value="String(tag.id)">
+                {{ tag.name }}
+              </option>
+            </select></label
+          ></template
+        >
+        <button class="button secondary">查询</button>
+      </form>
+      <p v-if="tags.error.value" class="error" role="alert">
+        {{ tags.error.value }} <button class="text-button" @click="tags.reload">重试标签</button>
+      </p>
+      <div class="table-panel">
+        <PageState
+          :loading="loading"
+          :error="error"
+          :empty="!data?.items.length"
+          :empty-text="mine ? '暂无上传的题目' : '暂无题目'"
+          @retry="reload"
+        />
+        <ProblemTable
+          v-if="!loading && !error && data?.items.length"
+          :items="data.items"
+          :manage="mine"
+        />
+        <Pagination
+          v-if="data && !error && !loading"
+          :page="data.page"
+          :size="data.size"
+          :total="data.total"
+          @change="paginate"
+        />
+      </div>
     </div>
   </section>
 </template>

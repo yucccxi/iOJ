@@ -1,10 +1,22 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import AccountMenu from '@/components/AccountMenu.vue'
+import UiIcon from '@/components/UiIcon.vue'
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const practice = computed(() => /^\/problems\/\d+$/.test(route.path))
+function focusContent() {
+  const main = document.getElementById('main')
+  const target =
+    main?.querySelector<HTMLElement>('[autofocus]') || main?.querySelector<HTMLElement>('h1')
+  if (target) {
+    if (target.tagName === 'H1') target.tabIndex = -1
+    target.focus({ preventScroll: true })
+  }
+}
 watch(
   () => auth.token,
   (token, previous) => {
@@ -23,7 +35,7 @@ async function logout() {
   <header class="site-header">
     <div class="header-inner">
       <RouterLink to="/problems" class="brand" aria-label="iOJ 题库"
-        ><span class="brand-mark">iOJ</span><span class="brand-caption">算法练习</span></RouterLink
+        ><span class="brand-mark">iOJ<span class="brand-dot">.</span></span></RouterLink
       >
       <nav class="primary-nav" aria-label="主导航">
         <RouterLink
@@ -51,13 +63,10 @@ async function logout() {
       </nav>
       <div class="account-nav" v-if="auth.ready">
         <template v-if="auth.user"
-          ><RouterLink to="/problems/new" class="button small">出题</RouterLink
-          ><RouterLink :to="'/users/' + auth.user.id" class="account-name">{{
-            auth.user.nickname
-          }}</RouterLink
-          ><RouterLink to="/settings" class="quiet-link">设置</RouterLink
-          ><button class="text-button" @click="logout">退出</button></template
-        >
+          ><RouterLink to="/problems/new" class="button small secondary"
+            ><UiIcon name="plus" />出题</RouterLink
+          ><AccountMenu :user="auth.user" @logout="logout"
+        /></template>
         <template v-else
           ><RouterLink to="/login" class="quiet-link">登录</RouterLink
           ><RouterLink to="/register" class="button small secondary">注册</RouterLink></template
@@ -65,8 +74,16 @@ async function logout() {
       </div>
     </div>
   </header>
-  <main id="main" class="main-shell" tabindex="-1">
-    <RouterView :key="route.fullPath + ':' + auth.revision" />
+  <main id="main" class="main-shell" :class="{ 'main-shell--practice': practice }" tabindex="-1">
+    <div :key="auth.revision" class="route-host">
+      <RouterView v-slot="{ Component, route: viewRoute }">
+        <Transition name="page" mode="out-in" @after-enter="focusContent">
+          <div :key="viewRoute.fullPath" class="route-page"><component :is="Component" /></div>
+        </Transition>
+      </RouterView>
+    </div>
   </main>
-  <footer class="site-footer"><span class="mono">iOJ</span><span>算法练习</span></footer>
+  <footer v-if="!practice" class="site-footer">
+    <span class="mono">iOJ</span><span>算法练习</span>
+  </footer>
 </template>
