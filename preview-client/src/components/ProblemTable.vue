@@ -13,7 +13,7 @@ defineProps<{ items: ProblemSummary[]; manage?: boolean }>()
           <th>难度</th>
           <th v-if="manage">状态</th>
           <th>标签</th>
-          <th>通过 / 提交</th>
+          <th class="numeric">通过 / 提交</th>
           <th>出题人</th>
           <th v-if="manage">操作</th>
         </tr>
@@ -30,7 +30,7 @@ defineProps<{ items: ProblemSummary[]; manage?: boolean }>()
             <span class="tag" v-for="tag in item.tags" :key="tag.id">{{ tag.name }}</span
             ><span v-if="!item.tags.length" class="subtle">—</span>
           </td>
-          <td class="mono nowrap">{{ item.acceptedCount }} / {{ item.submitCount }}</td>
+          <td class="mono nowrap numeric">{{ item.acceptedCount }} / {{ item.submitCount }}</td>
           <td>
             <RouterLink :to="'/users/' + item.authorId">{{ item.authorNickname }}</RouterLink>
           </td>

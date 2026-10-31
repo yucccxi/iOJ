@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useRequestScope } from '@/composables/useRequestScope'
 const signal = useRequestScope()
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/api/resources'
 import { useAuthStore } from '@/stores/auth'
+import { useCodeDraftsStore } from '@/stores/codeDrafts'
 import { useResource } from '@/composables/useResource'
 import { errorText } from '@/lib/contracts'
 import type { Language } from '@/types/api'
@@ -19,10 +20,15 @@ const id = String(route.params.id)
 const { data: problem, loading, error, reload } = useResource((signal) => api.problem(id, signal))
 const languages = useResource((signal) => api.languages(signal))
 const recent = useResource((signal) => api.submissions({ problemId: id, page: 1, size: 5 }, signal))
-const language = ref<Language | ''>(''),
-  code = ref(''),
+const drafts = useCodeDraftsStore()
+const draft = drafts.read(id)
+const language = ref<Language | ''>(draft.language),
+  code = ref(draft.code),
   busy = ref(false),
   submitError = ref('')
+watch([code, language], ([code, language]) => drafts.save(id, { code, language }), {
+  flush: 'sync',
+})
 const manageable = computed(
   () => problem.value && (auth.isAdmin || auth.user?.id === problem.value.authorId),
 )

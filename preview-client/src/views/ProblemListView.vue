@@ -26,15 +26,17 @@ const { data, loading, error, reload } = useResource((signal) =>
     signal,
   ),
 )
-function navigate(next = 1) {
+function navigate() {
   void router.push({
     query: {
       keyword: keyword.value || undefined,
       difficulty: mine.value ? undefined : difficulty.value || undefined,
       tagId: mine.value ? undefined : tagId.value || undefined,
-      page: next > 1 ? next : undefined,
     },
   })
+}
+function paginate(next: number) {
+  void router.push({ query: { ...route.query, page: next > 1 ? next : undefined } })
 }
 </script>
 <template>
@@ -91,7 +93,7 @@ function navigate(next = 1) {
         :page="data.page"
         :size="data.size"
         :total="data.total"
-        @change="navigate"
+        @change="paginate"
       />
     </div>
   </section>

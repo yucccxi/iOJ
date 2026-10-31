@@ -46,6 +46,7 @@ let testcases: { id: number; ordinal: number; inputBytes: number; outputBytes: n
 let submissions: number
 let failProblems: boolean
 let description: string
+let listTotal: number
 function json(data: unknown, code = 0, status = 200, message = 'ok') {
   return Response.json({ code, message, data }, { status })
 }
@@ -104,11 +105,12 @@ const mockHttp: typeof fetch = async (input, init = {}) => {
     return method === 'DELETE'
       ? json(null)
       : json({ ...problem, ...(method === 'PUT' ? body : {}), description })
+  if (path === '/problems/43') return json({ ...problem, id: 43, title: '另一道题目' })
   if (path === '/problems' || path === '/problems/mine' || path === '/admin/problems') {
     if (failProblems) return json(null, 1500, 500, '服务器内部错误')
     return json({
       items: [problem],
-      total: 1,
+      total: listTotal,
       page: Number(url.searchParams.get('page')) || 1,
       size: 20,
     })
@@ -117,7 +119,13 @@ const mockHttp: typeof fetch = async (input, init = {}) => {
     submissions = 0
     return json({ id: 99, status: 'PENDING' })
   }
-  if (path === '/submissions') return json({ items: [], total: 0, page: 1, size: 20 })
+  if (path === '/submissions')
+    return json({
+      items: [],
+      total: listTotal,
+      page: Number(url.searchParams.get('page')) || 1,
+      size: 20,
+    })
   if (path === '/submissions/99') {
     submissions++
     return json({
@@ -142,7 +150,13 @@ const mockHttp: typeof fetch = async (input, init = {}) => {
     })
   }
   if (path.startsWith('/users/')) return json({ ...alice, solvedCount: 3 })
-  if (path === '/admin/users') return json({ items: [admin, alice], total: 2, page: 1, size: 20 })
+  if (path === '/admin/users')
+    return json({
+      items: [admin, alice],
+      total: listTotal,
+      page: Number(url.searchParams.get('page')) || 1,
+      size: 20,
+    })
   if (path.startsWith('/admin/'))
     return user?.role === 'ADMIN' ? json(null) : json(null, 1003, 403, '没有权限')
   throw new Error('Unhandled test endpoint: ' + method + ' ' + path)
@@ -168,6 +182,7 @@ beforeEach(async () => {
   submissions = 0
   failProblems = false
   description = problem.description
+  listTotal = 1
   setHandler(mockHttp)
   pinia = createPinia()
   setActivePinia(pinia)
@@ -185,6 +200,118 @@ afterEach(() => {
 })
 
 describe('基于接口契约的模拟 DOM 交互（不替代真实浏览器验收）', () => {
+  test('未登录作答后登录返回，保留代码与语言', async () => {
+    await go('/problems/42')
+    await wrapper.get('.editor-toolbar select').setValue('JAVA')
+    await wrapper.get('.code-editor').setValue('public class Main { /* 草稿 */ }')
+    await wrapper.get('.editor-footer a').trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/login'))
+    await vi.dynamicImportSettled()
+    await flushPromises()
+    await wrapper.get('input[autocomplete=username]').setValue('alice')
+    await wrapper.get('input[type=password]').setValue('password123')
+    await wrapper.get('form').trigger('submit')
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/problems/42'))
+    await vi.dynamicImportSettled()
+    await flushPromises()
+    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe(
+      'public class Main { /* 草稿 */ }',
+    )
+    expect((wrapper.get('.editor-toolbar select').element as HTMLSelectElement).value).toBe('JAVA')
+  })
+  test('不同题目的草稿独立，离开后返回恢复各自内容', async () => {
+    await go('/problems/42')
+    await wrapper.get('.editor-toolbar select').setValue('CPP')
+    await wrapper.get('.code-editor').setValue('int main() { return 42; }')
+    await go('/problems/43')
+    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe('')
+    await wrapper.get('.editor-toolbar select').setValue('JAVA')
+    await wrapper.get('.code-editor').setValue('public class Main { /* 43 */ }')
+    await go('/problems/42')
+    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe(
+      'int main() { return 42; }',
+    )
+    expect((wrapper.get('.editor-toolbar select').element as HTMLSelectElement).value).toBe('CPP')
+    await go('/problems/43')
+    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe(
+      'public class Main { /* 43 */ }',
+    )
+  })
+  test.each(['退出', '会话失效'])('%s 后清空作答草稿，其他账号不能恢复', async (mode) => {
+    await login()
+    await go('/problems/42')
+    await wrapper.get('.editor-toolbar select').setValue('JAVA')
+    await wrapper.get('.code-editor').setValue('private code from alice')
+    if (mode === '退出')
+      await wrapper
+        .findAll('header button')
+        .find((button) => button.text() === '退出')!
+        .trigger('click')
+    else session.set(null)
+    await vi.dynamicImportSettled()
+    await flushPromises()
+    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe('')
+    await login('admin')
+    await go('/problems/42')
+    expect((wrapper.get('.code-editor').element as HTMLTextAreaElement).value).toBe('')
+    expect((wrapper.get('.editor-toolbar select').element as HTMLSelectElement).value).toBe('')
+  })
+  test.each([
+    {
+      url: '/problems?keyword=old&difficulty=EASY&tagId=1',
+      account: '',
+      edits: { 'input[type=search]': 'new', select: 'HARD' },
+      expected: { keyword: 'new', difficulty: 'HARD', tagId: '1' },
+    },
+    {
+      url: '/problems/mine?keyword=old',
+      account: 'alice',
+      edits: { 'input[type=search]': 'new' },
+      expected: { keyword: 'new' },
+    },
+    {
+      url: '/submissions?problemId=42&userId=1&status=WRONG_ANSWER',
+      account: '',
+      edits: { 'input[type=number]': '43', 'label:nth-child(2) input': '2', select: 'ACCEPTED' },
+      expected: { problemId: '43', userId: '2', status: 'ACCEPTED' },
+    },
+    {
+      url: '/admin/problems?keyword=old&status=PENDING_REVIEW',
+      account: 'admin',
+      edits: { 'input[type=search]': 'new', select: 'HIDDEN' },
+      expected: { keyword: 'new', status: 'HIDDEN' },
+    },
+    {
+      url: '/admin/users?keyword=alice',
+      account: 'admin',
+      edits: { 'input[type=search]': 'bob' },
+      expected: { keyword: 'bob' },
+    },
+  ])(
+    '$url：分页保留已应用条件，查询应用输入并回到首页',
+    async ({ url, account, edits, expected }) => {
+      listTotal = 45
+      if (account) await login(account)
+      await go(url)
+      const applied = Object.fromEntries(new URL(url, 'http://localhost').searchParams)
+      for (const [selector, value] of Object.entries(edits))
+        await wrapper.get('.filter-bar ' + selector).setValue(value)
+      await wrapper
+        .findAll('.pagination button')
+        .find((button) => button.text() === '下一页')!
+        .trigger('click')
+      await vi.waitFor(() => expect(router.currentRoute.value.query.page).toBe('2'))
+      expect(router.currentRoute.value.query).toEqual({ ...applied, page: '2' })
+      await vi.dynamicImportSettled()
+      await flushPromises()
+      for (const [selector, value] of Object.entries(edits))
+        await wrapper.get('.filter-bar ' + selector).setValue(value)
+      await wrapper.get('form.filter-bar').trigger('submit')
+      await vi.waitFor(() => expect(router.currentRoute.value.query).toEqual(expected))
+      await vi.dynamicImportSettled()
+      await flushPromises()
+    },
+  )
   test('题库加载、筛选参数与匿名保护路由', async () => {
     expect(wrapper.text()).toContain('A+B Problem')
     await wrapper.get('input[type=search]').setValue('A+B')

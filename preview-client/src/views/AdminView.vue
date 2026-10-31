@@ -54,14 +54,16 @@ async function run(action: () => Promise<unknown>) {
     busy.value = false
   }
 }
-function navigate(next = 1) {
+function navigate() {
   void router.push({
     query: {
       keyword: keyword.value || undefined,
       status: usersMode ? undefined : status.value || undefined,
-      page: next > 1 ? next : undefined,
     },
   })
+}
+function paginate(next: number) {
+  void router.push({ query: { ...route.query, page: next > 1 ? next : undefined } })
 }
 </script>
 <template>
@@ -164,7 +166,7 @@ function navigate(next = 1) {
       :page="users.data.value.page"
       :size="users.data.value.size"
       :total="users.data.value.total"
-      @change="navigate"
+      @change="paginate"
     />
   </section>
   <section v-else class="panel table-panel">
@@ -227,7 +229,7 @@ function navigate(next = 1) {
       :page="problems.data.value.page"
       :size="problems.data.value.size"
       :total="problems.data.value.total"
-      @change="navigate"
+      @change="paginate"
     />
   </section>
 </template>

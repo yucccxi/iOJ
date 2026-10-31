@@ -103,16 +103,16 @@ async function show(caseId: number) {
           <thead>
             <tr>
               <th>编号</th>
-              <th>输入</th>
-              <th>输出</th>
+              <th class="numeric">输入</th>
+              <th class="numeric">输出</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in data" :key="row.id">
               <td class="mono">#{{ row.ordinal }}</td>
-              <td class="mono">{{ row.inputBytes }} B</td>
-              <td class="mono">{{ row.outputBytes }} B</td>
+              <td class="mono numeric">{{ row.inputBytes }} B</td>
+              <td class="mono numeric">{{ row.outputBytes }} B</td>
               <td>
                 <div class="actions">
                   <button class="button secondary small" :disabled="busy" @click="show(row.id)">

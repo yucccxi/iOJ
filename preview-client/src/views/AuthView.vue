@@ -65,7 +65,8 @@ async function submit() {
           autocomplete="username"
           autofocus
           :disabled="busy"
-      /></label>
+        /><span v-if="register" class="field-hint">3–32 位字母、数字或下划线</span></label
+      >
       <label v-if="register"
         >邮箱<input
           v-model="email"
@@ -88,9 +89,7 @@ async function submit() {
           maxlength="64"
           :autocomplete="register ? 'new-password' : 'current-password'"
           :disabled="busy"
-        /><span v-if="register" class="field-hint"
-          >8–64 位；用户名为 3–32 位字母、数字或下划线</span
-        ></label
+        /><span v-if="register" class="field-hint">8–64 位</span></label
       >
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <button class="button" :disabled="busy">

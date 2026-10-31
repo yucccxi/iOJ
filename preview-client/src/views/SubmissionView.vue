@@ -97,8 +97,8 @@ function refresh() {
             <tr>
               <th>测试点</th>
               <th>结果</th>
-              <th>耗时</th>
-              <th>内存</th>
+              <th class="numeric">耗时</th>
+              <th class="numeric">内存</th>
               <th>信息</th>
             </tr>
           </thead>
@@ -106,10 +106,10 @@ function refresh() {
             <tr v-for="item in data.cases" :key="item.ordinal">
               <td class="mono">#{{ item.ordinal }}</td>
               <td><StatusBadge :value="item.status" /></td>
-              <td class="mono nowrap">
+              <td class="mono nowrap numeric">
                 {{ item.timeUsedMs == null ? '—' : item.timeUsedMs + ' ms' }}
               </td>
-              <td class="mono nowrap">
+              <td class="mono nowrap numeric">
                 {{ item.memoryUsedKb == null ? '—' : item.memoryUsedKb + ' KB' }}
               </td>
               <td>

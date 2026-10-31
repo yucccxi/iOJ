@@ -446,6 +446,9 @@ table {
   text-align: left;
   font-size: 13px;
 }
+.numeric {
+  text-align: right;
+}
 th {
   font-weight: 500;
   color: var(--muted);
@@ -870,7 +873,9 @@ dialog .actions {
     gap: 10px;
   }
   .account-nav .quiet-link {
-    display: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
   .brand-mark {
     font-size: 23px;
@@ -912,6 +917,8 @@ dialog .actions {
     margin: 14px auto 40px;
   }
   .button,
+  .button.small,
+  .text-button,
   input,
   select {
     min-height: 44px;
