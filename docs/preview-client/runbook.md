@@ -5,6 +5,7 @@
 - Node.js 满足 package.json engines；本次使用 v24.18.0。源码沿用 Vue 3、TypeScript、Vite、Pinia、Vue Router。
 - 在 preview-client/ 执行 npm ci，再执行 npm run dev；默认只监听 127.0.0.1:5173，并固定端口。端口冲突会直接报错，不静默切换。
 - 页面入口 /problems。接口默认 /api/v1，由 Vite 将 /api 转发到 http://127.0.0.1:8080。
+- 网站图标位于 preview-client/public/favicon.ico，由 preview-client/index.html 显式引用 /favicon.ico；替换时保留 ICO 格式，构建后检查 dist/favicon.ico 与源文件一致。
 - .env.example 给出 VITE_API_BASE_URL 和 IOJ_API_PROXY_TARGET。后者仅控制开发代理；VITE_* 会进入客户端，不应存秘密。需要改配置时复制为 .env.local 并重启 Vite。
 - 前端不自动启动后端、不连接数据库，也没有演示数据回退。后端离线会显示可重试错误。
 - 生产使用同域反向代理转发 /api；history 路由回退 index.html。可用 npm run preview 在本地检查 dist，但该命令不配置开发 API 代理。

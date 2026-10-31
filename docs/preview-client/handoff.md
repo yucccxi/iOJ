@@ -1,5 +1,11 @@
 # 前端交接
 
+## 2026-10-30 网站图标
+
+- 将用户提供的 iOJ.ico 原样保存为 preview-client/public/favicon.ico，并在 index.html 显式引用 /favicon.ico。ICO 含 16、24、32、48、64、128、256px 七种尺寸，SHA-256 为 6d3d9acf26102e7c9e42adaf66c5f7b9125e2dd28aef1a9205c6cb9d37787836。
+- 独立 worktree 的应用/工具类型检查、Vite 生产构建通过；源文件、构建产物及 HTTP 返回内容逐字节一致，首页、/problems 与 /favicon.ico 均返回 HTTP 200。已查看 ICO 内嵌图像；Chrome 候选页可打开，但浏览器工具无法可靠确认当前网址而停止，标签页图标实际显示未完成自动验收。
+- 本次仅为资产及静态引用调整，不引入业务依赖或状态。沿用禁止推送约束；本地提交并按 FIFO 合入 main 后检查主服务 HTML 引用与图标内容，清理候选服务、任务 worktree 及缓存，主工作区运行依赖保留。
+
 ## 已完成
 
 - 源码：preview-client/；技术文档：docs/preview-client/。根 README.md、server/ 源码和 docs/shared/api.md 保持原样。
