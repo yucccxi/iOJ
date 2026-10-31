@@ -1,8 +1,6 @@
 # iOJ
 
-面向学校算法竞赛俱乐部的在线评测系统（Online Judge）：**成员自己上传题目，所有人都能做。**
-
-定位是"校内轻量 OJ"——题库由成员共建，做题的人能直接看题面、提交代码，并拿到逐测试点的评测结果；部署和运维尽量简单，一个人就能维护。
+轻量级的在线评测系统（Online Judge）
 
 ## 项目特点
 
@@ -81,7 +79,7 @@ iOJ/
 
 TODO：
 
-- [x] 预览版前端（`preview-client/`）
+- [x] 预览版前端（`preview-client/`）By NuxusAurora and ChatGPT
 - [ ] 正式版前端（`client/`）
 - [ ] Special Judge、Interactive、Run-Twice 题型支持
 - [ ] 分布式判题器（`judge/`）
