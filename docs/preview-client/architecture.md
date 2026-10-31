@@ -10,7 +10,8 @@
 - stores/auth.ts 独占会话，负责恢复、登录、退出与失效清理。令牌存 sessionStorage，不保存密码；每次恢复通过 /auth/me 校验。旧请求的 401 不能清除新登录。
 - stores/codeDrafts.ts 独占按题号区分的作答代码与语言内存草稿，页面通过 read/save 交换副本。它单向依赖 auth store，匿名登录保留草稿，已有令牌被替换或清除时同步清空；监听随 Pinia 作用域销毁，不持久化代码，不依赖路由或 API 实现。
 - 页面依赖资源接口与组合函数。useRequestScope 负责离开页面取消写请求，取消不等于服务端回滚。composables/useResource.ts 负责请求取消和旧响应隔离；页面卸载清理。评测页面仅在排队或评测中轮询，离开停止。
-- components/ 只通过 props 和事件协作，不读取具体业务页面。Markdown 先解析再由 DOMPurify 清洗；代码始终按文本展示。
+- components/ 只通过 props 和事件协作，不读取具体业务页面。MarkdownView 通过 lib/markdown.ts 解析与渲染：公式先占位，普通 Markdown HTML 仍由 DOMPurify 禁止脚本、style/iframe/form 和样式属性；仅将受控 KaTeX 输出填回本次渲染的随机占位节点，保留公式 MathML、SVG 和布局样式。代码始终按文本展示。
+- 公式处理只依赖 marked、marked-katex-extension、KaTeX 和 DOMPurify，不读取 API、认证或路由。每次渲染独立创建解析器、宏表和占位映射；trust=false、maxExpand=1000、maxSize=10。代码节点不替换为公式，错误公式回退显示；组件销毁无监听器、请求或宏状态遗留。
 - 列表页面分别处理查询与翻页：查询读取表单并回到第一页，翻页复制当前 route.query，仅变更页码。Pagination 继续只接收分页数据并发出页码，不读取筛选表单。
 - api 基址与本地代理可配置。会话切换时清除页面实例，避免上一个账号的私密内容残留。
 - 路由切换由 App 的 Transition 与单个页面包装节点负责；认证 revision 是其外层宿主的 key，认证变化立即销毁完整过渡树，不等待离场动画。页面不保活，原有请求取消与轮询清理仍在卸载时执行。

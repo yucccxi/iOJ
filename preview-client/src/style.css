@@ -606,6 +606,21 @@ th.wide {
   line-height: 1.9;
   overflow-wrap: anywhere;
 }
+.markdown .katex {
+  font-size: 1.1em;
+}
+.markdown .katex-display {
+  max-width: 100%;
+  padding: 0.2em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.markdown .katex-error,
+.markdown .math-error {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--danger);
+}
 .markdown p {
   margin: 12px 0;
 }

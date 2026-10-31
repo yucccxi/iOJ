@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import { renderMarkdown } from '@/lib/markdown'
+import 'katex/dist/katex.min.css'
 const props = defineProps<{ text: string | null | undefined }>()
-const html = computed(() =>
-  DOMPurify.sanitize(marked.parse(props.text || '', { async: false }), {
-    USE_PROFILES: { html: true },
-    FORBID_TAGS: ['style', 'iframe', 'form'],
-    FORBID_ATTR: ['style'],
-  }),
-)
+const html = computed(() => renderMarkdown(props.text || ''))
 </script>
 <template>
   <div v-if="DOMPurify.isSupported" class="markdown" v-html="html"></div>

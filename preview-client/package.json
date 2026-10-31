@@ -27,7 +27,9 @@
     "@lezer/highlight": "^1.2.5",
     "codemirror": "^6.0.2",
     "dompurify": "^3.4.17",
+    "katex": "^0.18.10",
     "marked": "^18.1.2",
+    "marked-katex-extension": "^5.1.13",
     "pinia": "^4.0.3",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1"

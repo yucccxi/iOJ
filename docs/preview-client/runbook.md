@@ -39,6 +39,15 @@
 
 ## 作答与筛选行为
 
+### Markdown 与公式
+
+- 共用入口为 src/components/MarkdownView.vue 和 src/lib/markdown.ts，覆盖题目描述、输入/输出格式、提示、样例解释及编辑页预览。
+- 使用 `$…$` 表示行内公式，`$$…$$` 表示独立公式；支持两端有空格、中文相邻文字和独立公式内换行。例如 `$ x \oplus y = a $` 与 `$$ x^2 + y^2 = z^2 $$`。代码块、行内代码和转义美元符号保持原文；未闭合公式不强行转换。
+- 采用 KaTeX 支持的 LaTeX 子集，错误或不支持的表达式保留可读源文，不中断其他内容。宽公式横向滚动。CSS 与字体从本地包构建，不依赖 CDN；浅深色继承界面文字色。
+- 当前兼容组合为 KaTeX 0.18.10、marked-katex-extension 5.1.13 和 Marked 18；扩展的 peer 范围要求 KaTeX <0.19，升级时同时核对兼容范围。npm run test:ui 包含公式、Markdown 混排、代码、错误、危险命令和宏隔离回归。
+
+### 编辑器与列表
+
 - 作答草稿入口为 src/stores/codeDrafts.ts 与 src/views/ProblemView.vue。代码和所选语言按题号保存在当前应用内存，切换题目或登录后返回时恢复；退出、已有令牌替换/清除、刷新页面或关闭标签页后清空。
 - CodeMirror 编辑器位于 src/components/CodeEditor.vue，语言扩展位于 src/lib/editorLanguages.ts；Java、Python、C/C++ 分块按选择加载（C 使用 C++ 高亮扩展）。支持行号、高亮、括号匹配、Tab 缩进；按 Esc 再按 Tab 可移出编辑器。语言扩展加载失败时保留可编辑代码并提供重试。
 - 桌面题面与代码分别滚动，拖动分隔条调整宽度；分隔条可用左右键微调、Shift 加速、Home/End 到达边界。800px 以下通过“题面／代码”按钮切换。最近提交收在代码面板底部，可展开；提交成功仍进入提交详情页。
