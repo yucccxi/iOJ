@@ -39,6 +39,12 @@
 
 ## 作答与筛选行为
 
+### 公告浮窗
+
+- 全站入口为 src/App.vue 挂载的 src/components/AnnouncementNotice.vue，右下角显示“如果你第一次来这个网站，请看 公告”，链接为 https://blog.iynotuo.me/posts/3588dc9a，在新标签页打开。
+- 关闭后通过 sessionStorage 的 ioj:announcement:3588dc9a:dismissed 标记在当前标签页会话内保持隐藏，刷新/切页不会重新显示；新的独立标签页会话重新显示。存储不可用时仍可关闭，但刷新会再次显示。
+- 样式复用全站浅深色变量，保留安全区与左右边距，关闭按钮和链接触摸高度至少 44px。npm run test:ui 包含关闭持久性、链接和存储拒绝的回归；实际浏览器预览范围见 handoff.md。
+
 ### Markdown 与公式
 
 - 共用入口为 src/components/MarkdownView.vue 和 src/lib/markdown.ts，覆盖题目描述、输入/输出格式、提示、样例解释及编辑页预览。

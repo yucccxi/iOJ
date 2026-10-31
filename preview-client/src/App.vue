@@ -3,6 +3,7 @@ import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AccountMenu from '@/components/AccountMenu.vue'
+import AnnouncementNotice from '@/components/AnnouncementNotice.vue'
 import UiIcon from '@/components/UiIcon.vue'
 const auth = useAuthStore()
 const route = useRoute()
@@ -86,4 +87,5 @@ async function logout() {
   <footer v-if="!practice" class="site-footer">
     <span class="mono">iOJ</span><span>算法练习</span>
   </footer>
+  <AnnouncementNotice />
 </template>

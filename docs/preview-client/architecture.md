@@ -17,6 +17,7 @@
 - 路由切换由 App 的 Transition 与单个页面包装节点负责；认证 revision 是其外层宿主的 key，认证变化立即销毁完整过渡树，不等待离场动画。页面不保活，原有请求取消与轮询清理仍在卸载时执行。
 - CodeEditor 通过 modelValue/language/disabled 与文本更新事件协作，管理 CodeMirror 实例、系统主题监听及 65536 字符边界。lib/editorLanguages 按语言加载扩展；序号隔离迟到结果，加载失败可重试且保留文本，卸载后不回写。它不读取草稿 store、认证或资源接口。
 - ResizablePanels 独占宽度与指针捕获，支持键盘调整，取消/卸载时释放；手机面板选择归 ProblemView。AccountMenu 只接收用户展示数据并发送退出事件，外部点击监听随组件销毁移除。
+- AnnouncementNotice 独占公告显示和关闭状态，仅使用带文章标识的 sessionStorage 键；存储读写失败回退当前组件内存。App 在路由/认证宿主之外挂载它，切页和认证变化不重建公告；不依赖 API、router、store，不创建定时器或全局监听器。
 - 验收需检查请求层可替换、取消/卸载、权限裁剪、无循环页面依赖。功能验证与边界审查分别记录。
 
 ## 实施步骤
