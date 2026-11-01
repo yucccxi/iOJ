@@ -54,8 +54,9 @@ me.iynotuo.judge
 ├── problem/       entity / mapper / service / controller / dto（含测试点、标签）
 ├── submission/    提交记录
 └── judge/         JudgeService、JudgeWorker、JudgeContext、JudgeOutcome、OutputComparator
-    └── engine/    JudgeEngine（接口）、IsolateJudgeEngine（默认）、LocalProcessJudgeEngine（回退）、
-                   StreamCollector、IsolateMeta
+    ├── sandbox/   Sandbox（接口）、IsolateSandbox、LocalSandbox、SandboxCommand/Result、SandboxFiles
+    ├── answer/    AnswerChecker（接口）、TextAnswerChecker、ProgramAnswerChecker、AnswerCheckerFactory
+    └── engine/    JudgeEngine（接口）、IsolateJudgeEngine（默认）、LocalProcessJudgeEngine（回退）
 ```
 
 约定（详见 05-development.md）：
@@ -162,4 +163,4 @@ sequenceDiagram
 | 测试点存 MySQL | 备份/事务/权限最简单 | 单点上限受 `max_allowed_packet` 限制（默认 64MB，足够）；超大测试集改对象存储 |
 | 每次请求查用户表 | 封禁/提权立即生效 | 多一次主键查询；QPS 上千再考虑缓存 |
 | 提交异步、前端轮询 | 无需 WebSocket | 前端每隔 500ms~1s 查一次详情即可 |
-| 输出比对忽略行尾空格与文末空行 | 减少"格式错误"类无效 WA | 需要严格比对的题可换 special judge |
+| 输出比对忽略行尾空格与文末空行 | 减少"格式错误"类无效 WA | 需要严格/自定义判定的题，作者上传 C++ 判题器（Special Judge，见 03-judge.md §10） |

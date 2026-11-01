@@ -14,6 +14,11 @@ public enum SubmissionStatus {
     OUTPUT_LIMIT_EXCEEDED("输出超出限制"),
     RUNTIME_ERROR("运行错误"),
     COMPILATION_ERROR("编译错误"),
+    /**
+     * The problem's custom checker failed: it did not compile, crashed, or ran out of its own limits.
+     * This is a system-side failure, never a contestant failure, so the submission should be retried.
+     */
+    CHECKER_ERROR("判题器错误"),
     SYSTEM_ERROR("系统错误");
 
     private final String description;

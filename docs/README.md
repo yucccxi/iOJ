@@ -22,6 +22,7 @@
 | [server/04-deployment.md](server/04-deployment.md) | 环境要求、建库、配置项、systemd/Nginx、备份、上线检查清单 |
 | [server/05-development.md](server/05-development.md) | 代码结构、分层规范、扩展方式、测试说明、踩坑记录 |
 | [server/06-isolate.md](server/06-isolate.md) | Isolate 安装、cgroup 服务、手动验证命令、接入说明 |
+| [shared/special-judge.md](shared/special-judge.md) | 出题者视角的自定义判题器（Special Judge）编写与上传指南 |
 
 ## 文档结构
 
@@ -29,7 +30,8 @@
 docs/
 ├── README.md                 # 本文档索引
 ├── shared/
-│   └── api.md                # 接口文档（前端对接）
+│   ├── api.md                # 接口文档（前端对接）
+│   └── special-judge.md      # 出题者：自定义判题器（Special Judge）指南
 └── server/
     ├── README.md             # 后端总览（启动/配置/测试/排错）
     ├── 01-architecture.md
@@ -45,6 +47,7 @@ docs/
 | 你的角色 | 建议顺序 |
 | --- | --- |
 | 前端开发 | [根 README](../README.md) 了解功能 → [shared/api.md](shared/api.md) 对接接口 |
+| 出题者 | [shared/special-judge.md](shared/special-judge.md)（判题器编写与上传）→ [shared/api.md](shared/api.md) 4.7 节 |
 | 后端开发 | [server/README.md](server/README.md) 跑起来 → [01-architecture](server/01-architecture.md) → [02-database](server/02-database.md) → [03-judge](server/03-judge.md) → [05-development](server/05-development.md) |
 | 部署 / 运维 | [server/04-deployment.md](server/04-deployment.md)（含上线检查清单）→ [server/06-isolate.md](server/06-isolate.md)（判题沙箱） |
 

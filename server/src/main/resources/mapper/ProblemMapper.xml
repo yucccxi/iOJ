@@ -59,11 +59,25 @@
 
     <select id="findById" resultType="me.iynotuo.judge.problem.entity.Problem">
         SELECT id, title, difficulty, description, input_format, output_format, hint, source,
+               CASE WHEN checker_code IS NULL OR TRIM(checker_code) = '' THEN 0 ELSE 1 END AS has_checker,
                time_limit_ms, memory_limit_mb, author_id, status, submit_count, accepted_count,
                created_at, updated_at
         FROM problems
         WHERE id = #{id}
     </select>
+
+    <select id="findCheckerCode" resultType="java.lang.String">
+        SELECT checker_code
+        FROM problems
+        WHERE id = #{problemId}
+    </select>
+
+    <update id="updateChecker">
+        UPDATE problems
+        SET checker_code = #{checkerCode},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
 
     <select id="findPage" resultType="me.iynotuo.judge.problem.mapper.ProblemSummaryRow">
         SELECT <include refid="summaryColumns"/>

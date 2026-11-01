@@ -5,6 +5,8 @@ import me.iynotuo.judge.common.api.ApiResponse;
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
 import me.iynotuo.judge.common.enums.Difficulty;
+import me.iynotuo.judge.problem.dto.CheckerDetailVO;
+import me.iynotuo.judge.problem.dto.CheckerSaveRequest;
 import me.iynotuo.judge.problem.dto.ProblemDetailVO;
 import me.iynotuo.judge.problem.dto.ProblemSaveRequest;
 import me.iynotuo.judge.problem.dto.ProblemSummaryVO;
@@ -127,6 +129,43 @@ public class ProblemController {
                                                @PathVariable Long id,
                                                @Valid @RequestBody ProblemSaveRequest request) {
         return ApiResponse.ok(problemService.update(current, id, request));
+    }
+
+    /**
+     * Uploads or clears the custom checker (special judge) of a problem.
+     *
+     * <p>Only the author or an administrator may change it. Sending an empty {@code code} removes the
+     * checker and restores the built-in comparison. This lives outside {@code PUT /problems/{id}}
+     * because that endpoint is a full replacement and would otherwise clear the checker whenever a
+     * client forgot to send it.</p>
+     *
+     * @param current the authenticated user
+     * @param id      problem id
+     * @param request the checker source, possibly empty
+     * @return an empty success response
+     */
+    @PutMapping("/{id}/checker")
+    public ApiResponse<Void> updateChecker(@AuthenticationPrincipal LoginUser current,
+                                           @PathVariable Long id,
+                                           @Valid @RequestBody CheckerSaveRequest request) {
+        problemService.updateChecker(current, id, request.code());
+        return ApiResponse.ok();
+    }
+
+    /**
+     * Returns the custom checker source of a problem for editing.
+     *
+     * <p>Author or administrator only: the checker encodes the judging rules, so it must never be
+     * served to contestants.</p>
+     *
+     * @param current the authenticated user
+     * @param id      problem id
+     * @return the checker source, or an empty string when the problem has none
+     */
+    @GetMapping("/{id}/checker")
+    public ApiResponse<CheckerDetailVO> checker(@AuthenticationPrincipal LoginUser current,
+                                                @PathVariable Long id) {
+        return ApiResponse.ok(new CheckerDetailVO(problemService.getChecker(current, id)));
     }
 
     /**

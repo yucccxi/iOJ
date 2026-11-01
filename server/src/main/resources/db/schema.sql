@@ -29,6 +29,9 @@ CREATE TABLE problems (
     output_format   MEDIUMTEXT   NULL,
     hint            MEDIUMTEXT   NULL,
     source          VARCHAR(128) NULL,
+    -- Custom checker (special judge) source code, compiled and run by the judge.
+    -- NULL or blank means the built-in OutputComparator is used.
+    checker_code    MEDIUMTEXT   NULL,
     time_limit_ms   INT          NOT NULL DEFAULT 1000,
     memory_limit_mb INT          NOT NULL DEFAULT 256,
     author_id       BIGINT       NOT NULL,
@@ -86,7 +89,8 @@ CREATE TABLE submissions (
     time_used_ms    INT          NULL,
     memory_used_kb  INT          NULL,
     compile_message MEDIUMTEXT   NULL,
-    judge_message   VARCHAR(512) NULL,
+    -- Holds system-level errors, including the compiler output of a broken custom checker.
+    judge_message   TEXT         NULL,
     created_at      DATETIME     NOT NULL,
     judged_at       DATETIME     NULL,
     CONSTRAINT fk_submissions_problem FOREIGN KEY (problem_id) REFERENCES problems (id) ON DELETE CASCADE,

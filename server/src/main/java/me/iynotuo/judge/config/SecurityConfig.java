@@ -61,6 +61,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(registry -> registry
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
+                        // The checker source decides how answers are judged, so it is visible to the author and administrators only.
+                        .requestMatchers("/api/v1/problems/*/checker").authenticated()
                         // Test data is visible to the author and administrators only, so this rule must come before the public GET rules below.
                         .requestMatchers("/api/v1/problems/*/testcases/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/problems/mine").authenticated()

@@ -1,4 +1,4 @@
-package me.iynotuo.judge.judge.engine;
+package me.iynotuo.judge.judge.sandbox;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

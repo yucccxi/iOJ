@@ -138,6 +138,9 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `IsolateMetaTest` | Isolate meta 解析（时间/内存/退出码/信号/OOM/缺省值） |
 | `ApiFlowIntegrationTest` | 注册→登录→建题→传测试数据→提交→评测→AC/WA→字段裁剪 |
 | `AdminModerationIntegrationTest` | 测试数据增删改查、题目上下架、用户搜索与封禁 |
+| `CheckerIntegrationTest` | 判题器源码的读/写/清空、越权访问、`hasChecker` 暴露面、`CHECKER_ERROR` 判定 |
+| `ProgramAnswerCheckerTest` | 判题器结果 → 提交状态的映射（假 Sandbox，覆盖 AC/WA/PE/超时/崩溃/编译失败） |
+| `IsolateSandboxCommandTest` | isolate 命令行与 `/box` 路径翻译，锁住重构不能悄悄改动 |
 
 ## 配置项
 
@@ -165,6 +168,20 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `ioj.judge.max-compile-output-bytes` | — | `65536` | 编译输出保留上限 |
 | `ioj.judge.compile-timeout-ms` | — | `30000` | 编译超时（本机进程引擎使用） |
 | `ioj.judge.languages.*` | — | JAVA / CPP / C / PYTHON3 | 各语言源码、编译/运行命令、时间系数、`isolate-processes`、`isolate-memory-extra-mb` |
+| `ioj.judge.checker.*` | `IOJ_JUDGE_CHECKER_*` | 见下 | 自定义判题器（Special Judge）的开关、运行/编译限制与编译命令 |
+
+判题器相关默认值（`application.yaml` 中可改）：
+
+| 配置 | 默认 | 说明 |
+| --- | --- | --- |
+| `checker.enabled` | `true` | 关闭后，带判题器的题目一律判 `CHECKER_ERROR` |
+| `checker.time-limit-ms` | `2000` | 单次判题器运行的 CPU 时间（独立于题目限制） |
+| `checker.memory-limit-mb` | `512` | 单次判题器运行的内存 |
+| `checker.compile-timeout-ms` | `30000` | 判题器编译的墙钟超时 |
+| `checker.compile-memory-mb` | `512` | 判题器编译的内存 |
+| `checker.source-file` | `checker.cpp` | 判题器源码写入的文件名 |
+| `checker.compile-command` | `g++ -O2 -std=c++17 -pipe -o checker checker.cpp` | 必须产出名为 `checker` 的可执行文件 |
+| `checker.message-limit-bytes` | `1024` | 判题器输出保留上限，对齐 `submission_cases.message` |
 
 Isolate 相关默认值（`application.yaml` 中可改）：
 
@@ -203,7 +220,8 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 - **流程**：提交入库为"排队中" → worker 取任务并标记"评测中" → 沙箱编译 → 逐测试点新建沙箱运行 → 写回逐点结果与最终状态。
 - **资源限制**：`--time`（CPU）、`--wall-time`、`--cg-mem`、`--fsize`、`--processes`；JVM 需要更多线程与额外内存，已在语言配置中单独设置。
 - **统计**：Isolate 返回 `time` 与 `cg-mem`，会写入逐点结果，因此 `memoryUsedKb` 有值，OOM 可判为 `MEMORY_LIMIT_EXCEEDED`。
-- **输出比对**：忽略每行行尾空格/Tab 与文末多余空行，其余逐字符比较。
+- **输出比对**：默认忽略每行行尾空格/Tab 与文末多余空行，其余逐字符比较；题目配置了判题器（`problems.checker_code`）时改为在沙箱里编译并运行该 C++ 判题器，按其退出码判定 0=AC / 1=WA / 2=PE / 其他=`CHECKER_ERROR`。
+- **判题器**：源码由出题者通过 `PUT /problems/{id}/checker` 上传，只对作者与管理员可见；判题器与选手程序跑在两个不同目录，选手目录里没有 `answer.txt`。**只有 `engine=isolate` 会真正执行判题器**，`local` 会判 `CHECKER_ERROR`。
 - **失败即停**：某个测试点未通过后不再执行后续测试点，所以结果里的 `cases` 可能少于测试数据总数。
 - **清理**：每个阶段结束都会 `isolate --cleanup`，工作目录在 `finally` 中删除；残留会在日志中告警。
 

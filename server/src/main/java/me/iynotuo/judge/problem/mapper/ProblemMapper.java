@@ -33,4 +33,28 @@ public interface ProblemMapper {
     int updateStatus(@Param("id") Long id,
                      @Param("status") ProblemStatus status,
                      @Param("updatedAt") LocalDateTime updatedAt);
+
+    /**
+     * Reads the custom checker source of one problem.
+     *
+     * <p>Kept separate from {@link #findById} on purpose: the public problem detail path uses
+     * {@code findById}, and the checker source must never end up in a response visible to
+     * contestants.</p>
+     *
+     * @param problemId problem id
+     * @return the checker source, or {@code null} when the problem uses the built-in comparator
+     */
+    String findCheckerCode(@Param("problemId") Long problemId);
+
+    /**
+     * Replaces or clears the custom checker source.
+     *
+     * @param id          problem id
+     * @param checkerCode checker source, or {@code null} to fall back to the built-in comparator
+     * @param updatedAt   timestamp written to {@code updated_at}
+     * @return the number of affected rows
+     */
+    int updateChecker(@Param("id") Long id,
+                      @Param("checkerCode") String checkerCode,
+                      @Param("updatedAt") LocalDateTime updatedAt);
 }

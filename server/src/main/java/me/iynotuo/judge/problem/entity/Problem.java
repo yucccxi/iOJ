@@ -34,6 +34,12 @@ public class Problem {
      */
     private String source;
 
+    /**
+     * Whether the problem ships a custom checker. This is a computed, read-only flag: the checker
+     * source itself is never loaded into this entity, so it cannot leak through a detail response.
+     */
+    private boolean hasChecker;
+
     private Integer timeLimitMs;
 
     private Integer memoryLimitMb;

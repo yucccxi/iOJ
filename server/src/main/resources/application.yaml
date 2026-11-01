@@ -47,6 +47,19 @@ ioj:
     max-output-bytes: 16777216
     max-compile-output-bytes: 65536
     compile-timeout-ms: 30000
+    # Custom checker (special judge). Limits are global on purpose: they are intentionally
+    # independent from the per-problem limits, because a checker usually needs more memory
+    # and never should be reported as a contestant failure when it runs out of limits.
+    checker:
+      enabled: ${IOJ_JUDGE_CHECKER_ENABLED:true}
+      time-limit-ms: ${IOJ_JUDGE_CHECKER_TIME_LIMIT_MS:2000}
+      memory-limit-mb: ${IOJ_JUDGE_CHECKER_MEMORY_LIMIT_MB:512}
+      compile-timeout-ms: ${IOJ_JUDGE_CHECKER_COMPILE_TIMEOUT_MS:30000}
+      compile-memory-mb: ${IOJ_JUDGE_CHECKER_COMPILE_MEMORY_MB:512}
+      # The compile command must produce an executable named "checker".
+      source-file: checker.cpp
+      compile-command: g++ -O2 -std=c++17 -pipe -o checker checker.cpp
+      message-limit-bytes: 1024
     isolate:
       binary: /usr/bin/isolate
       # Box 0 is commonly created by root during manual tests; start at 1 so a non-root

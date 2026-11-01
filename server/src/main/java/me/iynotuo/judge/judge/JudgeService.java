@@ -90,6 +90,9 @@ public class JudgeService {
         Problem problem = problemMapper.findById(submission.getProblemId());
         List<ProblemTestcase> testcases = problem == null
                 ? List.of() : testcaseMapper.findByProblemId(submission.getProblemId());
+        // The checker source is read through its own query so it never travels with the problem entity,
+        // which the public problem detail endpoint also uses.
+        String checkerCode = problem == null ? null : problemMapper.findCheckerCode(submission.getProblemId());
         JudgeProperties.LanguageConfig language = judgeProperties.getLanguages().get(submission.getLanguage());
 
         JudgeOutcome outcome;
@@ -101,7 +104,7 @@ public class JudgeService {
             outcome = JudgeOutcome.systemError("题目没有测试点");
         } else {
             try {
-                outcome = judgeEngine.judge(new JudgeContext(submission, problem, testcases, language));
+                outcome = judgeEngine.judge(new JudgeContext(submission, problem, testcases, language, checkerCode));
             } catch (Exception ex) {
                 log.error("判题失败 submissionId={}", submissionId, ex);
                 outcome = JudgeOutcome.systemError("判题异常: " + ex.getClass().getSimpleName());

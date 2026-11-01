@@ -12,6 +12,7 @@
   - [1.4 分页](#14-分页)
   - [1.5 错误码](#15-错误码)
   - [1.6 谁可以调用、能看到什么](#16-谁可以调用能看到什么)
+  - [1.7 跨域（CORS）](#17-跨域cors)
 - [2. 账号](#2-账号)
   - [2.1 注册](#21-注册)
   - [2.2 登录](#22-登录)
@@ -28,6 +29,9 @@
   - [4.4 上传题目](#44-上传题目)
   - [4.5 编辑题目](#45-编辑题目)
   - [4.6 删除题目](#46-删除题目)
+  - [4.7 判题器（Special Judge）](#47-判题器special-judge)
+    - [4.7.1 查看判题器源码](#471-查看判题器源码)
+    - [4.7.2 上传 / 清空判题器](#472-上传--清空判题器)
 - [5. 测试数据](#5-测试数据)
   - [5.1 测试数据列表](#51-测试数据列表)
   - [5.2 查看单条测试数据](#52-查看单条测试数据)
@@ -127,12 +131,13 @@ Authorization: Bearer <token>
 | code | HTTP | 含义 | 前端处理建议 |
 | --- | --- | --- | --- |
 | 0 | 200 | 成功 | — |
-| 1000 | 400 | 请求参数错误 | 检查参数名、类型、枚举值、请求方法、`Content-Type` |
+| 1000 | 400 / 405 / 415 | 请求参数错误 | 检查参数名、类型、枚举值；`405` 是请求方法不对，`415` 是 `Content-Type` 不是 `application/json` |
 | 1001 | 400 | 参数校验失败 | 按 `message` 提示用户 |
 | 1002 | 401 | 未登录或登录已失效 | 清本地令牌，跳转登录 |
 | 1003 | 403 | 没有权限 | 提示无权限；后台页面需校验角色 |
 | 1004 | 404 | 请求的资源不存在 | 跳 404 页 |
 | 1005 | 409 | 资源冲突 | 提示稍后重试或更换信息 |
+| 1006 | 429 | 请求过于频繁 | 服务端预留，当前版本不会返回 |
 | 2001 | 404 | 用户不存在 | 展示"用户不存在" |
 | 2002 | 409 | 用户名已被占用 | 在用户名输入框下提示 |
 | 2003 | 409 | 邮箱已被注册 | 在邮箱输入框下提示 |
@@ -146,8 +151,10 @@ Authorization: Bearer <token>
 | 3005 | 400 | 测试点数量超出上限 | 提示最多数量 |
 | 4001 | 404 | 提交记录不存在 | 跳回提交列表 |
 | 4002 | 400 | 不支持的语言 | 重新拉取语言列表 |
-| 4003 | 400 | 代码过长 | 提示字数限制 |
+| 4003 | 400 | 代码过长 | 提示字数限制；**默认上限下代码超长会先被参数校验拦成 `1001`**，只有服务端把长度上限调小到 65536 以下时才会返回 `4003` |
 | 1500 | 500 | 服务器内部错误 | 提示稍后重试 |
+
+> 判断成功与否只看 `code == 0`，不要用 HTTP 状态码：`1000` 在不同错误下可能配 400、405 或 415。
 
 ### 1.6 谁可以调用、能看到什么
 
@@ -163,13 +170,24 @@ Authorization: Bearer <token>
 | 上传题目 | ❌ 401 | ✅ | ✅ | ✅ | 新题初始状态可能不同 |
 | 编辑、删除题目 | ❌ 401 | ❌ 403 | ✅ | ✅ | — |
 | 测试数据相关（含查询） | ❌ 401 | ❌ 403 | ✅ | ✅ | — |
+| 判题器源码（`/problems/{id}/checker`） | ❌ 401 | ❌ 403 | ✅ | ✅ | 源码只对作者/管理员可见；公开详情只给 `hasChecker` |
 | 提交代码 | ❌ 401 | ✅ | ✅ | ✅ | — |
 | `GET /submissions/{id}` | ✅ | ✅ | ✅ | ✅ | 代码、编译信息、逐点结果仅本人/作者/管理员可见 |
-| `GET /submissions` | ✅ | ✅ | ✅ | ✅ | 无（列表永远不含代码） |
+| `GET /submissions` | ✅ | ✅ | ✅ | ✅ | 无（列表永远不含代码，也**不按题目可见性过滤**，见下方说明） |
 | `GET /meta/**` | ✅ | ✅ | ✅ | ✅ | 无 |
 | `/admin/**` | ❌ 401 | ❌ 403 | ❌ 403 | ✅ | — |
 
 > `401` 表示"没有有效身份"，`403` 表示"身份有效但无权操作"。前端遇到 `1002` 统一走登录流程即可。
+
+> 注意：`GET /submissions`（列表）**不校验题目是否已发布**。即使题目处于 `DRAFT` / `PENDING_REVIEW` / `HIDDEN`，任何人（含未登录）仍可用 `?problemId={id}` 列出它的提交摘要，并能看到 `problemTitle`。详情接口 `GET /submissions/{id}` 同理：非作者/管理员只能看到状态等公开字段与题目标题。
+> 因此"未发布题目只有作者和管理员可见"只约束**题面**（`GET /problems/{id}`）；如果这也不符合预期，需要后端补可见性过滤，前端不要依赖列表里没有未发布题目。
+
+### 1.7 跨域（CORS）
+
+- 服务端只接受来自前端开发地址 `http://localhost:5173` 的跨域请求。换端口、用 `127.0.0.1`、或部署到其他域名时，浏览器会报跨域错误——此时网络面板里请求可能显示 200，但响应被浏览器丢弃，**不一定是服务端出错**。
+- 换地址需要服务端先把新的访问源加入允许列表（找维护者处理），否则前端无法访问。
+- 支持的请求方法：`GET` / `POST` / `PUT` / `PATCH` / `DELETE` / `OPTIONS`；请求头不限。
+- 带 `Authorization` 的跨域请求会先发 `OPTIONS` 预检，预检不会被判成未登录，也不会返回 `1002`。
 
 ## 2. 账号
 
@@ -184,9 +202,9 @@ Authorization: Bearer <token>
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `username` | string | 是 | 登录名，3-32 位字母/数字/下划线，全局唯一，注册后不可修改 |
-| `email` | string | 是 | 邮箱，全局唯一，也可以用邮箱登录 |
+| `email` | string | 是 | 邮箱，≤128 字符，全局唯一，也可以用邮箱登录 |
 | `password` | string | 是 | 8-64 位 |
-| `nickname` | string | 否 | 展示昵称，≤32 字；不传时默认用 `username` |
+| `nickname` | string | 否 | 展示昵称，≤32 字；不传或传空白时默认用 `username` |
 
 ```json
 {
@@ -227,8 +245,8 @@ Authorization: Bearer <token>
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `account` | string | 是 | 用户名或邮箱，二选一都可以 |
-| `password` | string | 是 | 登录密码 |
+| `account` | string | 是 | 用户名或邮箱，二选一都可以；≤128 字符 |
+| `password` | string | 是 | 登录密码，≤64 字符 |
 
 ```json
 { "account": "alice", "password": "password123" }
@@ -354,7 +372,7 @@ Authorization: Bearer <token>
 
 `GET /problems` ｜ 公开
 
-题库首页使用，只返回**已发布**的题目，按最新创建排序。列表只给概览信息，不包含题面正文。
+题库首页使用，只返回**已发布**的题目，按 id 倒序（等价于最新创建的在前）。列表只给概览信息，不包含题面正文。
 
 **查询参数**（都可选，同时传表示"且"关系）
 
@@ -437,6 +455,8 @@ Authorization: Bearer <token>
 
 `status` 是这张页面的核心字段，建议用不同颜色/文案区分：草稿、待审核、已发布、已下架。
 
+> 注意：**当前版本没有任何接口会产生 `DRAFT`**。上传只会得到 `PUBLISHED` 或 `PENDING_REVIEW`（见 4.4），管理员只能把题目改成 `PUBLISHED` / `HIDDEN`（见 8.5）。`DRAFT` 是为将来"保存草稿"预留的枚举值，前端可以不为它单独做页面，但状态映射表里保留一个默认分支更安全（后端以后可能启用）。
+
 ### 4.3 题目详情
 
 `GET /problems/{id}` ｜ 公开（未发布题目仅作者/管理员可见）
@@ -475,7 +495,8 @@ Authorization: Bearer <token>
   "acceptedCount": 18,
   "solved": true,
   "createdAt": "2026-10-30T11:18:05",
-  "updatedAt": "2026-10-30T11:18:32"
+  "updatedAt": "2026-10-30T11:18:32",
+  "hasChecker": false
 }
 ```
 
@@ -492,6 +513,7 @@ Authorization: Bearer <token>
 | `samples` | 展示样例，`ordinal` 从 1 开始；`explanation` 可能为 `null` |
 | `submitCount` / `acceptedCount` | 同 4.1 |
 | `solved` | **当前查看者是否已通过该题**。未登录时恒为 `false`；已登录且有通过记录才为 `true` |
+| `hasChecker` | 该题是否配置了自定义判题器（Special Judge）。**只给布尔值，永远不返回源码**，源码请用 4.7 的接口（仅作者/管理员） |
 | `createdAt` / `updatedAt` | 创建时间 / 最后更新时间 |
 
 > `solved=false` 有两种可能：未登录，或确实没通过。请不要用它判断"没做过"，先判断是否有登录态。
@@ -502,8 +524,15 @@ Authorization: Bearer <token>
 
 `POST /problems` ｜ 需要登录
 
-任何登录用户都可以上传题目。上传后可能是"已发布"或"待审核"，以响应里的 `status` 为准：
-`PUBLISHED` 表示已进入题库；`PENDING_REVIEW` 表示等待管理员审核（此时只有你自己能看到）。
+任何登录用户都可以上传题目。上传后的初始状态由**平台设置和身份**决定，以响应里的 `status` 为准：
+
+| 情况 | 初始状态 |
+| --- | --- |
+| 管理员上传 | `PUBLISHED`（直接进入题库） |
+| 普通用户上传，平台默认（自动发布） | `PUBLISHED` |
+| 普通用户上传，平台改为人工审核 | `PENDING_REVIEW`（等待管理员审核，此时只有你自己和管理员能看到） |
+
+> 前端不要写死"上传 → 待审核"，请直接读响应里的 `status` 展示。多数部署是自动发布，普通用户上传后立刻就能在题库看到自己的题。
 
 **请求体**
 
@@ -518,7 +547,7 @@ Authorization: Bearer <token>
 | `source` | string | 否 | 来源，≤128 字 |
 | `timeLimitMs` | 整数 | 否 | 时间限制，100-30000 毫秒，默认 1000 |
 | `memoryLimitMb` | 整数 | 否 | 内存限制，16-1024 MB，默认 256 |
-| `tags` | string[] | 否 | 最多 10 个，每个 1-32 字（字母/数字/`_+#.-`）；不存在的新标签会自动创建 |
+| `tags` | string[] | 否 | 最多 10 个，每个 1-32 字（字母、数字、`_+#.-`，中文等非 ASCII 字母也算）；会自动 trim、去重、丢弃空白项；不存在的新标签会自动创建 |
 | `samples` | object[] | 否 | 最多 10 个题面样例，见下 |
 
 `samples` 每一项：
@@ -527,7 +556,7 @@ Authorization: Bearer <token>
 | --- | --- | --- | --- |
 | `input` | string | 是 | 样例输入，≤10240 字，可为空字符串 |
 | `output` | string | 是 | 样例输出，≤10240 字，可为空字符串 |
-| `explanation` | string | 否 | 样例解释 |
+| `explanation` | string | 否 | 样例解释，≤10240 字 |
 
 ```json
 {
@@ -579,10 +608,69 @@ Authorization: Bearer <token>
 
 **常见错误**：`3001`（题目不存在）、`1003`（不是作者/管理员）。
 
+### 4.7 判题器（Special Judge）
+
+> 有些题目的答案不唯一，由出题者上传一段 C++ 判题器源码来判断输出是否可接受；没有判题器的题目按逐行文本比对答案。
+> 这对前端是透明的：题目详情只给出 `hasChecker`，前端据它决定是否显示判题器入口。
+> 判题器源码怎么写、退出码怎么约定，见 [special-judge.md](special-judge.md)（出题者视角）。
+> 两个接口都**只有题目作者和管理员**可以调用：未登录返回 `401`，其他登录用户返回 `403`。
+
+#### 4.7.1 查看判题器源码
+
+`GET /problems/{id}/checker` ｜ 作者/管理员
+
+```json
+{ "code": 0, "message": "ok", "data": { "code": "#include <cstdio>\n\nint main() {\n    ...\n}\n" } }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `code` | 判题器源码；题目未配置时为**空字符串**（不是 `null`） |
+
+**常见错误**：`3001`（题目不存在）、`1003`（不是作者/管理员）。
+
+#### 4.7.2 上传 / 清空判题器
+
+`PUT /problems/{id}/checker` ｜ 作者/管理员
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `code` | string | 否 | C++ 源码，≤ 65536 字符；传 `""`、纯空白、`null` 或不传都表示**清空判题器**，恢复内置比对 |
+
+```json
+{ "code": "#include <cstdio>\nint main() { return 0; }\n" }
+```
+
+**响应**：`{ "code": 0, "message": "ok", "data": null }`
+
+**效果**
+
+- 保存后题目详情的 `hasChecker` 变为 `true`，清空后变回 `false`；
+- 只影响之后的评测，已出结果的提交不会改变；
+- 本接口只改判题器，不动题面、标签、样例和发布状态；反过来 `PUT /problems/{id}` 也不会改动判题器，所以判题器要有独立的表单与提交按钮。
+
+> 判题器本身不可用时，该题之后的提交会得到 `CHECKER_ERROR`（响应字段见 6.2）——这是判题侧的问题，不是选手代码的问题。
+
+**常见错误**：`3001`（题目不存在）、`1003`（不是作者/管理员）、`1001`（源码超过 65536 字符）。
+
 ## 5. 测试数据
 
 > 测试数据是判题用的隐藏数据，和题面里的"样例"是两套内容。
 > 所有接口（包括查看）都**只有题目作者和管理员**可以调用：未登录返回 `401`，其他登录用户返回 `403`。
+
+本章所有接口共用的错误码：
+
+| code | HTTP | 场景 |
+| --- | --- | --- |
+| `1002` | 401 | 未登录 |
+| `1003` | 403 | 已登录但不是该题作者、也不是管理员 |
+| `3001` | 404 | `problemId` 对应的题目不存在 |
+| `3004` | 404 | `testcaseId` 不存在或不属于该 `problemId`（5.2 / 5.5） |
+| `3005` | 400 | 单题测试数据数量超过上限（默认 100 条，5.3 / 5.4） |
+| `1000` | 400 | 单条 `input` / `output` 的 **UTF-8 字节数**超过上限（默认 1048576 字节）；也用于路径参数不是整数 |
+| `1001` | 400 | 缺少 `input` / `output`，或字符数超过 1048576 |
 
 公共路径参数：
 
@@ -641,14 +729,16 @@ Authorization: Bearer <token>
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `input` | string | 是 | 标准输入，≤1MB（默认上限）；可以为空字符串，但不能为 `null` |
-| `output` | string | 是 | 期望输出，≤1MB（默认上限）；可以为空字符串 |
+| `input` | string | 是 | 标准输入，**字符数** ≤1048576、**UTF-8 字节数** ≤1048576（上限由平台设定）；可以为空字符串，但不能为 `null` |
+| `output` | string | 是 | 期望输出，限制同上；可以为空字符串 |
 
 ```json
 { "input": "1 2\n", "output": "3\n" }
 ```
 
 编号自动取"当前最大编号 + 1"；单题最多 100 条（默认上限），超出返回 `3005`。
+
+> 两个上限的判定方式不同：**字符数**超限返回 `1001`，**字节数**超限返回 `1000`（消息里带具体字节上限）。中文等多字节字符容易先触发字节上限——例如 40 万个汉字只有 40 万字符，但 UTF-8 下有 120 万字节。
 
 **响应 `data`**：刚创建的这条数据的基本信息（结构同 5.1 的元素）。
 
@@ -670,7 +760,7 @@ Authorization: Bearer <token>
 
 **响应 `data`**：替换后的列表（结构同 5.1）。
 
-**常见错误**：`1001`（数组里有元素缺少 `input`/`output`）、`3005`（数量超过上限）。
+**常见错误**：`1001`（数组里有元素缺少 `input`/`output`，或字符数超限）、`1000`（某个元素的 UTF-8 字节数超过上限）、`3005`（数量超过上限）。
 
 ### 5.5 删除一条测试数据
 
@@ -694,7 +784,7 @@ Authorization: Bearer <token>
 | --- | --- | --- | --- |
 | `problemId` | 整数 | 是 | 题目 id |
 | `language` | string | 是 | 语言代码，必须取自"可选语言"接口返回的 `code` |
-| `code` | string | 是 | 源代码，≤65536 字符（默认上限）；Java 请使用 `public class Main` |
+| `code` | string | 是 | 源代码，≤65536 字符（默认上限），超长返回 `1001`；Java 请使用 `public class Main` |
 
 ```json
 {
@@ -729,9 +819,9 @@ Authorization: Bearer <token>
 | 404 | 3001 | 题目不存在 |
 | 403 | 3002 | 题目未发布，且你不是作者/管理员 |
 | 400 | 3003 | 题目还没有测试数据 |
-| 400 | 4003 | 代码超过 65536 字符 |
-| 400 | 4002 / 1000 | 语言不受支持（请使用语言列表里的 `code`） |
-| 400 | 1001 | 字段缺失或为空 |
+| 400 | 1001 | 字段缺失、为空，或代码超过 65536 字符（默认上限） |
+| 400 | 4003 | 代码过长；**默认上限下不会出现**，因为超长会先被 `1001` 拦下，只有服务端把长度上限调小到 65536 字符以下时才可能返回 |
+| 400 | 4002 / 1000 | 语言不受支持（请使用语言列表里的 `code`）；`4002` 是枚举合法但服务端未启用，`1000` 是枚举本身不合法 |
 
 ### 6.2 提交详情
 
@@ -792,12 +882,12 @@ Authorization: Bearer <token>
 | `language` | 提交使用的语言 |
 | `code` | 源代码；无权限时为 `null` |
 | `status` / `statusText` | 状态枚举 / 中文文案，见 6.4 |
-| `timeUsedMs` | 已执行测试点中的**最大耗时**（毫秒）；编译错误时为 `null` |
+| `timeUsedMs` | 已执行测试点中的**最大耗时**（毫秒）；尚未开始评测、编译错误、`SYSTEM_ERROR`、`CHECKER_ERROR`（判题器在编译/启动阶段失败）时为 `null` |
 | `memoryUsedKb` | 内存峰值（KB）；该次评测未提供该项统计时为 `null`，前端需判空 |
 | `compileMessage` | 编译器输出，只有 `COMPILATION_ERROR` 时有值；编译超时时为固定英文说明 `Compile Time Exceeded` |
-| `judgeMessage` | 系统级错误说明，只有 `SYSTEM_ERROR` 时有值 |
+| `judgeMessage` | 系统级/判题器级错误说明：`SYSTEM_ERROR` 与 `CHECKER_ERROR`（判题器编译或启动失败）时有值，其他情况为 `null`。内容可能较长，前端请做折行/截断 |
 | `createdAt` / `judgedAt` | 提交时间 / 评测完成时间；未完成时 `judgedAt` 为 `null` |
-| `cases` | 逐个测试点的结果；无权限时为 `[]` |
+| `cases` | 逐个测试点的结果；无权限、编译错误、`SYSTEM_ERROR`、判题器编译/启动失败（`CHECKER_ERROR`）时为 `[]` |
 
 **`cases` 每一项**
 
@@ -807,10 +897,12 @@ Authorization: Bearer <token>
 | `status` / `statusText` | 该测试点的结果 |
 | `timeUsedMs` | 该测试点耗时 |
 | `memoryUsedKb` | 该测试点的内存峰值（KB）；未提供该项统计时为 `null` |
-| `message` | 失败原因：超时/超内存/输出超限写固定的英文说明（如 `Time Limit Exceeded`），不带耗时、内存等具体数值；运行错误会给出程序错误输出（程序自身无输出时为 `Killed by signal` / `Non-zero exit code`）；答案错误一般为 `null`。不会包含期望输出 |
+| `message` | 该测试点的失败原因，供展示用，**不要当作文案解析**。常见取值：超时 `Time Limit Exceeded`、超内存 `Memory Limit Exceeded`、输出超限 `Output Limit Exceeded`；运行错误给出程序 stderr（程序自身无输出时为 `Killed by signal` / `Non-zero exit code`）；答案错误一般为 `null`。不同部署的文案可能不同（例如中文且带具体数值的 `超过时间限制 1000ms`），前端只做展示/折叠即可。不会包含期望输出 |
 
 > 评测遇到第一个未通过的测试点就会停止，所以 `cases` 可能少于测试数据总数。
 > 例如答案错误时通常只有 1 条 `WRONG_ANSWER`。
+
+> `message` 长度上限约 **1024 字符**：内容过长时该条记录可能没有说明，前端展示时请自行截断，不要假设它一定有值。
 
 ### 6.3 提交列表
 
@@ -818,7 +910,7 @@ Authorization: Bearer <token>
 
 用于题目页的"最近提交"、个人主页的提交记录、评测排队查询。列表**不返回代码和逐点结果**。
 
-**查询参数**（都可选，"且"关系；按提交时间倒序）
+**查询参数**（都可选，"且"关系；按提交 id 倒序，即最新的在前）
 
 | 参数 | 类型 | 说明 |
 | --- | --- | --- |
@@ -826,6 +918,9 @@ Authorization: Bearer <token>
 | `userId` | 整数 | 只看某个用户的提交 |
 | `status` | string | 只看某个状态，例如 `ACCEPTED`、`PENDING`；非法值返回 `1000` |
 | `page` / `size` | 整数 | 分页，见 1.4 |
+
+> 该接口**不校验题目是否已发布**：用 `?problemId={id}` 查 `DRAFT` / `PENDING_REVIEW` / `HIDDEN` 的题目时，任何人（含未登录）都能拿到提交摘要，并且能看到 `problemTitle`。详见 1.6 末尾的说明。
+> 题目被删除时它的提交会被级联删除，所以列表里不会出现"题目已删除"的记录。
 
 **响应 `data`**
 
@@ -867,9 +962,10 @@ Authorization: Bearer <token>
 | `OUTPUT_LIMIT_EXCEEDED` | 输出超出限制 | 程序输出内容过大 | 是 |
 | `RUNTIME_ERROR` | 运行错误 | 程序异常退出 | 是 |
 | `COMPILATION_ERROR` | 编译错误 | 代码编译失败 | 是 |
+| `CHECKER_ERROR` | 判题器错误 | 该题的自定义判题器编译失败/超时/崩溃。**这是题目/系统侧的问题，不是选手代码的问题**，应提示"评测机正在处理，请稍后重试"并通知出题者 | 是 |
 | `SYSTEM_ERROR` | 系统错误 | 评测环境异常，可提示用户稍后重试 | 是 |
 
-建议配色：`ACCEPTED` 绿色；`WRONG_ANSWER` / `TIME_LIMIT_EXCEEDED` / `RUNTIME_ERROR` / `COMPILATION_ERROR` 红色；`PENDING` / `JUDGING` 灰色。
+建议配色：`ACCEPTED` 绿色；`WRONG_ANSWER` / `TIME_LIMIT_EXCEEDED` / `RUNTIME_ERROR` / `COMPILATION_ERROR` 红色；`PENDING` / `JUDGING` 灰色；`CHECKER_ERROR` / `SYSTEM_ERROR` 橙色（带"重试"入口）。
 
 ### 6.5 轮询评测结果（示例）
 
@@ -953,7 +1049,7 @@ async function waitForJudge(id, token, onUpdate) {
 | `keyword` | string | 用户名、昵称、邮箱任一模糊匹配；为空不筛选 |
 | `page` / `size` | 整数 | 分页 |
 
-**响应 `data`**（按注册时间倒序）
+**响应 `data`**（按 id 倒序，等价于注册时间倒序）
 
 ```json
 {
@@ -1037,7 +1133,7 @@ async function waitForJudge(id, token, onUpdate) {
 | 参数 | 类型 | 说明 |
 | --- | --- | --- |
 | `keyword` | string | 标题模糊搜索 |
-| `status` | string | 按状态筛选：`DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN`；不传表示全部状态 |
+| `status` | string | 按状态筛选：`DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN`；不传表示全部状态；传其他值返回 `1000` |
 | `page` / `size` | 整数 | 分页 |
 
 **响应 `data`**：结构同 4.1 的题目列表，每项都带 `status`：
@@ -1098,12 +1194,12 @@ async function waitForJudge(id, token, onUpdate) {
 
 题目状态的含义：
 
-| 状态 | 含义 | 公开可见 |
-| --- | --- | --- |
-| `DRAFT` | 草稿 | ❌ |
-| `PENDING_REVIEW` | 待审核 | ❌ |
-| `PUBLISHED` | 已发布 | ✅ |
-| `HIDDEN` | 已下架 | ❌ |
+| 状态 | 含义 | 公开可见 | 说明 |
+| --- | --- | --- | --- |
+| `DRAFT` | 草稿 | ❌ | 预留值，当前版本不会产生 |
+| `PENDING_REVIEW` | 待审核 | ❌ | 平台改为人工审核时，普通用户上传后进入 |
+| `PUBLISHED` | 已发布 | ✅ | 自动发布的平台上，上传即为此状态 |
+| `HIDDEN` | 已下架 | ❌ | 管理员驳回或下架 |
 
 ### 9.2 可能为 null 的字段
 
@@ -1111,14 +1207,17 @@ async function waitForJudge(id, token, onUpdate) {
 | --- | --- | --- |
 | 题目详情 | `inputFormat`、`outputFormat`、`hint`、`source` | 可能未填写 |
 | 题目详情 | `samples[].explanation` | 可能未填写 |
+| 题目详情 | `hasChecker` | 布尔值，不会是 `null` |
 | 题目详情 | `tags`、`samples` | 空数组（`[]`），不会是 `null` |
 | 提交详情 | `code` | 无权限查看 |
 | 提交详情 | `compileMessage` | 只有编译错误时有值 |
-| 提交详情 | `judgeMessage` | 只有系统错误时有值 |
-| 提交详情 | `timeUsedMs` | 编译错误或尚未开始评测 |
+| 提交详情 | `judgeMessage` | `SYSTEM_ERROR`、以及判题器编译/启动失败（`CHECKER_ERROR`）时有值；判题器运行期失败时该字段为 `null`，原因在 `cases[].message` |
+| 提交详情 | `timeUsedMs` | 尚未开始评测、编译错误、`SYSTEM_ERROR`、判题器编译/启动失败（`CHECKER_ERROR`） |
 | 提交详情 | `memoryUsedKb` | 该次评测未提供内存统计时为 `null` |
 | 提交详情 | `judgedAt` | 尚未评测完成 |
-| 提交详情 | `cases` | 无权限或编译错误时为 `[]` |
+| 提交详情 | `cases` | 无权限、编译错误、`SYSTEM_ERROR`、判题器编译/启动失败时为 `[]` |
+| 提交详情 | `cases[].memoryUsedKb` | 该测试点没有内存统计时为 `null` |
+| 提交详情 | `cases[].message` | 通过/答案错误时一般为 `null` |
 | 列表 | `items` | 无数据或超出页码时为 `[]`，此时 `total` 可能不为 0 |
 
 > 数值字段（`timeUsedMs`、`memoryUsedKb`）为 `null` 时，建议统一显示为 `-`，不要直接渲染 `null`。
@@ -1129,13 +1228,17 @@ async function waitForJudge(id, token, onUpdate) {
 | --- | --- | --- |
 | 打开题目返回 `403` + `3002` | 题目未发布或已下架 | 提示"题目不可见"，不要显示"无权限" |
 | 提交返回 `400` + `3003` | 题目还没有测试数据 | 提交按钮置灰，提示等待作者补充 |
-| 上传题目后在题库看不到 | 题目进入待审核（`PENDING_REVIEW`） | 去"我的题目"查看，并展示状态标签 |
+| 上传题目后在题库看不到 | 该平台开启了人工审核，普通用户的题目进入待审核（`PENDING_REVIEW`）；自动发布的部署不会出现该现象 | 读响应里的 `status`；未发布时去"我的题目"查看并展示状态标签 |
+| 上传后立刻就能看到、并没有"待审核" | 该平台是自动发布，普通用户上传即 `PUBLISHED` | 属正常行为，不要写死"上传 → 待审核" |
 | 编辑题目后部分内容变空 | 编辑接口是整体替换 | 表单提交时带上所有字段（含标签、样例） |
 | 提交后一直 `PENDING` / `JUDGING` | 评测较慢或排队 | 轮询 30-60 秒后提示"稍后到我的提交查看" |
 | 未登录时 `solved` 全是 `false` | 未登录无法判断通过情况 | 不要显示"未通过"，改为显示"登录后查看" |
 | token 过期后页面像"未登录" | 公开接口不会因 token 失效报错 | 请求 `/auth/me` 判断登录态，失败则引导登录 |
 | 管理页看不到谁被封禁 | 用户列表不含封禁状态 | 见 8.1 的说明，必要时与后端约定扩展字段 |
 | 测试数据编号不连续 | 删除中间数据后编号不重排 | 正常现象，按编号展示即可 |
+| 提交显示 `CHECKER_ERROR` | 该题的自定义判题器编译失败/超时/崩溃 | 提示"评测机处理中，请稍后重试"，同时通知出题者；不要提示"你的代码有错"。判题器编译/启动失败时看 `judgeMessage`，运行期失败时看 `cases[].message` |
+| 怀疑"编辑题目把判题器弄丢了" | `PUT /problems/{id}` 不会改判题器（它走独立接口），`hasChecker` 也不会被影响 | 用 `GET /problems/{id}/checker` 复核源码；前端把判题器编辑放进单独的表单与按钮 |
+| 提交列表里出现了未发布题目的记录 | `GET /submissions` 不按题目可见性过滤（见 1.6） | 不要据此认为题目已公开；如需严格隔离，请后端补过滤 |
 
 ### 9.4 页面与接口对照
 
@@ -1148,14 +1251,8 @@ async function waitForJudge(id, token, onUpdate) {
 | 我的题目 | `GET /problems/mine`、`PUT /problems/{id}`、`DELETE /problems/{id}` |
 | 上传/编辑题目 | `GET /meta/tags`、`GET /meta/languages`、`POST /problems`、`PUT /problems/{id}` |
 | 测试数据管理 | `GET /problems/{problemId}/testcases`、`GET/POST/PUT/DELETE /problems/{problemId}/testcases/**` |
+| 判题器管理 | `GET /problems/{id}/checker`、`PUT /problems/{id}/checker`（作者/管理员） |
 | 个人主页 | `GET /users/{id}`、`GET /submissions?userId={id}` |
 | 账号设置 | `PATCH /users/me`、`PUT /users/me/password` |
 | 后台 · 审核 | `GET /admin/problems?status=PENDING_REVIEW`、`GET /problems/{id}`、`PATCH /admin/problems/{id}/status` |
 | 后台 · 用户 | `GET /admin/users`、`PATCH /admin/users/{id}/role`、`PATCH /admin/users/{id}/status` |
-
-
-
-
-
-
-

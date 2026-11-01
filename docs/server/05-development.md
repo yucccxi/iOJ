@@ -15,8 +15,11 @@ me.iynotuo.judge
 ├── problem        entity(Problem, Sample, Testcase, Tag) / mapper / service / controller / dto
 ├── submission     entity(Submission, SubmissionCase) / mapper / service / controller / dto
 └── judge           JudgeService / JudgeWorker / JudgeContext / JudgeOutcome / OutputComparator
+    ├── sandbox     Sandbox（接口）/ IsolateSandbox / LocalSandbox / SandboxCommand / SandboxResult
+    │               SandboxFiles / Limits / Commands / IsolateMeta / StreamCollector
+    ├── answer      AnswerChecker（接口）/ TextAnswerChecker / ProgramAnswerChecker
+    │               DisabledAnswerChecker / AnswerCheckerFactory
     └── engine      JudgeEngine（接口）/ IsolateJudgeEngine / LocalProcessJudgeEngine
-                    StreamCollector / IsolateMeta
 ```
 
 分层职责：
@@ -26,7 +29,9 @@ me.iynotuo.judge
 | Controller | 参数绑定、`@Valid`、`@PreAuthorize`、把 `LoginUser` 传给 Service、包装 `ApiResponse` | 不写业务分支、不碰 Mapper |
 | Service | 事务边界、权限与领域校验、组装 VO | 不处理 HTTP 细节 |
 | Mapper | SQL（XML），入参是实体或 `Criteria`/`@Param` | 不含业务判断 |
-| judge | 编译/运行/比对，返回 `JudgeOutcome` | 不直接写数据库（由 `JudgeService` 落库） |
+| judge | 编排判题（编译 → 逐点运行 → 判定 → 聚合），返回 `JudgeOutcome` | 不直接写数据库（由 `JudgeService` 落库） |
+| judge/sandbox | 起进程、加限额、读回输出（isolate / 本机进程各一个实现） | 不知道"答案""判定""提交" |
+| judge/answer | 判定一个测试点是否正确（文本比对 / 作者判题器） | 不知道用的是哪个引擎 |
 
 约定：
 
@@ -100,12 +105,14 @@ ioj:
 
 ## 4. 新增/替换判题引擎
 
-见 `03-judge.md` 的「判题引擎选择」与「Isolate 沙箱」。要点：
+见 `03-judge.md` 的「判题引擎选择」与 §2.1「代码分层」。要点：
 
-- 实现 `JudgeEngine`（放在 `me.iynotuo.judge.judge.engine` 包，与现有实现同级），用 `@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "docker")` 限定生效条件，避免两个实现同时注册。
+- 优先只写一个 `Sandbox` 实现（`me.iynotuo.judge.judge.sandbox` 包）：把"起进程、加限额、读回输出"做完，然后复用现成的引擎流程。绝大多数新沙箱（Docker、nsjail）只需要替换这一层。
+- 真要替换整条流程时，实现 `JudgeEngine`（放在 `me.iynotuo.judge.judge.engine` 包，与现有实现同级），用 `@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "docker")` 限定生效条件，避免两个实现同时注册。
 - 返回的 `JudgeOutcome` 语义要与现有引擎（`isolate` / `local`）一致：`status` 取第一个失败测试点的状态，`cases` 按执行顺序，失败即停。
-- 复用 `OutputComparator`，保持比对规则一致。
-- `MEMORY_LIMIT_EXCEEDED` 通过 OOM 事件判定，同时写入 `memoryUsedKb`（Isolate 引擎已提供参考实现）。
+- **不要自己判断"答案对不对"**：把选手输出交给 `AnswerChecker`（由 `AnswerCheckerFactory` 创建），这样文本比对与作者判题器对新引擎自动生效。
+- `MEMORY_LIMIT_EXCEEDED` 通过沙箱的 `SandboxResult.outOfMemory()` 判定，同时写入 `memoryUsedKb`（`IsolateSandbox` 已提供参考实现）。
+- `Sandbox.supportsAuthorCode()` 返回 `false` 的沙箱不会执行作者判题器，`AnswerCheckerFactory` 会自动给它 `DisabledAnswerChecker`（判 `CHECKER_ERROR`）。
 - 在 `application.yaml` 中把 `ioj.judge.engine` 设为新实现对应的值，并确认启动日志/失败信息符合预期。
 
 ## 5. 数据库脚本规则
@@ -134,6 +141,9 @@ cd server
 | `OutputComparatorTest` | 行尾空白、CRLF、文末空行、空输出、行首空格 |
 | `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→匿名列表→提交 Java 代码→worker 抢占→真实 javac 编译+运行→AC/WA→权限裁剪 |
 | `AdminModerationIntegrationTest` | 测试点单个/批量增删查、题目审核上下架、后台用户搜索、封禁后旧 token 立即失效 |
+| `CheckerIntegrationTest` | 判题器源码的读/写/清空、匿名与越权拒绝、题目详情只暴露 `hasChecker`、local 引擎返回 `CHECKER_ERROR` |
+| `ProgramAnswerCheckerTest` | 判题器退出码 0/1/2/其他、超时、崩溃、内存超限、编译失败、缺少二进制（假 Sandbox，无需 isolate） |
+| `IsolateSandboxCommandTest` | isolate 命令行（顺序与两位小数格式）与宿主机到 `/box` 的路径翻译 |
 
 集成测试的关键配置（`src/test/resources/application-test.yaml`）：
 

@@ -61,6 +61,19 @@ public class JudgeProperties {
 
     private Map<Language, LanguageConfig> languages = new EnumMap<>(Language.class);
 
+    /**
+     * Settings for the optional per-problem custom checker (special judge).
+     */
+    private Checker checker = new Checker();
+
+    public Checker getChecker() {
+        return checker;
+    }
+
+    public void setChecker(Checker checker) {
+        this.checker = checker;
+    }
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -299,5 +312,66 @@ public class JudgeProperties {
          * Timeout for an isolate init/cleanup invocation, in milliseconds.
          */
         private long setupTimeoutMs = 10_000;
+    }
+
+    /**
+     * Settings for a problem's custom checker (special judge).
+     *
+     * <p>The checker is C++ source code uploaded by the problem author. It is compiled with
+     * {@code compileCommand} and then run once per test case in its own sandbox with three files
+     * available in the working directory: {@code input.txt}, {@code output.txt} (the contestant
+     * output) and {@code answer.txt} (the official answer). The exit code decides the verdict:
+     * {@code 0} accept, {@code 1} wrong answer, {@code 2} presentation error, anything else is
+     * reported as {@code CHECKER_ERROR}. Text printed on stdout is stored as the case message.</p>
+     *
+     * <p>The limits below are deliberately separate from the problem limits: a checker usually needs
+     * more memory and a different time budget than the contestant program, and a checker that runs
+     * out of limits must never be reported as a contestant failure.</p>
+     */
+    @Getter
+    @Setter
+    public static class Checker {
+
+        /**
+         * Whether custom checkers are allowed at all. When disabled, problems that carry a checker are
+         * judged with {@code CHECKER_ERROR} instead of running author-supplied code.
+         */
+        private boolean enabled = true;
+
+        /**
+         * CPU time limit for one checker run, in milliseconds.
+         */
+        private int timeLimitMs = 2_000;
+
+        /**
+         * Memory limit for one checker run, in megabytes.
+         */
+        private int memoryLimitMb = 512;
+
+        /**
+         * Wall-clock timeout for compiling the checker on the host, in milliseconds.
+         */
+        private long compileTimeoutMs = 30_000;
+
+        /**
+         * Memory limit for compiling the checker, in megabytes.
+         */
+        private int compileMemoryMb = 512;
+
+        /**
+         * File name the checker source is written to before compilation.
+         */
+        private String sourceFile = "checker.cpp";
+
+        /**
+         * Compile command; it must produce an executable named {@code checker} in the working directory.
+         */
+        private String compileCommand = "g++ -O2 -std=c++17 -pipe -o checker checker.cpp";
+
+        /**
+         * Maximum number of bytes kept from the checker output, matching the width of
+         * {@code submission_cases.message}.
+         */
+        private int messageLimitBytes = 1_024;
     }
 }

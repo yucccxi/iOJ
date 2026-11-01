@@ -32,4 +32,17 @@ public record JudgeOutcome(SubmissionStatus status,
     public static JudgeOutcome compilationError(String message) {
         return new JudgeOutcome(SubmissionStatus.COMPILATION_ERROR, message, null, List.of(), null, null);
     }
+
+    /**
+     * Builds the outcome of a run whose custom checker could not be used.
+     *
+     * <p>The message explains the checker failure to the problem author; it is stored in
+     * {@code judge_message}, never in {@code compile_message}, because the contestant code compiled fine.</p>
+     *
+     * @param message explanation of the checker failure; never {@code null}
+     * @return an outcome with status {@code CHECKER_ERROR} and no per-case results
+     */
+    public static JudgeOutcome checkerError(String message) {
+        return new JudgeOutcome(SubmissionStatus.CHECKER_ERROR, null, message, List.of(), null, null);
+    }
 }

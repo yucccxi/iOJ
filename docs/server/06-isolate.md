@@ -19,9 +19,15 @@
 │   ├── isolate --init
 │   ├── isolate --run -- <javac/g++/gcc ...>
 │   └── isolate --cleanup
+├── 判题器编译（仅当题目带 checker_code）
+│   ├── isolate --init
+│   ├── isolate --run -- g++ -o checker checker.cpp
+│   └── isolate --cleanup
 ├── 每个测试点（全新 box、全新目录）
 │   ├── isolate --init
 │   ├── isolate --run -- <java/./main/python3>
+│   ├── isolate --init（有判题器时再跑一次，目录不同）
+│   ├── isolate --run -- /box/checker
 │   └── isolate --cleanup
 └── 归还 box id、删除临时工作目录
 ```
@@ -177,6 +183,15 @@ ioj:
     concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
     max-output-bytes: 16777216        # 16MB，同时决定 --fsize
     compile-timeout-ms: 30000
+    checker:                          # 题目自带的 C++ 判题器（Special Judge）
+      enabled: true
+      time-limit-ms: 2000             # 独立于题限，见 §6.5
+      memory-limit-mb: 512
+      compile-timeout-ms: 30000
+      compile-memory-mb: 512
+      source-file: checker.cpp
+      compile-command: g++ -O2 -std=c++17 -pipe -o checker checker.cpp
+      message-limit-bytes: 1024
     isolate:
       binary: /usr/bin/isolate
       box-id-start: 1                 # 避开 root 手工测试留下的 box 0
@@ -213,6 +228,8 @@ ioj:
 | `extra-dirs` | 只读绑定进沙箱的宿主目录 | 见 §6.3 |
 | `resolve-executables` | 把命令首词解析成真实路径 | 保持 `true` |
 | `setup-timeout-ms` | init/cleanup 的宿主超时 | 机器很慢时上调 |
+| `checker.time-limit-ms` / `checker.memory-limit-mb` | 判题器单次运行的 CPU / 内存 | 判题器要读整个输出，通常比题限宽；见 §6.5 |
+| `checker.compile-command` | 判题器编译命令 | 必须产出名为 `checker` 的可执行文件 |
 
 box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停在 `boxIds.take()` 等别人归还，
 不会报错也不会丢任务。所以 `box-id-count` 小于并发时，表现是判题变慢，而不是失败。
@@ -250,7 +267,7 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
   --dir=/box=/tmp/ioj-isolate-XXXX/run-1:rw \
   --dir=/etc/java-21-openjdk=/etc/java-21-openjdk \
   --chdir=/box --stdin=/box/input.txt \
-  --stdout=/box/output.txt --stderr=/box/stderr.txt \
+  --stdout=/box/stdout.txt --stderr=/box/stderr.txt \
   --meta=/tmp/ioj-isolate-XXXX/run-1.meta \
   --run -- /usr/lib/jvm/java-21-openjdk-amd64/bin/java -Xmx256m -Xss64m -XX:+UseSerialGC Main
 ```
@@ -319,6 +336,45 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
 - **只读**：不加 `:rw`，用户程序改不了宿主机文件；
 - **按需**：不整目录挂 `/etc`，是为了只暴露运行时真正需要的那一小块。
 
+### 6.5 判题器阶段（Special Judge）
+
+题目带 `problems.checker_code` 时，每个测试点会多跑一次 isolate：先跑选手程序（6.2），再在**另一个目录**里跑判题器。
+
+判题器目录（`/tmp/ioj-isolate-XXXX/check-1`，绑定为 `/box`）内容：
+
+| 文件 | 来源 |
+| --- | --- |
+| `checker` | 判题器编译产物，权限 `rwxr-xr-x` |
+| `input.txt` | 该测试点的标准输入 |
+| `output.txt` | 选手输出文件的副本 |
+| `answer.txt` | 该测试点的标准答案 |
+| `stdout.txt` / `stderr.txt` / `empty.txt` | 预先建好的空文件（见 §6.3 第 2 条） |
+
+```bash
+/usr/bin/isolate --cg --box-id=1 \
+  --processes=1 --time=2.00 --wall-time=5.00 \
+  --cg-mem=524288 --fsize=16448 \
+  --env=PATH=/usr/bin:/bin --env=TMPDIR=/box --env=LANG=C.UTF-8 \
+  --dir=/box=/tmp/ioj-isolate-XXXX/check-1:rw \
+  --dir=/etc/java-21-openjdk=/etc/java-21-openjdk \
+  --chdir=/box --stdin=/box/empty.txt \
+  --stdout=/box/stdout.txt --stderr=/box/stderr.txt \
+  --meta=/tmp/ioj-isolate-XXXX/check-1.meta \
+  --run -- /box/checker
+```
+
+与运行阶段的差别：
+
+| 项 | 运行阶段 | 判题器阶段 |
+| --- | --- | --- |
+| 时间 | 题限 × 语言系数 | 固定的 `ioj.judge.checker.time-limit-ms` |
+| 内存 | 题限 + 语言额外内存 | 固定的 `ioj.judge.checker.memory-limit-mb` |
+| 进程数 | 语言的 `isolate-processes` | `1` |
+| 被执行的程序 | `java` / `./main` / `python3` | `/box/checker`（已是沙箱内绝对路径，不做 PATH 解析） |
+| 结论来源 | meta + 输出内容 | **退出码**（0/1/2/其他） |
+
+> 为什么不用同一个目录：`answer.txt` 一旦出现在选手的工作目录里，选手程序可以直接读走标准答案；把 `checker` 放进去则可以被选手覆写。分两个目录是最省事且没有额外挂载参数的解法。
+
 ## 7. 手工验证（不经过后端）
 
 用 box 5 复现一次完整评测。所有路径都要让沙箱用户能访问（读或写），否则会静默失败。
@@ -335,7 +391,7 @@ isolate --cg --box-id=5 --init
 # 2. 准备“工作目录”，它以 /box 的身份出现在沙箱内
 W=$(mktemp -d /tmp/isolate-demo.XXXX)
 mkdir -p "$W/box"
-: > "$W/box/output.txt"; : > "$W/box/stderr.txt"; : > "$W/box/empty.txt"
+: > "$W/box/stdout.txt"; : > "$W/box/stderr.txt"; : > "$W/box/empty.txt"
 printf 'a, b = map(int, input().split())\nprint(a + b)\n' > "$W/box/main.py"
 echo '1 2' > "$W/box/input.txt"
 chmod -R 777 "$W"
@@ -345,12 +401,12 @@ isolate --cg --box-id=5 --processes=1 --time=2.00 --wall-time=5.00 \
   --cg-mem=102400 --fsize=1024 \
   --env=PATH=/usr/bin:/bin --env=TMPDIR=/box --env=LANG=C.UTF-8 \
   --dir=/box="$W/box":rw \
-  --chdir=/box --stdin=/box/input.txt --stdout=/box/output.txt \
+  --chdir=/box --stdin=/box/input.txt --stdout=/box/stdout.txt \
   --stderr=/box/stderr.txt --meta="$W/run.meta" \
   --run -- /usr/bin/python3 main.py
 
 # 4. 看结果
-cat "$W/box/output.txt"     # 3
+cat "$W/box/stdout.txt"     # 3
 cat "$W/run.meta"
 
 # 5. 收尾
@@ -460,7 +516,7 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | `pthread_create failed` / Java 直接 `exitcode:1` | `--processes` 太小 | Java 的 `isolate-processes` 与 `compile-processes` 都用 64 |
 | 编译报 `execve(...): No such file or directory` | 命令首词是 `/etc/alternatives` 软链，沙箱没挂载 | 保持 `resolve-executables: true` |
 | JVM 报 `Error loading java.security file` | 沙箱默认不挂载 `/etc`，而 Debian 的 `conf/security/java.security` 是指向 `/etc/java-21-openjdk` 的软链 | `extra-dirs` 保留 `/etc/java-21-openjdk`；手工验证时先 `--cleanup` + `--init`，别让上一次的 `--dir` 残留 |
-| 程序正常退出但输出为空 / 莫名 WA | `--stdout` 目标文件不存在，isolate 静默丢弃输出 | 复现时先 `: > output.txt`；后端已自动建空文件 |
+| 程序正常退出但输出为空 / 莫名 WA | `--stdout` 目标文件不存在，isolate 静默丢弃输出 | 复现时先 `: > stdout.txt`；后端已自动建空文件 |
 | 写入目录报 `Read-only file system` | `--dir` 没加 `:rw` | 只有 `/box` 需要写；`extra-dirs` 保持只读 |
 | 编译超时（`COMPILATION_ERROR: Compile Time Exceeded`） | `compile-time-seconds` / `compile-wall-time-seconds` 太小 | 分别上调 CPU 与墙钟限制 |
 | 判题结束后 `/var/lib/isolate` 有残留目录 | 进程被强杀，没执行 `--cleanup` | 确认日志告警；用同一用户 `isolate --cg --box-id=N --cleanup` |
@@ -478,6 +534,7 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | 二进制是 setuid root | 任何本机用户都能建沙箱；不要把判题机当作多租户共享机器 |
 | 默认无网络（实测 `Errno 101`） | 用户程序无法外联，也拿不到数据库；除排障外不要加 `--share-net` |
 | 沙箱 UID 来自 `/etc/subuid` | 与宿主机用户不同，因此工作目录被放开为 `777`；该目录只放源码/输入/输出 |
+| 判题器是出题者上传的代码 | 同样是不可信代码，因此只在沙箱里编译与运行，独立时限；`answer.txt` 只出现在判题器目录，选手目录里没有（见 §6.5） |
 | 资源限制是逐次的 | `--cg-mem`、`--time`、`--processes` 只约束单次运行，整机容量靠 `concurrency` 控制 |
 
 其它约定：

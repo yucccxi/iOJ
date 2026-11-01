@@ -41,7 +41,7 @@ erDiagram
 | `problems.difficulty` | `EASY` / `MEDIUM` / `HARD` | 难度筛选 |
 | `problems.status` | `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN` | 草稿 / 待审核 / 已发布 / 已下架 |
 | `submissions.language` | `JAVA` / `CPP` / `C` / `PYTHON3` | 与 `ioj.judge.languages` 的 key 一致 |
-| `submissions.status` | `PENDING` / `JUDGING` / `ACCEPTED` / `WRONG_ANSWER` / `TIME_LIMIT_EXCEEDED` / `MEMORY_LIMIT_EXCEEDED` / `OUTPUT_LIMIT_EXCEEDED` / `RUNTIME_ERROR` / `COMPILATION_ERROR` / `SYSTEM_ERROR` | 提交总状态 |
+| `submissions.status` | `PENDING` / `JUDGING` / `ACCEPTED` / `WRONG_ANSWER` / `TIME_LIMIT_EXCEEDED` / `MEMORY_LIMIT_EXCEEDED` / `OUTPUT_LIMIT_EXCEEDED` / `RUNTIME_ERROR` / `COMPILATION_ERROR` / `CHECKER_ERROR` / `SYSTEM_ERROR` | 提交总状态 |
 | `submission_cases.status` | 同上（不含 `PENDING`/`JUDGING`） | 单测试点状态 |
 
 枚举都用字符串而不是 TINYINT：可读性高、排查问题时不用查字典、加值时不用改表。代价是多占几个字节，俱乐部规模完全无感。
@@ -77,6 +77,7 @@ erDiagram
 | output_format | MEDIUMTEXT | NULL | 输出格式说明 |
 | hint | MEDIUMTEXT | NULL | 提示 |
 | source | VARCHAR(128) | NULL | 题目来源 |
+| checker_code | MEDIUMTEXT | NULL | 自定义判题器（Special Judge）源码，C++（兼容 C 风格）；`NULL` 或空白表示用内置的 `OutputComparator` 逐行比对 |
 | time_limit_ms | INT | NOT NULL DEFAULT 1000 | 时间限制（毫秒，基准值） |
 | memory_limit_mb | INT | NOT NULL DEFAULT 256 | 内存限制 |
 | author_id | BIGINT | FK → users.id | 上传者 |
@@ -84,6 +85,13 @@ erDiagram
 | submit_count | INT | NOT NULL DEFAULT 0 | 提交次数（冗余计数） |
 | accepted_count | INT | NOT NULL DEFAULT 0 | 通过次数（冗余计数） |
 | created_at / updated_at | DATETIME | NOT NULL | |
+
+`checker_code` 的几条约定：
+
+- 判题器是**出题者上传的 C++ 源码**，判题时在沙箱里用 `g++` 编译后逐测试点运行（见 `03-judge.md` §10）。
+- 判题器的时限与内存**不在数据库里**，而是配置项 `ioj.judge.checker.*`。原因是判题器需要的内存通常比选手程序大一个量级，而"某道题需要更久的判题器"这种需求在俱乐部规模下可以直接整体调大。
+- 该列**不会**出现在 `ProblemMapper.findById` 的查询里：公开的 `GET /problems/{id}` 与判题取数是两条不同的查询，避免判题逻辑通过公开接口泄漏。列表接口同样不返回，详情接口只返回 `hasChecker` 布尔值。
+- 修改判题器走独立端点 `PUT /problems/{id}/checker`，**不并入** `PUT /problems/{id}`：后者是整体替换，客户端漏传一次就会静默退回内置比对。
 
 `submit_count` / `accepted_count` 是冗余字段：列表页要展示通过率，如果每次都 `COUNT(submissions)` 会拖慢列表。写入时机：提交时 `+1`，判题通过时 `accepted_count + 1`（定义为"通过提交数"，与主流 OJ 一致）。
 
@@ -141,7 +149,7 @@ erDiagram
 | time_used_ms | INT | NULL | 已执行测试点的最大耗时 |
 | memory_used_kb | INT | NULL | 内存峰值（Isolate 引擎写入 `cg-mem`；本机进程回退模式下为 null，见 03-judge.md） |
 | compile_message | MEDIUMTEXT | NULL | 编译错误输出 |
-| judge_message | VARCHAR(512) | NULL | 系统错误信息，不含测试数据 |
+| judge_message | TEXT | NULL | 系统错误信息，含判题器编译失败时的编译器输出；不含测试数据 |
 | created_at | DATETIME | NOT NULL | 提交时间 |
 | judged_at | DATETIME | NULL | 判题完成时间 |
 

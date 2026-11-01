@@ -159,7 +159,7 @@ public class ProblemService {
                 problem.getHint(), problem.getSource(), problem.getTimeLimitMs(), problem.getMemoryLimitMb(),
                 problem.getStatus(), problem.getAuthorId(), authorNickname, tags, samples,
                 problem.getSubmitCount(), problem.getAcceptedCount(), solved,
-                problem.getCreatedAt(), problem.getUpdatedAt());
+                problem.getCreatedAt(), problem.getUpdatedAt(), problem.isHasChecker());
     }
 
     /**
@@ -182,6 +182,38 @@ public class ProblemService {
      */
     public void assertManageable(LoginUser current, Long problemId) {
         assertCanManage(current, requireProblem(problemId));
+    }
+
+    /**
+     * Replaces or clears the custom checker (special judge) of a problem.
+     *
+     * <p>Kept out of {@link #update} on purpose: that endpoint replaces the whole problem, so a
+     * client that forgot to send the checker back would silently restore the built-in comparator and
+     * change how every future submission is judged.</p>
+     *
+     * @param current the authenticated user; must be the author or an administrator
+     * @param id      problem id
+     * @param code    checker source, or {@code null}/blank to fall back to {@code OutputComparator}
+     */
+    @Transactional
+    public void updateChecker(LoginUser current, Long id, String code) {
+        Problem problem = requireProblem(id);
+        assertCanManage(current, problem);
+        problemMapper.updateChecker(id, StringUtils.hasText(code) ? code : null, LocalDateTime.now());
+    }
+
+    /**
+     * Reads the custom checker source of a problem.
+     *
+     * @param current the authenticated user; must be the author or an administrator
+     * @param id      problem id
+     * @return the checker source, or an empty string when the problem uses the built-in comparator
+     */
+    public String getChecker(LoginUser current, Long id) {
+        Problem problem = requireProblem(id);
+        assertCanManage(current, problem);
+        String code = problemMapper.findCheckerCode(id);
+        return code == null ? "" : code;
     }
 
     private void applyRequest(Problem problem, ProblemSaveRequest request) {
