@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import me.iynotuo.judge.common.api.ApiResponse;
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
-import me.iynotuo.judge.common.enums.Difficulty;
 import me.iynotuo.judge.problem.dto.CheckerDetailVO;
 import me.iynotuo.judge.problem.dto.CheckerSaveRequest;
 import me.iynotuo.judge.problem.dto.ProblemDetailVO;
@@ -24,12 +23,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Problem bank endpoints: browsing, detail lookup and author-side CRUD.
+ * Problem resource endpoints: detail lookup, the caller's own list and author-side CRUD.
  *
- * <p>Read endpoints are public, but a problem that is not published is only visible to
- * its author and to administrators. Write endpoints require an authenticated user and
- * are then narrowed down to the author or an administrator inside {@link ProblemService}
- * rather than by URL rules, because ownership can only be decided per row.</p>
+ * <p>Public browsing and search now live in {@link CatalogController} ({@code GET /catalog}), so this
+ * controller no longer serves the problem list. Detail lookups are public, but a problem that is not
+ * published is only visible to its author and to administrators. Write endpoints require an
+ * authenticated user and are then narrowed down to the author or an administrator inside
+ * {@link ProblemService} rather than by URL rules, because ownership can only be decided per row.</p>
  */
 @RestController
 @RequestMapping("/api/v1/problems")
@@ -42,25 +42,7 @@ public class ProblemController {
     }
 
     /**
-     * Lists published problems, optionally filtered by keyword, difficulty and tag.
-     *
-     * @param keyword    optional title keyword
-     * @param difficulty optional difficulty filter
-     * @param tagId      optional tag filter
-     * @param page       1-based page number
-     * @param size       page size
-     * @return a page of problem summaries
-     */
-    @GetMapping
-    public ApiResponse<PageResult<ProblemSummaryVO>> page(@RequestParam(required = false) String keyword,
-                                                          @RequestParam(required = false) Difficulty difficulty,
-                                                          @RequestParam(required = false) Long tagId,
-                                                          @RequestParam(required = false) Integer page,
-                                                          @RequestParam(required = false) Integer size) {
-        return ApiResponse.ok(problemService.page(keyword, difficulty, tagId, PageQuery.of(page, size)));
-    }
 
-    /**
      * Lists the problems uploaded by the current user, including drafts, problems
      * awaiting review and problems that have been taken down.
      *

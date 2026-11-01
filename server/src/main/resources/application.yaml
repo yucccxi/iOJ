@@ -1,6 +1,5 @@
 server:
   port: 8080
-  host: 0.0.0.0
   shutdown: graceful
 
 spring:
@@ -32,7 +31,7 @@ ioj:
     expiration: 7d
     issuer: iOJ
   cors:
-    allowed-origins: ${IOJ_CORS_ORIGINS:http://localhost:5173,http://10.15.224.1:5173/}
+    allowed-origins: ${IOJ_CORS_ORIGINS:http://localhost:5173,http://7fa4ee7e0404.ofalias.com:56442/}
   problem:
 # Club use: true publishes uploaded problems immediately; set it to false to require review when registration is public.
     auto-publish: ${IOJ_PROBLEM_AUTO_PUBLISH:true}

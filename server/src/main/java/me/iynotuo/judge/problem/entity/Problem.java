@@ -19,6 +19,14 @@ public class Problem {
     private Difficulty difficulty;
 
     /**
+     * Numeric difficulty rating (0-5000), used for filtering and sorting problem lists.
+     * It is independent of {@link #difficulty}: difficulty stays as the coarse label shown to
+     * clients, while rating carries the finer, comparable value (0-5000, e.g. Codeforces style).
+     * May be null for problems that were never rated.
+     */
+    private Integer rating;
+
+    /**
      * Problem statement (plain text or Markdown, rendered by the client).
      */
     private String description;
@@ -30,9 +38,14 @@ public class Problem {
     private String hint;
 
     /**
-     * Problem source, for example "2025 Campus Contest A".
+     * Reference to {@code sources}; null when the problem has no recorded source.
      */
-    private String source;
+    private Long sourceId;
+
+    /**
+     * Source name joined in for responses (read-only, never written back).
+     */
+    private String sourceName;
 
     /**
      * Whether the problem ships a custom checker. This is a computed, read-only flag: the checker

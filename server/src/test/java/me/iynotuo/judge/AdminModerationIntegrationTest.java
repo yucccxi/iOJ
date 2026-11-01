@@ -45,12 +45,19 @@ class AdminModerationIntegrationTest extends ApiTestSupport {
 
         assertThat(get("/api/v1/meta/languages", null).path("data").size()).isEqualTo(4);
         assertThat(get("/api/v1/meta/tags", null).path("data").isArray()).isTrue();
+        assertThat(get("/api/v1/meta/sources", null).path("data").isArray()).isTrue();
+
+        // Tags come from the admin-managed dictionary: the author picks ids, never names
+        long simulationTagId = post("/api/v1/admin/tags", adminToken, Map.of("name", "模拟"))
+                .path("data").path("id").asLong();
+        long entryTagId = post("/api/v1/admin/tags", adminToken, Map.of("name", "入门"))
+                .path("data").path("id").asLong();
 
         // An administrator creates a problem: it is published immediately
         JsonNode created = post("/api/v1/problems", adminToken, Map.of(
                 "title", "Get Max", "difficulty", "MEDIUM", "description", "输出最大值",
                 "timeLimitMs", 1000, "memoryLimitMb", 128,
-                "tags", List.of("模拟", "入门")));
+                "tagIds", List.of(simulationTagId, entryTagId)));
         long problemId = created.path("data").path("id").asLong();
         assertThat(created.path("data").path("status").asString()).isEqualTo("PUBLISHED");
 

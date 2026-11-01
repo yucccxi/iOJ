@@ -2,10 +2,6 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="me.iynotuo.judge.problem.mapper.TagMapper">
 
-    <select id="findAll" resultType="me.iynotuo.judge.problem.entity.Tag">
-        SELECT id, name FROM tags ORDER BY name
-    </select>
-
     <select id="findById" resultType="me.iynotuo.judge.problem.entity.Tag">
         SELECT id, name FROM tags WHERE id = #{id}
     </select>
@@ -14,10 +10,38 @@
         SELECT id, name FROM tags WHERE name = #{name}
     </select>
 
+    <select id="findByIds" resultType="me.iynotuo.judge.problem.entity.Tag">
+        SELECT id, name FROM tags WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY name
+    </select>
+
     <insert id="insert" parameterType="me.iynotuo.judge.problem.entity.Tag"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO tags (name) VALUES (#{name})
     </insert>
+
+    <update id="updateName">
+        UPDATE tags SET name = #{name} WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM tags WHERE id = #{id}
+    </delete>
+
+    <select id="findAllWithUsage" resultType="me.iynotuo.judge.problem.mapper.TagUsageRow">
+        SELECT t.id AS id,
+               t.name AS name,
+               (SELECT COUNT(*) FROM problem_tags pt WHERE pt.tag_id = t.id) AS local_count,
+               (SELECT COUNT(*) FROM external_problem_tags et WHERE et.tag_id = t.id) AS external_count
+        FROM tags t
+        ORDER BY t.name
+    </select>
+
+    <select id="countUsage" resultType="long">
+        SELECT (SELECT COUNT(*) FROM problem_tags pt WHERE pt.tag_id = #{tagId})
+             + (SELECT COUNT(*) FROM external_problem_tags et WHERE et.tag_id = #{tagId})
+    </select>
 
     <select id="findByProblemId" resultType="me.iynotuo.judge.problem.entity.Tag">
         SELECT t.id, t.name
@@ -38,6 +62,10 @@
 
     <delete id="deleteProblemTags">
         DELETE FROM problem_tags WHERE problem_id = #{problemId}
+    </delete>
+
+    <delete id="deleteProblemTagsByTagId">
+        DELETE FROM problem_tags WHERE tag_id = #{tagId}
     </delete>
 
     <insert id="insertProblemTags">

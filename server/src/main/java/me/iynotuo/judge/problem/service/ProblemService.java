@@ -2,7 +2,6 @@ package me.iynotuo.judge.problem.service;
 
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
-import me.iynotuo.judge.common.enums.Difficulty;
 import me.iynotuo.judge.common.enums.ProblemStatus;
 import me.iynotuo.judge.common.exception.BusinessException;
 import me.iynotuo.judge.common.exception.ErrorCode;
@@ -15,10 +14,10 @@ import me.iynotuo.judge.problem.dto.SampleVO;
 import me.iynotuo.judge.problem.dto.TagVO;
 import me.iynotuo.judge.problem.entity.Problem;
 import me.iynotuo.judge.problem.entity.ProblemSample;
-import me.iynotuo.judge.problem.entity.Tag;
 import me.iynotuo.judge.problem.mapper.ProblemCriteria;
 import me.iynotuo.judge.problem.mapper.ProblemMapper;
 import me.iynotuo.judge.problem.mapper.ProblemSampleMapper;
+import me.iynotuo.judge.problem.mapper.ProblemSourceMapper;
 import me.iynotuo.judge.problem.mapper.ProblemSummaryRow;
 import me.iynotuo.judge.problem.mapper.ProblemTagRow;
 import me.iynotuo.judge.problem.mapper.ProblemTestcaseMapper;
@@ -27,16 +26,15 @@ import me.iynotuo.judge.security.LoginUser;
 import me.iynotuo.judge.submission.mapper.SubmissionMapper;
 import me.iynotuo.judge.user.entity.User;
 import me.iynotuo.judge.user.mapper.UserMapper;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -50,6 +48,7 @@ public class ProblemService {
     private final ProblemSampleMapper sampleMapper;
     private final ProblemTestcaseMapper testcaseMapper;
     private final TagMapper tagMapper;
+    private final ProblemSourceMapper problemSourceMapper;
     private final UserMapper userMapper;
     private final SubmissionMapper submissionMapper;
     private final ProblemProperties properties;
@@ -58,6 +57,7 @@ public class ProblemService {
                           ProblemSampleMapper sampleMapper,
                           ProblemTestcaseMapper testcaseMapper,
                           TagMapper tagMapper,
+                          ProblemSourceMapper problemSourceMapper,
                           UserMapper userMapper,
                           SubmissionMapper submissionMapper,
                           ProblemProperties properties) {
@@ -65,6 +65,7 @@ public class ProblemService {
         this.sampleMapper = sampleMapper;
         this.testcaseMapper = testcaseMapper;
         this.tagMapper = tagMapper;
+        this.problemSourceMapper = problemSourceMapper;
         this.userMapper = userMapper;
         this.submissionMapper = submissionMapper;
         this.properties = properties;
@@ -85,7 +86,7 @@ public class ProblemService {
         problem.setUpdatedAt(now);
         problemMapper.insert(problem);
         replaceSamples(problem.getId(), request.samples());
-        bindTags(problem.getId(), request.tags());
+        bindTags(problem.getId(), request.tagIds());
         return getDetail(problem.getId(), current);
     }
 
@@ -97,7 +98,7 @@ public class ProblemService {
         problem.setUpdatedAt(LocalDateTime.now());
         problemMapper.update(problem);
         replaceSamples(id, request.samples());
-        bindTags(id, request.tags());
+        bindTags(id, request.tagIds());
         return getDetail(id, current);
     }
 
@@ -106,19 +107,6 @@ public class ProblemService {
         Problem problem = requireProblem(id);
         assertCanManage(current, problem);
         problemMapper.deleteById(id);
-    }
-
-    /**
-     * Public problem list: published problems only.
-     */
-    public PageResult<ProblemSummaryVO> page(String keyword, Difficulty difficulty, Long tagId,
-                                             PageQuery query) {
-        ProblemCriteria criteria = new ProblemCriteria();
-        criteria.setKeyword(normalizeKeyword(keyword));
-        criteria.setDifficulty(difficulty);
-        criteria.setTagId(tagId);
-        criteria.setStatuses(List.of(ProblemStatus.PUBLISHED));
-        return queryPage(criteria, query);
     }
 
     /**
@@ -155,8 +143,9 @@ public class ProblemService {
                 .orElse("已注销用户");
         boolean solved = current != null && submissionMapper.countAccepted(current.id(), id) > 0;
         return new ProblemDetailVO(problem.getId(), problem.getTitle(), problem.getDifficulty(),
-                problem.getDescription(), problem.getInputFormat(), problem.getOutputFormat(),
-                problem.getHint(), problem.getSource(), problem.getTimeLimitMs(), problem.getMemoryLimitMb(),
+                problem.getRating(), problem.getDescription(), problem.getInputFormat(), problem.getOutputFormat(),
+                problem.getHint(), problem.getSourceId(), problem.getSourceName(),
+                problem.getTimeLimitMs(), problem.getMemoryLimitMb(),
                 problem.getStatus(), problem.getAuthorId(), authorNickname, tags, samples,
                 problem.getSubmitCount(), problem.getAcceptedCount(), solved,
                 problem.getCreatedAt(), problem.getUpdatedAt(), problem.isHasChecker());
@@ -219,11 +208,19 @@ public class ProblemService {
     private void applyRequest(Problem problem, ProblemSaveRequest request) {
         problem.setTitle(request.title().trim());
         problem.setDifficulty(request.difficulty());
+        // Rating is an independent, optional numeric difficulty used for filtering; it is not
+        // derived from difficulty, so a client that never sends it simply leaves it null.
+        problem.setRating(request.rating());
         problem.setDescription(request.description());
         problem.setInputFormat(request.inputFormat());
         problem.setOutputFormat(request.outputFormat());
         problem.setHint(request.hint());
-        problem.setSource(request.source());
+        // Sources live in their own admin-managed table, so an unknown id must be rejected here
+        // instead of surfacing as a foreign-key error.
+        if (request.sourceId() != null && problemSourceMapper.findById(request.sourceId()) == null) {
+            throw BusinessException.of(ErrorCode.BAD_REQUEST, "题目来源不存在");
+        }
+        problem.setSourceId(request.sourceId());
         problem.setTimeLimitMs(request.timeLimitMs() == null ? 1000 : request.timeLimitMs());
         problem.setMemoryLimitMb(request.memoryLimitMb() == null ? 256 : request.memoryLimitMb());
     }
@@ -247,43 +244,28 @@ public class ProblemService {
         sampleMapper.insertBatch(entities);
     }
 
-    private void bindTags(Long problemId, List<String> tags) {
+    /**
+     * Replaces the tag links of a problem.
+     *
+     * <p>Tags are a shared, administrator-managed dictionary, so ids that do not exist are rejected
+     * instead of being created implicitly. Duplicate ids are ignored.</p>
+     */
+    private void bindTags(Long problemId, List<Long> tagIds) {
         tagMapper.deleteProblemTags(problemId);
-        if (tags == null || tags.isEmpty()) {
+        if (tagIds == null || tagIds.isEmpty()) {
             return;
         }
-        LinkedHashSet<String> names = tags.stream()
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (names.isEmpty()) {
+        List<Long> ids = tagIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
             return;
         }
-        List<Long> tagIds = new ArrayList<>(names.size());
-        for (String name : names) {
-            tagIds.add(getOrCreateTag(name).getId());
+        if (tagMapper.findByIds(ids).size() != ids.size()) {
+            throw BusinessException.of(ErrorCode.BAD_REQUEST, "标签不存在");
         }
-        tagMapper.insertProblemTags(problemId, tagIds);
-    }
-
-    private Tag getOrCreateTag(String name) {
-        Tag existing = tagMapper.findByName(name);
-        if (existing != null) {
-            return existing;
-        }
-        Tag tag = new Tag();
-        tag.setName(name);
-        try {
-            tagMapper.insert(tag);
-            return tag;
-        } catch (DuplicateKeyException ex) {
-            // A concurrent request created the same tag; just read it back
-            Tag created = tagMapper.findByName(name);
-            if (created == null) {
-                throw ex;
-            }
-            return created;
-        }
+        tagMapper.insertProblemTags(problemId, ids);
     }
 
     private PageResult<ProblemSummaryVO> queryPage(ProblemCriteria criteria, PageQuery query) {
@@ -302,9 +284,10 @@ public class ProblemService {
                 .collect(Collectors.groupingBy(ProblemTagRow::getProblemId,
                         Collectors.mapping(row -> new TagVO(row.getId(), row.getName()), Collectors.toList())));
         List<ProblemSummaryVO> items = rows.stream()
-                .map(row -> new ProblemSummaryVO(row.getId(), row.getTitle(), row.getDifficulty(), row.getStatus(),
-                        row.getSubmitCount(), row.getAcceptedCount(), row.getAuthorId(), row.getAuthorNickname(),
-                        tagsByProblem.getOrDefault(row.getId(), List.of()), row.getCreatedAt()))
+                .map(row -> new ProblemSummaryVO(row.getId(), row.getTitle(), row.getDifficulty(), row.getRating(),
+                        row.getStatus(), row.getSubmitCount(), row.getAcceptedCount(), row.getAuthorId(),
+                        row.getAuthorNickname(), tagsByProblem.getOrDefault(row.getId(), List.of()),
+                        row.getCreatedAt()))
                 .toList();
         return PageResult.of(items, total, query);
     }

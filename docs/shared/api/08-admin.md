@@ -103,13 +103,13 @@
 | `status` | string | 按状态筛选：`DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN`；不传表示全部状态；传其他值返回 `1000` |
 | `page` / `size` | 整数 | 分页 |
 
-**响应 `data`**：结构同 [4.1 题目列表](04-problems.md#41-题目列表)，每项都带 `status`：
+**响应 `data`**：结构与 `/catalog` 的 `LOCAL` 项相近（但这里是完整题目摘要，见 [10.1 搜索题目](10-catalog.md#101-搜索题目)），且每项都带 `status`：
 
 ```json
 {
   "items": [
     {
-      "id": 13, "title": "待审核的题", "difficulty": "EASY", "status": "PENDING_REVIEW",
+      "id": 13, "title": "待审核的题", "difficulty": "EASY", "rating": 800, "status": "PENDING_REVIEW",
       "submitCount": 0, "acceptedCount": 0,
       "authorId": 12, "authorNickname": "Alice",
       "tags": [{ "id": 1, "name": "入门" }],
@@ -145,3 +145,80 @@
 | `3003` | 上架时题目还没有测试数据（提示"题目至少需要一个测试点才能发布"） |
 | `1000` | 传了 `PUBLISHED` / `HIDDEN` 以外的状态 |
 | `3001` | 题目不存在 |
+
+## 8.6 标签管理
+
+`/admin/tags` ｜ 管理员
+
+标签是**共享字典**：本地题与外部 OJ 链接都用它，出题时只能选，不能新建。列表（含使用量）走公开的 [`GET /meta/tags`](07-meta.md#72-标签列表)，这里只负责写操作。
+
+| 接口 | 说明 |
+| --- | --- |
+| `POST /admin/tags` | 新建，请求体 `{ "name": "图论" }` |
+| `PUT /admin/tags/{id}` | 改名，请求体同上 |
+| `DELETE /admin/tags/{id}` | 删除；在用默认拒绝，`?force=true` 先解除关联再删 |
+
+**响应 `data`（POST / PUT，单个标签）**
+
+```json
+{ "id": 3, "name": "数学", "problemCount": 12 }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 标签 id，出题时作为 `tagIds` 的元素 |
+| `name` | 标签名，1-32 位字母/数字/中文/`_+#.-` |
+| `problemCount` | 使用该标签的题目数（本地题 + 外部 OJ 链接）；新建时为 `0` |
+
+**规则**
+
+- 重名（大小写不敏感）→ `409`（`1005` "标签已存在"）；
+- 删除仍在使用的标签 → `409`（`1005`，提示"标签仍被 N 道题使用"）；
+- `DELETE ...?force=true`：先在 `problem_tags` 与 `external_problem_tags` 里解除关联，再删除标签，单事务；
+- 改名后所有题目的 `tags[].name` 立即变化（题目只存 `tag_id`）。
+
+| 错误 | 场景 |
+| --- | --- |
+| `1001` | 名称为空 / 超过 32 字符 / 含非法字符 |
+| `1004` | 标签不存在 |
+| `1005` | 重名，或标签仍在使用（且没传 `force=true`） |
+| `1003` | 非管理员 |
+
+## 8.7 来源管理
+
+`/admin/sources` ｜ 管理员
+
+来源同样是共享字典（比赛、教材、OJ 平台都在这张表里），本地题与外部题都用它。列表（含使用量）走公开的 [`GET /meta/sources`](07-meta.md#73-来源列表)，这里只负责写操作。
+
+| 接口 | 说明 |
+| --- | --- |
+| `POST /admin/sources` | 新建，请求体 `{ "name": "Codeforces" }` |
+| `PUT /admin/sources/{id}` | 改名，请求体同上 |
+| `DELETE /admin/sources/{id}` | 删除；被任何题目引用时拒绝 |
+
+**响应 `data`（POST / PUT，单个来源）**
+
+```json
+{ "id": 7, "name": "Codeforces", "createdAt": "2026-11-01T09:00:00", "problemCount": 15 }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 来源 id，出题时作为 `sourceId` |
+| `name` | 来源名，1-128 字符 |
+| `createdAt` | 创建时间 |
+| `problemCount` | 引用该来源的题目数（本地题 + 外部 OJ 链接）；新建时为 `0` |
+
+**规则**
+
+- 重名（大小写不敏感）→ `409`（`1005` "来源已存在"）；
+- 删除仍被引用的来源 → `409`（`1005` "来源仍被 N 道题使用"）；**不支持** `force`，需要先把相关题目改到别的来源（或删掉）；
+- 改名后所有题目的 `sourceName` 立即变化（题目只存 `source_id`）。
+
+| 错误 | 场景 |
+| --- | --- |
+| `1001` | 名称为空 / 超过 128 字符 |
+| `1004` | 来源不存在 |
+| `1005` | 重名，或来源仍被使用 |
+| `1003` | 非管理员 |
+

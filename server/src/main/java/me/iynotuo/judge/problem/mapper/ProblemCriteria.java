@@ -1,7 +1,6 @@
 package me.iynotuo.judge.problem.mapper;
 
 import lombok.Data;
-import me.iynotuo.judge.common.enums.Difficulty;
 import me.iynotuo.judge.common.enums.ProblemStatus;
 
 import java.util.List;
@@ -14,14 +13,10 @@ public class ProblemCriteria {
 
     private String keyword;
 
-    private Difficulty difficulty;
-
-    private Long tagId;
-
     private Long authorId;
 
     /**
-     * Empty means no status filter; the public list always passes PUBLISHED.
+     * Empty means no status filter; the review list optionally narrows by one status.
      */
     private List<ProblemStatus> statuses;
 

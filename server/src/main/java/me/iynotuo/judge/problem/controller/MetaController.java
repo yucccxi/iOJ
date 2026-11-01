@@ -2,7 +2,8 @@ package me.iynotuo.judge.problem.controller;
 
 import me.iynotuo.judge.common.api.ApiResponse;
 import me.iynotuo.judge.problem.dto.LanguageVO;
-import me.iynotuo.judge.problem.dto.TagVO;
+import me.iynotuo.judge.problem.dto.SourceMetaVO;
+import me.iynotuo.judge.problem.dto.TagMetaVO;
 import me.iynotuo.judge.problem.service.MetaService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,12 +40,22 @@ public class MetaController {
     }
 
     /**
-     * Lists every tag available for labelling problems.
+     * Lists every tag available for labelling problems, with its usage count.
      *
-     * @return all tags
+     * @return all tags ordered by name
      */
     @GetMapping("/tags")
-    public ApiResponse<List<TagVO>> tags() {
+    public ApiResponse<List<TagMetaVO>> tags() {
         return ApiResponse.ok(metaService.tags());
+    }
+
+    /**
+     * Lists every problem source (contest, textbook, OJ platform ...) that a problem may reference.
+     *
+     * @return all sources, ordered by name
+     */
+    @GetMapping("/sources")
+    public ApiResponse<List<SourceMetaVO>> sources() {
+        return ApiResponse.ok(metaService.sources());
     }
 }

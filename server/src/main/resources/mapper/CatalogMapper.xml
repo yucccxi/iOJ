@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.iynotuo.judge.problem.mapper.CatalogMapper">
+
+    <!--
+      One UNION ALL of the two problem sources. Both branches expose the same columns so the outer
+      query can sort/page once:
+        kind       LOCAL / EXTERNAL
+        ref_id     problems.id or external_problems.id
+        difficulty local problems only (NULL for external rows)
+        url        external rows only (NULL for local rows)
+      Filters are applied inside each branch so the indexes on problems / external_problems can be
+      used; tag filtering goes through the branch's own junction table.
+    -->
+    <sql id="unionBody">
+        SELECT 'LOCAL' AS kind,
+               p.id AS ref_id,
+               p.title AS title,
+               p.difficulty AS difficulty,
+               p.rating AS rating,
+               p.source_id AS source_id,
+               s.name AS source_name,
+               CAST(NULL AS CHAR(512)) AS url,
+               p.submit_count AS submit_count,
+               p.accepted_count AS accepted_count,
+               p.author_id AS author_id,
+               u.nickname AS author_nickname,
+               p.created_at AS created_at
+        FROM problems p
+        LEFT JOIN sources s ON s.id = p.source_id
+        JOIN users u ON u.id = p.author_id
+        WHERE p.status = 'PUBLISHED'
+        <if test="criteria.keyword != null and criteria.keyword != ''">
+            AND p.title LIKE CONCAT('%', #{criteria.keyword}, '%')
+        </if>
+        <if test="criteria.sourceId != null">
+            AND p.source_id = #{criteria.sourceId}
+        </if>
+        <if test="criteria.difficulty != null">
+            AND p.difficulty = #{criteria.difficulty}
+        </if>
+        <if test="criteria.rating != null">
+            AND p.rating = #{criteria.rating}
+        </if>
+        <if test="criteria.minRating != null">
+            AND p.rating &gt;= #{criteria.minRating}
+        </if>
+        <if test="criteria.maxRating != null">
+            AND p.rating &lt;= #{criteria.maxRating}
+        </if>
+        <if test="criteria.tagId != null">
+            AND EXISTS (SELECT 1 FROM problem_tags pt
+                        WHERE pt.problem_id = p.id AND pt.tag_id = #{criteria.tagId})
+        </if>
+        UNION ALL
+        SELECT 'EXTERNAL' AS kind,
+               e.id AS ref_id,
+               e.title AS title,
+               CAST(NULL AS CHAR(16)) AS difficulty,
+               e.rating AS rating,
+               e.source_id AS source_id,
+               s.name AS source_name,
+               e.url AS url,
+               CAST(NULL AS INTEGER) AS submit_count,
+               CAST(NULL AS INTEGER) AS accepted_count,
+               CAST(NULL AS BIGINT) AS author_id,
+               CAST(NULL AS CHAR(32)) AS author_nickname,
+               e.created_at AS created_at
+        FROM external_problems e
+        JOIN sources s ON s.id = e.source_id
+        WHERE 1 = 1
+        <if test="criteria.keyword != null and criteria.keyword != ''">
+            AND e.title LIKE CONCAT('%', #{criteria.keyword}, '%')
+        </if>
+        <if test="criteria.sourceId != null">
+            AND e.source_id = #{criteria.sourceId}
+        </if>
+        <if test="criteria.rating != null">
+            AND e.rating = #{criteria.rating}
+        </if>
+        <if test="criteria.minRating != null">
+            AND e.rating &gt;= #{criteria.minRating}
+        </if>
+        <if test="criteria.maxRating != null">
+            AND e.rating &lt;= #{criteria.maxRating}
+        </if>
+        <if test="criteria.tagId != null">
+            AND EXISTS (SELECT 1 FROM external_problem_tags et
+                        WHERE et.external_problem_id = e.id AND et.tag_id = #{criteria.tagId})
+        </if>
+    </sql>
+
+    <select id="findPage" resultType="me.iynotuo.judge.problem.mapper.CatalogRow">
+        SELECT c.kind, c.ref_id, c.title, c.difficulty, c.rating, c.source_id, c.source_name, c.url,
+               c.submit_count, c.accepted_count, c.author_id, c.author_nickname, c.created_at
+        FROM ( <include refid="unionBody"/> ) c
+        <where>
+            <if test="criteria.kind != null and criteria.kind != ''">
+                AND c.kind = #{criteria.kind}
+            </if>
+        </where>
+        ORDER BY c.created_at DESC, c.kind, c.ref_id DESC
+        LIMIT #{criteria.limit} OFFSET #{criteria.offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM ( <include refid="unionBody"/> ) c
+        <where>
+            <if test="criteria.kind != null and criteria.kind != ''">
+                AND c.kind = #{criteria.kind}
+            </if>
+        </where>
+    </select>
+
+</mapper>

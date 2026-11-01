@@ -18,6 +18,11 @@ public class ProblemSummaryRow {
 
     private Difficulty difficulty;
 
+    /**
+     * Numeric rating (0-5000); null when the problem has never been rated.
+     */
+    private Integer rating;
+
     private ProblemStatus status;
 
     private long submitCount;

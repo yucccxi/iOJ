@@ -18,16 +18,83 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
 > `seed.sql` 使用 `INSERT IGNORE`，可以重复执行；`schema.sql` 不是幂等的（重复执行会报 "Table already exists"）。
 > 需要重建时先 `DROP DATABASE ioj;` 再重新 `CREATE DATABASE ioj ...`，然后依次执行两个脚本。
 
+### 1.1 升级已有库（增量 DDL）
+
+已有库不重建时，按下面顺序手工执行增量语句（新装环境跳过）：
+
+```sql
+-- problems.rating：数值难度分，用于列表筛选/排序；与 difficulty 并存、互不推导
+ALTER TABLE problems ADD COLUMN rating INT NULL;
+CREATE INDEX idx_problems_status_rating ON problems (status, rating);
+
+-- 可选：把历史题目的档位回填成初始分（按需调整映射）
+UPDATE problems SET rating = CASE difficulty
+    WHEN 'EASY'   THEN 800
+    WHEN 'MEDIUM' THEN 1500
+    WHEN 'HARD'   THEN 2200
+    ELSE 1200 END
+WHERE rating IS NULL;
+
+-- sources：题目来源（管理员维护），problems.source_id 引用它
+CREATE TABLE sources (
+    id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(128) NOT NULL,
+    created_at DATETIME     NOT NULL,
+    CONSTRAINT uk_sources_name UNIQUE (name)
+);
+ALTER TABLE problems ADD COLUMN source_id BIGINT NULL;
+ALTER TABLE problems ADD CONSTRAINT fk_problems_source
+    FOREIGN KEY (source_id) REFERENCES sources (id);
+CREATE INDEX idx_problems_source ON problems (source_id, id);
+
+-- 旧的自由文本来源列。有历史数据时先回填再删：
+--   INSERT INTO sources (name, created_at)
+--   SELECT MIN(TRIM(source)), CURRENT_TIMESTAMP FROM problems
+--   WHERE source IS NOT NULL AND TRIM(source) <> '' GROUP BY TRIM(source);
+--   UPDATE problems p JOIN sources s ON s.name = TRIM(p.source) SET p.source_id = s.id;
+ALTER TABLE problems DROP COLUMN source;
+
+-- external_problems：外部 OJ 题目（只存元数据，不参与判题）；source_id 指向 sources
+CREATE TABLE external_problems (
+    id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_id  BIGINT       NOT NULL,
+    title      VARCHAR(200) NOT NULL,
+    rating     INT          NULL,
+    url        VARCHAR(512) NOT NULL,
+    created_at DATETIME     NOT NULL,
+    updated_at DATETIME     NOT NULL,
+    CONSTRAINT uk_external_problems_url UNIQUE (url),
+    CONSTRAINT fk_external_problems_source FOREIGN KEY (source_id) REFERENCES sources (id)
+);
+CREATE INDEX idx_external_problems_source_rating ON external_problems (source_id, rating);
+CREATE INDEX idx_external_problems_rating ON external_problems (rating, id);
+
+-- external_problem_tags：外部题与标签的多对多（标签复用 tags 表）
+CREATE TABLE external_problem_tags (
+    external_problem_id BIGINT NOT NULL,
+    tag_id              BIGINT NOT NULL,
+    PRIMARY KEY (external_problem_id, tag_id),
+    CONSTRAINT fk_ept_external FOREIGN KEY (external_problem_id) REFERENCES external_problems (id) ON DELETE CASCADE,
+    CONSTRAINT fk_ept_tag FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+);
+CREATE INDEX idx_external_problem_tags_tag ON external_problem_tags (tag_id);
+```
+
+
 ## 2. ER 图
 
 ```mermaid
 erDiagram
     users ||--o{ problems : "author_id"
+    sources ||--o{ problems : "source_id"
+    sources ||--o{ external_problems : "source_id"
     users ||--o{ submissions : "user_id"
     problems ||--o{ problem_samples : "problem_id"
     problems ||--o{ problem_testcases : "problem_id"
     problems ||--o{ problem_tags : "problem_id"
     tags ||--o{ problem_tags : "tag_id"
+    external_problems ||--o{ external_problem_tags : "external_problem_id"
+    tags ||--o{ external_problem_tags : "tag_id"
     problems ||--o{ submissions : "problem_id"
     submissions ||--o{ submission_cases : "submission_id"
 ```
@@ -45,6 +112,8 @@ erDiagram
 | `submission_cases.status` | 同上（不含 `PENDING`/`JUDGING`） | 单测试点状态 |
 
 枚举都用字符串而不是 TINYINT：可读性高、排查问题时不用查字典、加值时不用改表。代价是多占几个字节，俱乐部规模完全无感。
+
+> 例外：`problems.rating` 是**数值**列（`INT`，0-5000，可空），用于“按难度分筛选/排序”。它和 `difficulty` 并列存放、互不推导：`difficulty` 给只认档位的老页面用，`rating` 给需要细粒度筛选的新页面用。两者可能不一致（例如 `difficulty='EASY'` 而 `rating=2200`），这是当前有意接受的取舍。
 
 ## 4. 表结构
 
@@ -65,18 +134,31 @@ erDiagram
 
 索引：`uk_users_username`、`uk_users_email`（唯一索引同时承担"注册去重"和"并发注册兜底"）。
 
-### 4.2 problems —— 题目
+### 4.2 sources —— 题目来源
+
+由管理员维护，出题/改题时只能从已有来源中选择（客户端传 `sourceId`）。
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| id | BIGINT | PK, AUTO_INCREMENT | |
+| name | VARCHAR(128) | NOT NULL, UNIQUE | 来源名，如“2026 新生赛”“洛谷”；唯一键大小写不敏感 |
+| created_at | DATETIME | NOT NULL | 创建时间 |
+
+`problems.source_id` 与 `external_problems.source_id` 都是指向本表的外键（`ON DELETE` 无级联，删除在用来源会被数据库拒绝），因此来源改名对两类题目自动生效，也不会出现拼写不一致的“野生来源”。
+
+### 4.3 problems —— 题目
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | BIGINT | PK | |
 | title | VARCHAR(128) | NOT NULL | 标题 |
-| difficulty | VARCHAR(16) | NOT NULL DEFAULT 'EASY' | 难度 |
+| difficulty | VARCHAR(16) | NOT NULL DEFAULT 'EASY' | 难度档位（`EASY`/`MEDIUM`/`HARD`），与 `rating` 相互独立 |
+| rating | INT | NULL | 数值难度分（0-5000），用于列表筛选/排序；未评分为 `NULL`，服务端**不会**由 `difficulty` 推算 |
 | description | MEDIUMTEXT | NOT NULL | 题面（纯文本/Markdown） |
 | input_format | MEDIUMTEXT | NULL | 输入格式说明 |
 | output_format | MEDIUMTEXT | NULL | 输出格式说明 |
 | hint | MEDIUMTEXT | NULL | 提示 |
-| source | VARCHAR(128) | NULL | 题目来源 |
+| source_id | BIGINT | FK → sources.id | 题目来源；`NULL` 表示未记录来源。只能引用管理员维护的来源（见 4.2） |
 | checker_code | MEDIUMTEXT | NULL | 自定义判题器（Special Judge）源码，C++（兼容 C 风格）；`NULL` 或空白表示用内置的 `OutputComparator` 逐行比对 |
 | time_limit_ms | INT | NOT NULL DEFAULT 1000 | 时间限制（毫秒，基准值） |
 | memory_limit_mb | INT | NOT NULL DEFAULT 256 | 内存限制 |
@@ -95,7 +177,7 @@ erDiagram
 
 `submit_count` / `accepted_count` 是冗余字段：列表页要展示通过率，如果每次都 `COUNT(submissions)` 会拖慢列表。写入时机：提交时 `+1`，判题通过时 `accepted_count + 1`（定义为"通过提交数"，与主流 OJ 一致）。
 
-### 4.3 problem_samples —— 题面展示样例
+### 4.4 problem_samples —— 题面展示样例
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -108,7 +190,7 @@ erDiagram
 
 唯一键 `uk_samples_problem_ordinal (problem_id, ordinal)`。**样例是公开的**，与判题数据分开存放，避免"样例即测试点"导致的泄漏。
 
-### 4.4 problem_testcases —— 隐藏测试点
+### 4.5 problem_testcases —— 隐藏测试点
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -128,15 +210,15 @@ erDiagram
 - 如果将来要放几百 MB 的测试集，把 `input_data/output_data` 换成对象存储路径，只需改 `ProblemTestcaseMapper` 与判题取数逻辑，接口无需变化。
 - 只有题目作者与管理员能读取内容，列表接口只返回 `inputBytes/outputBytes`。
 
-### 4.5 tags / problem_tags —— 标签
+### 4.6 tags / problem_tags —— 标签
 
 `tags`：`id BIGINT PK`、`name VARCHAR(32) NOT NULL UNIQUE`。
 
 `problem_tags`：联合主键 `(problem_id, tag_id)`，两个外键均 `ON DELETE CASCADE`，额外索引 `idx_problem_tags_tag (tag_id)` 支持"按标签找题"。
 
-上传题目时 `tags` 传名称数组，不存在的标签会自动创建（`ProblemService#getOrCreateTag`，并发冲突时重新查询兜底）。
+上传/编辑题目时 `tagIds` 传**已存在**的标签 id（≤10 个）：服务端先按 id 批量校验，全部存在才写关联表；不存在返回 `400/1001`，**不会**自动创建标签。标签字典只由管理员通过 `POST/PUT/DELETE /admin/tags` 维护。
 
-### 4.6 submissions —— 提交记录
+### 4.7 submissions —— 提交记录
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -153,7 +235,7 @@ erDiagram
 | created_at | DATETIME | NOT NULL | 提交时间 |
 | judged_at | DATETIME | NULL | 判题完成时间 |
 
-### 4.7 submission_cases —— 逐测试点结果
+### 4.8 submission_cases —— 逐测试点结果
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -167,14 +249,50 @@ erDiagram
 
 唯一键 `uk_submission_cases_ordinal (submission_id, case_ordinal)`，重判时先删后插，天然幂等。
 
+### 4.9 external_problems —— 外部 OJ 题目（仅元数据）
+
+只存“指路牌”：题名、来源、难度分、链接。**不存题面、不存测试数据、不参与本机判题**。
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| id | BIGINT | PK, AUTO_INCREMENT | |
+| source_id | BIGINT | NOT NULL, FK → sources.id | 来源（OJ 平台或比赛），**与本地题共用同一张来源表**；来源名由 `LEFT JOIN sources` 取得 |
+| title | VARCHAR(200) | NOT NULL | 题目名称（`LIKE` 搜索） |
+| rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比） |
+| url | VARCHAR(512) | NOT NULL, UNIQUE | 原题链接；唯一键同时承担“防重复导入” |
+| created_at / updated_at | DATETIME | NOT NULL | |
+
+### 4.10 external_problem_tags —— 外部题目标签
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| external_problem_id | BIGINT | FK → external_problems.id, CASCADE | |
+| tag_id | BIGINT | FK → tags.id, CASCADE | 与本地题目共用 `tags` |
+
+联合主键 `(external_problem_id, tag_id)`，额外索引 `idx_external_problem_tags_tag (tag_id)`。
+
+> 为什么标签要两张关联表（`problem_tags` + `external_problem_tags`）而不是一张多态表：多态表（`target_type` + `target_id`）无法建外键，删题/删标签都要应用层清理，容易留悬挂引用；两张关联表虽然多一个 mapper，但级联、改名校验、索引都是数据库替你保证的。
+>
+> 标签“使用次数”要同时统计两张表：
+> ```sql
+> SELECT
+>   (SELECT COUNT(*) FROM problem_tags          WHERE tag_id = ?)
+> + (SELECT COUNT(*) FROM external_problem_tags WHERE tag_id = ?) AS usage;
+> ```
+
 ## 5. 索引设计与关键 SQL
 
 | 索引 | 服务的查询 |
 | --- | --- |
 | `idx_problems_status_id (status, id)` | 题库列表：`WHERE status='PUBLISHED' ORDER BY id DESC` |
+| `idx_problems_status_rating (status, rating)` | 题库列表按难度分筛选：`WHERE status='PUBLISHED' AND rating BETWEEN ? AND ?` |
 | `idx_problems_author (author_id, id)` | "我上传的题目" |
+| `idx_problems_source (source_id, id)` | 按来源找题、以及删除来源前的占用检查 |
 | `idx_problems_difficulty (difficulty)` | 难度筛选 |
 | `idx_problem_tags_tag (tag_id)` | 按标签筛选（`EXISTS` 子查询） |
+| `idx_external_problems_source_rating (source_id, rating)` | 外部题按来源 + 难度筛选 |
+| `idx_external_problems_rating (rating, id)` | 外部题按难度区间筛选 |
+| `idx_external_problem_tags_tag (tag_id)` | 外部题按标签筛选 |
 | `idx_submissions_problem (problem_id, id)` | 题目下的提交列表 |
 | `idx_submissions_user (user_id, id)` | 用户的提交记录 |
 | `idx_submissions_status (status, id)` | 判题 worker 抢占 `WHERE status='PENDING' ORDER BY id LIMIT 1` |

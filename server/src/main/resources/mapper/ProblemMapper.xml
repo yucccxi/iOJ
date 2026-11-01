@@ -3,7 +3,7 @@
 <mapper namespace="me.iynotuo.judge.problem.mapper.ProblemMapper">
 
     <sql id="summaryColumns">
-        p.id, p.title, p.difficulty, p.status, p.submit_count, p.accepted_count, p.author_id,
+        p.id, p.title, p.difficulty, p.rating, p.status, p.submit_count, p.accepted_count, p.author_id,
         u.nickname AS author_nickname, p.created_at
     </sql>
 
@@ -12,14 +12,8 @@
             <if test="keyword != null and keyword != ''">
                 AND p.title LIKE CONCAT('%', #{keyword}, '%')
             </if>
-            <if test="difficulty != null">
-                AND p.difficulty = #{difficulty}
-            </if>
             <if test="authorId != null">
                 AND p.author_id = #{authorId}
-            </if>
-            <if test="tagId != null">
-                AND EXISTS (SELECT 1 FROM problem_tags pt WHERE pt.problem_id = p.id AND pt.tag_id = #{tagId})
             </if>
             <if test="statuses != null and statuses.size() > 0">
                 AND p.status IN
@@ -30,10 +24,10 @@
 
     <insert id="insert" parameterType="me.iynotuo.judge.problem.entity.Problem"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO problems (title, difficulty, description, input_format, output_format, hint, source,
+        INSERT INTO problems (title, difficulty, rating, description, input_format, output_format, hint, source_id,
                               time_limit_ms, memory_limit_mb, author_id, status, submit_count, accepted_count,
                               created_at, updated_at)
-        VALUES (#{title}, #{difficulty}, #{description}, #{inputFormat}, #{outputFormat}, #{hint}, #{source},
+        VALUES (#{title}, #{difficulty}, #{rating}, #{description}, #{inputFormat}, #{outputFormat}, #{hint}, #{sourceId},
                 #{timeLimitMs}, #{memoryLimitMb}, #{authorId}, #{status}, #{submitCount}, #{acceptedCount},
                 #{createdAt}, #{updatedAt})
     </insert>
@@ -42,11 +36,12 @@
         UPDATE problems
         SET title = #{title},
             difficulty = #{difficulty},
+            rating = #{rating},
             description = #{description},
             input_format = #{inputFormat},
             output_format = #{outputFormat},
             hint = #{hint},
-            source = #{source},
+            source_id = #{sourceId},
             time_limit_ms = #{timeLimitMs},
             memory_limit_mb = #{memoryLimitMb},
             updated_at = #{updatedAt}
@@ -58,12 +53,14 @@
     </delete>
 
     <select id="findById" resultType="me.iynotuo.judge.problem.entity.Problem">
-        SELECT id, title, difficulty, description, input_format, output_format, hint, source,
-               CASE WHEN checker_code IS NULL OR TRIM(checker_code) = '' THEN 0 ELSE 1 END AS has_checker,
-               time_limit_ms, memory_limit_mb, author_id, status, submit_count, accepted_count,
-               created_at, updated_at
-        FROM problems
-        WHERE id = #{id}
+        SELECT p.id, p.title, p.difficulty, p.rating, p.description, p.input_format, p.output_format, p.hint,
+               p.source_id, s.name AS source_name,
+               CASE WHEN p.checker_code IS NULL OR TRIM(p.checker_code) = '' THEN 0 ELSE 1 END AS has_checker,
+               p.time_limit_ms, p.memory_limit_mb, p.author_id, p.status, p.submit_count, p.accepted_count,
+               p.created_at, p.updated_at
+        FROM problems p
+        LEFT JOIN sources s ON s.id = p.source_id
+        WHERE p.id = #{id}
     </select>
 
     <select id="findCheckerCode" resultType="java.lang.String">

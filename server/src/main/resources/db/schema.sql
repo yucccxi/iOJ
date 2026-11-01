@@ -20,15 +20,26 @@ CREATE TABLE users (
     CONSTRAINT uk_users_email UNIQUE (email)
 );
 
+CREATE TABLE sources (
+    id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(128) NOT NULL,
+    created_at DATETIME     NOT NULL,
+    CONSTRAINT uk_sources_name UNIQUE (name)
+);
+
 CREATE TABLE problems (
     id              BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
     title           VARCHAR(128) NOT NULL,
     difficulty      VARCHAR(16)  NOT NULL DEFAULT 'EASY',
+    -- Numeric difficulty rating (0-5000) used for filtering and sorting; NULL when never rated.
+    rating          INT          NULL,
     description     MEDIUMTEXT   NOT NULL,
     input_format    MEDIUMTEXT   NULL,
     output_format   MEDIUMTEXT   NULL,
     hint            MEDIUMTEXT   NULL,
-    source          VARCHAR(128) NULL,
+    -- Reference to sources; NULL means no source recorded. Kept as a foreign key so a
+    -- rename is reflected everywhere and a source in use cannot be deleted by accident.
+    source_id       BIGINT       NULL,
     -- Custom checker (special judge) source code, compiled and run by the judge.
     -- NULL or blank means the built-in OutputComparator is used.
     checker_code    MEDIUMTEXT   NULL,
@@ -40,7 +51,8 @@ CREATE TABLE problems (
     accepted_count  INT          NOT NULL DEFAULT 0,
     created_at      DATETIME     NOT NULL,
     updated_at      DATETIME     NOT NULL,
-    CONSTRAINT fk_problems_author FOREIGN KEY (author_id) REFERENCES users (id)
+    CONSTRAINT fk_problems_author FOREIGN KEY (author_id) REFERENCES users (id),
+    CONSTRAINT fk_problems_source FOREIGN KEY (source_id) REFERENCES sources (id)
 );
 
 CREATE TABLE problem_samples (
@@ -79,6 +91,29 @@ CREATE TABLE problem_tags (
     CONSTRAINT fk_problem_tags_tag FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
 );
 
+-- External OJ catalog: metadata only (no statement, no test data, never judged here).
+-- source_id points at sources (the same admin-managed table local problems use), so the
+-- platform/contest list has a single source of truth. url is unique to stop duplicate imports.
+CREATE TABLE external_problems (
+    id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_id  BIGINT       NOT NULL,
+    title      VARCHAR(200) NOT NULL,
+    rating     INT          NULL,
+    url        VARCHAR(512) NOT NULL,
+    created_at DATETIME     NOT NULL,
+    updated_at DATETIME     NOT NULL,
+    CONSTRAINT uk_external_problems_url UNIQUE (url),
+    CONSTRAINT fk_external_problems_source FOREIGN KEY (source_id) REFERENCES sources (id)
+);
+
+CREATE TABLE external_problem_tags (
+    external_problem_id BIGINT NOT NULL,
+    tag_id              BIGINT NOT NULL,
+    PRIMARY KEY (external_problem_id, tag_id),
+    CONSTRAINT fk_ept_external FOREIGN KEY (external_problem_id) REFERENCES external_problems (id) ON DELETE CASCADE,
+    CONSTRAINT fk_ept_tag FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+);
+
 CREATE TABLE submissions (
     id              BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
     problem_id      BIGINT       NOT NULL,
@@ -110,9 +145,14 @@ CREATE TABLE submission_cases (
 );
 
 CREATE INDEX idx_problems_status_id ON problems (status, id);
+CREATE INDEX idx_problems_status_rating ON problems (status, rating);
 CREATE INDEX idx_problems_author ON problems (author_id, id);
+CREATE INDEX idx_problems_source ON problems (source_id, id);
 CREATE INDEX idx_problems_difficulty ON problems (difficulty);
 CREATE INDEX idx_problem_tags_tag ON problem_tags (tag_id);
+CREATE INDEX idx_external_problems_source_rating ON external_problems (source_id, rating);
+CREATE INDEX idx_external_problems_rating ON external_problems (rating, id);
+CREATE INDEX idx_external_problem_tags_tag ON external_problem_tags (tag_id);
 CREATE INDEX idx_submissions_problem ON submissions (problem_id, id);
 CREATE INDEX idx_submissions_user ON submissions (user_id, id);
 CREATE INDEX idx_submissions_status ON submissions (status, id);

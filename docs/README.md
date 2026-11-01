@@ -35,12 +35,13 @@ docs/
 │   │   ├── 01-conventions.md # 通用约定（认证、分页、错误码、权限、CORS）
 │   │   ├── 02-accounts.md    # 账号
 │   │   ├── 03-users.md       # 用户资料
-│   │   ├── 04-problems.md    # 题库（含 4.7 判题器）
+│   │   ├── 04-problems.md    # 题库（含 4.6 判题器）
 │   │   ├── 05-testcases.md   # 测试数据
 │   │   ├── 06-submissions.md # 提交与评测
 │   │   ├── 07-meta.md        # 参考数据
 │   │   ├── 08-admin.md       # 管理后台
-│   │   └── 09-appendix.md    # 附录
+│   │   ├── 09-appendix.md    # 附录
+│   │   └── 10-catalog.md     # 统一搜索（本地题库 + 外部 OJ）
 │   └── special-judge.md      # 出题者：自定义判题器（Special Judge）指南
 └── server/
     ├── README.md             # 后端总览（启动/配置/测试/排错）
@@ -57,7 +58,7 @@ docs/
 | 你的角色 | 建议顺序 |
 | --- | --- |
 | 前端开发 | [根 README](../README.md) 了解功能 → [shared/api/README.md](shared/api/README.md) 对接接口（按章节跳转） |
-| 出题者 | [shared/special-judge.md](shared/special-judge.md)（判题器编写与上传）→ [shared/api/04-problems.md](shared/api/04-problems.md) 4.7 节 |
+| 出题者 | [shared/special-judge.md](shared/special-judge.md)（判题器编写与上传）→ [shared/api/04-problems.md](shared/api/04-problems.md) 4.6 节 |
 | 后端开发 | [server/README.md](server/README.md) 跑起来 → [01-architecture](server/01-architecture.md) → [02-database](server/02-database.md) → [03-judge](server/03-judge.md) → [05-development](server/05-development.md) |
 | 部署 / 运维 | [server/04-deployment.md](server/04-deployment.md)（含上线检查清单）→ [server/06-isolate.md](server/06-isolate.md)（判题沙箱） |
 

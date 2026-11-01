@@ -9,6 +9,7 @@
 | 用户角色 | `USER` / `ADMIN` | `user.role`、用户列表、权限判断 |
 | 用户状态 | `ACTIVE` / `BANNED` | 管理后台封禁/解封 |
 | 难度 | `EASY` / `MEDIUM` / `HARD` | 题目创建、筛选、展示 |
+| 难度分 | 整数 `0`–`5000`（非枚举） | 题目列表/统一搜索的 `rating` / `minRating` / `maxRating` 筛选；与“难度”档位相互独立 |
 | 题目状态 | `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN` | 我的题目、审核列表、题目详情 |
 | 语言 | `JAVA` / `CPP` / `C` / `PYTHON3` | 提交、语言下拉框 |
 | 评测状态 | 见 [6.4 评测状态](06-submissions.md#64-评测状态) | 提交列表、提交详情 |
@@ -26,10 +27,14 @@
 
 | 位置 | 字段 | 说明 |
 | --- | --- | --- |
-| 题目详情 | `inputFormat`、`outputFormat`、`hint`、`source` | 可能未填写 |
+| 题目列表 / 详情 / 统一搜索 | `rating` | 题目未设置难度分时为 `null`；此时按 `rating` 筛选不会命中它 |
+| 题目详情 | `inputFormat`、`outputFormat`、`hint` | 可能未填写 |
 | 题目详情 | `samples[].explanation` | 可能未填写 |
+| 题目详情 / 统一搜索 | `sourceId`、`sourceName` | 未设置来源时为 `null`（统一搜索里 `EXTERNAL` 一定有来源） |
 | 题目详情 | `hasChecker` | 布尔值，不会是 `null` |
 | 题目详情 | `tags`、`samples` | 空数组（`[]`），不会是 `null` |
+| 统一搜索（`/catalog`） | `difficulty` | 只有 `LOCAL` 有值，`EXTERNAL` 恒为 `null` |
+| 统一搜索（`/catalog`） | `url` | 只有 `EXTERNAL` 有值，`LOCAL` 恒为 `null` |
 | 提交详情 | `code` | 无权限查看 |
 | 提交详情 | `compileMessage` | 只有编译错误时有值 |
 | 提交详情 | `judgeMessage` | `SYSTEM_ERROR`、以及判题器编译/启动失败（`CHECKER_ERROR`）时有值；判题器运行期失败时该字段为 `null`，原因在 `cases[].message` |
@@ -51,7 +56,8 @@
 | 提交返回 `400` + `3003` | 题目还没有测试数据 | 提交按钮置灰，提示等待作者补充 |
 | 上传题目后在题库看不到 | 该平台开启了人工审核，普通用户的题目进入待审核（`PENDING_REVIEW`）；自动发布的部署不会出现该现象 | 读响应里的 `status`；未发布时去"我的题目"查看并展示状态标签 |
 | 上传后立刻就能看到、并没有"待审核" | 该平台是自动发布，普通用户上传即 `PUBLISHED` | 属正常行为，不要写死"上传 → 待审核" |
-| 编辑题目后部分内容变空 | 编辑接口是整体替换 | 表单提交时带上所有字段（含标签、样例） |
+| 编辑题目后部分内容变空 | 编辑接口是整体替换 | 表单提交时带上所有字段（含 `tagIds`、样例） |
+| 上传题目返回 `1001` 且提示"标签不存在" | 标签是管理员维护的字典，只能选已有 id | 先拉 `GET /meta/tags`，用返回的 `id` 组成 `tagIds`；缺标签找管理员在 8.6 里新建 |
 | 提交后一直 `PENDING` / `JUDGING` | 评测较慢或排队 | 轮询 30-60 秒后提示"稍后到我的提交查看" |
 | 未登录时 `solved` 全是 `false` | 未登录无法判断通过情况 | 不要显示"未通过"，改为显示"登录后查看" |
 | token 过期后页面像"未登录" | 公开接口不会因 token 失效报错 | 请求 `/auth/me` 判断登录态，失败则引导登录 |
@@ -66,14 +72,17 @@
 | 页面 | 需要的接口 |
 | --- | --- |
 | 登录 / 注册 | `POST /auth/login`、`POST /auth/register`、`GET /auth/me` |
-| 题库首页 | `GET /problems`、`GET /meta/tags` |
+| 题库首页 | `GET /catalog?kind=LOCAL`、`GET /meta/tags`、`GET /meta/sources` |
+| 统一搜索（本地 + 外部） | `GET /catalog`、`GET /meta/tags`、`GET /meta/sources` |
 | 题目详情 | `GET /problems/{id}`、`GET /submissions?problemId={id}`、`POST /submissions` |
 | 提交结果 | `GET /submissions/{id}`（轮询）、`GET /submissions?userId={id}` |
 | 我的题目 | `GET /problems/mine`、`PUT /problems/{id}`、`DELETE /problems/{id}` |
-| 上传/编辑题目 | `GET /meta/tags`、`GET /meta/languages`、`POST /problems`、`PUT /problems/{id}` |
+| 上传/编辑题目 | `GET /meta/tags`、`GET /meta/sources`、`GET /meta/languages`、`POST /problems`、`PUT /problems/{id}` |
 | 测试数据管理 | `GET /problems/{problemId}/testcases`、`GET/POST/PUT/DELETE /problems/{problemId}/testcases/**` |
 | 判题器管理 | `GET /problems/{id}/checker`、`PUT /problems/{id}/checker`（作者/管理员） |
 | 个人主页 | `GET /users/{id}`、`GET /submissions?userId={id}` |
 | 账号设置 | `PATCH /users/me`、`PUT /users/me/password` |
 | 后台 · 审核 | `GET /admin/problems?status=PENDING_REVIEW`、`GET /problems/{id}`、`PATCH /admin/problems/{id}/status` |
 | 后台 · 用户 | `GET /admin/users`、`PATCH /admin/users/{id}/role`、`PATCH /admin/users/{id}/status` |
+| 后台 · 标签 | 列表 `GET /meta/tags`（公开，含使用量）、`POST /admin/tags`、`PUT /admin/tags/{id}`、`DELETE /admin/tags/{id}`（可带 `?force=true`） |
+| 后台 · 来源 | 列表 `GET /meta/sources`（公开，含使用量）、`POST /admin/sources`、`PUT /admin/sources/{id}`、`DELETE /admin/sources/{id}` |
