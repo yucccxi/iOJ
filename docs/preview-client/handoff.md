@@ -8,7 +8,7 @@
 
 ## 已完成
 
-- 源码：preview-client/；技术文档：docs/preview-client/。根 README.md、server/ 源码和 docs/shared/api.md 保持原样。
+- 源码：preview-client/；技术文档：docs/preview-client/。根 README.md、server/ 源码和 docs/shared/api/ 保持原样。
 - 完成题库筛选、注册登录、题目详情/Markdown、代码提交与结果轮询、个人主页、昵称与密码、我的题目、创建/完整编辑、隐藏测试数据及管理员页面。
 - 按用户要求跟随系统浅深色。桌面使用表格与题面/代码双栏，窄屏改为单栏；支持键盘焦点、减少动效设置、短错误及加载/空状态。
 - sessionStorage 保存令牌，不保存密码。恢复时校验 /auth/me，旧请求 401 不清除新会话；退出清除私密页面实例。

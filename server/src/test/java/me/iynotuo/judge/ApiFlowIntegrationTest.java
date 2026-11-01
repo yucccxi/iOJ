@@ -44,6 +44,11 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         String token = login.path("data").path("token").asString();
         assertThat(token).isNotBlank();
 
+        long authorId = register.path("data").path("id").asLong();
+        // A brand new account has not contributed any problem yet
+        assertThat(get("/api/v1/users/" + authorId, null)
+                .path("data").path("contributedCount").asLong()).isZero();
+
         JsonNode created = post("/api/v1/problems", token, Map.of(
                 "title", "A+B Problem",
                 "difficulty", "EASY",
@@ -58,6 +63,11 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(problemId).isPositive();
         assertThat(created.path("data").path("status").asString()).isEqualTo("PUBLISHED");
         assertThat(created.path("data").path("authorNickname").asString()).isEqualTo("Alice");
+
+        // Publishing one problem shows up as one contribution, visible to anonymous visitors too
+        JsonNode profile = get("/api/v1/users/" + authorId, null);
+        assertThat(profile.path("data").path("contributedCount").asLong()).isEqualTo(1);
+        assertThat(profile.path("data").path("solvedCount").asLong()).isZero();
 
         JsonNode testcases = put("/api/v1/problems/" + problemId + "/testcases", token, List.of(
                 Map.of("input", "1 2\n", "output", "3\n"),

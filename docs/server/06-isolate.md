@@ -4,7 +4,7 @@
 
 - 判题状态机、引擎选择、meta → 状态的映射：见 [03-judge.md](03-judge.md)
 - 整机部署、systemd、Nginx：见 [04-deployment.md](04-deployment.md)
-- 接口契约（前端视角）：见 [../shared/api.md](../shared/api.md)
+- 接口契约（前端视角）：见 [../shared/api/README.md](../shared/api/README.md)
 
 > 文中命令与输出均已在 **Debian 13 (trixie) + Isolate 2.7 + OpenJDK 21.0.11 + 内核 6.12.94** 上逐条执行（2026-10-30）。
 > 换发行版请先核对 cgroup v2、内核版本与包来源。

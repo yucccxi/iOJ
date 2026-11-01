@@ -77,7 +77,8 @@ public class SubmissionService {
             throw BusinessException.of(ErrorCode.UNSUPPORTED_LANGUAGE);
         }
         if (request.code().length() > submissionProperties.getMaxCodeLength()) {
-            throw BusinessException.of(ErrorCode.CODE_TOO_LONG);
+            throw BusinessException.of(ErrorCode.CODE_TOO_LONG,
+                    "代码长度不能超过 " + submissionProperties.getMaxCodeLength() + " 字符");
         }
         if (testcaseMapper.countByProblemId(problem.getId()) == 0) {
             throw BusinessException.of(ErrorCode.PROBLEM_NO_TESTCASE);

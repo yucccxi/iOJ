@@ -53,4 +53,9 @@ public interface UserMapper {
     long countPage(@Param("keyword") String keyword);
 
     long countAcceptedProblems(@Param("userId") Long userId);
+
+    /**
+     * Number of published problems authored by the user, used as the public contribution count.
+     */
+    long countAuthoredProblems(@Param("userId") Long userId);
 }

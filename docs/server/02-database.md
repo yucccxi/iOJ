@@ -124,7 +124,7 @@ erDiagram
 存储策略说明：
 
 - 数据直接放 MySQL，**备份/恢复/权限控制/事务一致性**都最简单，一个人维护不容易出错。
-- 单点上限由 `ioj.problem.max-testcase-bytes`（默认 1MB）与 MySQL `max_allowed_packet` 共同约束。校内题目一般几十 KB，完全够用。
+- 单条测试点的上限由 `ioj.problem.max-testcase-bytes`（默认 4 MiB，按 UTF-8 字节、`input` 与 `output` 各自计算）控制，可随时用 `IOJ_PROBLEM_MAX_TESTCASE_BYTES` 覆盖；整批写入还受 MySQL `max_allowed_packet` 约束（批量 PUT 会拼成一条 INSERT）。校内题目一般几十 KB，完全够用。
 - 如果将来要放几百 MB 的测试集，把 `input_data/output_data` 换成对象存储路径，只需改 `ProblemTestcaseMapper` 与判题取数逻辑，接口无需变化。
 - 只有题目作者与管理员能读取内容，列表接口只返回 `inputBytes/outputBytes`。
 

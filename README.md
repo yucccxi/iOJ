@@ -49,7 +49,7 @@ iOJ/
 
 ## 快速开始
 
-- **只想对接接口**：见 [docs/shared/api.md](docs/shared/api.md)，包含每个接口的参数含义、字段含义与登录/未登录差异。
+- **只想对接接口**：见 [docs/shared/api/README.md](docs/shared/api/README.md)，包含每个接口的参数含义、字段含义与登录/未登录差异。
 - **想启动后端**：见 [docs/server/README.md](docs/server/README.md) 的「快速开始」（建库 + 环境变量 + 启动 + 测试）。
 - **想了解设计**：见 [docs/server/01-architecture.md](docs/server/01-architecture.md)（架构）、[docs/server/02-database.md](docs/server/02-database.md)（数据库）、[docs/server/03-judge.md](docs/server/03-judge.md)（评测）。
 
@@ -60,7 +60,7 @@ iOJ/
 | 文档 | 内容 |
 | --- | --- |
 | [docs/README.md](docs/README.md) | 文档索引与阅读建议 |
-| [docs/shared/api.md](docs/shared/api.md) | 面向前端的接口文档：参数/字段含义、权限可见性、错误码、页面接口对照 |
+| [docs/shared/api/](docs/shared/api/README.md) | 面向前端的接口文档（按章节拆分）：参数/字段含义、权限可见性、错误码、页面接口对照 |
 | [docs/server/README.md](docs/server/README.md) | 后端总览：启动、配置、数据库初始化、测试、常见问题 |
 | [docs/server/01-architecture.md](docs/server/01-architecture.md) | 架构、模块划分、请求链路、评测流程、权限矩阵、设计取舍 |
 | [docs/server/02-database.md](docs/server/02-database.md) | ER 图、表结构、枚举、索引、容量估算、备份 |

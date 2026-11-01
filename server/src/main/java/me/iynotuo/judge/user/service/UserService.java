@@ -89,7 +89,8 @@ public class UserService {
 
     public UserProfileVO getProfile(Long id) {
         User user = requireUser(id);
-        return UserProfileVO.of(user, userMapper.countAcceptedProblems(id));
+        return UserProfileVO.of(user, userMapper.countAcceptedProblems(id),
+                userMapper.countAuthoredProblems(id));
     }
 
     @Transactional

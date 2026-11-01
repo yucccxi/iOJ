@@ -2,7 +2,7 @@
 
 ## 目标与约束
 
-在现有 Vue 3 / TypeScript / Vite / Pinia / Vue Router 模板上完成接口文档第 9.4 节的页面。不修改 server/、docs/shared/api.md 或根 README.md。界面跟随系统浅深色，采用表格与工作区布局、系统中文字体及代码等宽字体，少装饰、短文案、完整焦点和错误状态。
+在现有 Vue 3 / TypeScript / Vite / Pinia / Vue Router 模板上完成接口文档第 9.4 节的页面。不修改 server/、docs/shared/api/ 或根 README.md。界面跟随系统浅深色，采用表格与工作区布局、系统中文字体及代码等宽字体，少装饰、短文案、完整焦点和错误状态。
 
 ## 解耦约定
 

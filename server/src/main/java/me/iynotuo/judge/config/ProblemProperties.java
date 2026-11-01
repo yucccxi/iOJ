@@ -20,9 +20,14 @@ public class ProblemProperties {
     private int maxTestcases = 100;
 
     /**
-     * Maximum size of a single test case input or output, in bytes.
+     * Maximum size of a single test case input or output, in UTF-8 bytes
+     * ({@code ioj.problem.max-testcase-bytes}, overridable with
+     * {@code IOJ_PROBLEM_MAX_TESTCASE_BYTES}).
+     *
+     * <p>This is the single source of truth for the limit: the request DTO has no
+     * {@code @Size} annotation, so the configured value is the one that is enforced.</p>
      */
-    private int maxTestcaseBytes = 1024 * 1024;
+    private int maxTestcaseBytes = 4 * 1024 * 1024;
 
     public boolean isAutoPublish() {
         return autoPublish;

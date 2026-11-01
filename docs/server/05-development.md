@@ -184,7 +184,7 @@ class MyFeatureTest {
 - 新增错误码加到 `ErrorCode`（业务号段：用户 2xxx、题目 3xxx、提交 4xxx）。
 - 提交前跑 `./mvnw test`；改 SQL 时同时跑集成测试（它会真的执行所有 mapper）。
 - Git 提交信息建议：`feat(problem): 支持按标签筛选`、`fix(judge): 修复 Java 超时判定`。
-- 前端字段变更属于破坏性变更，需同步更新 `../shared/api.md`。
+- 前端字段变更属于破坏性变更，需同步更新 `../shared/api/README.md`。
 
 ## 9. 已知简化与后续方向
 

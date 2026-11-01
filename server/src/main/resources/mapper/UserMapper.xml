@@ -80,4 +80,10 @@
         WHERE user_id = #{userId} AND status = 'ACCEPTED'
     </select>
 
+    <select id="countAuthoredProblems" resultType="long">
+        SELECT COUNT(*)
+        FROM problems
+        WHERE author_id = #{userId} AND status = 'PUBLISHED'
+    </select>
+
 </mapper>

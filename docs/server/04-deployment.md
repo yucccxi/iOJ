@@ -49,6 +49,8 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_JWT_SECRET` | 开发用弱密钥 | **必须覆盖**，≥ 32 字节（否则启动失败） |
 | `IOJ_CORS_ORIGINS` | `http://localhost:5173` | 前端地址，多个用逗号分隔 |
 | `IOJ_PROBLEM_AUTO_PUBLISH` | `true` | 普通用户上传的题目是否直接发布；对外开放注册时建议 `false` |
+| `IOJ_PROBLEM_MAX_TESTCASE_BYTES` | `4194304` | 单条测试点 `input`/`output` 各自的上限（UTF-8 字节，默认 4 MiB） |
+| `IOJ_SUBMISSION_MAX_CODE_LENGTH` | `65536` | 单次提交代码字符数上限 |
 | `IOJ_JUDGE_ENABLED` | `true` | 是否启用判题 worker |
 | `IOJ_JUDGE_ENGINE` | `isolate` | 判题引擎：`isolate`（默认）/ `local`（本机进程回退） |
 | `IOJ_JUDGE_CONCURRENCY` | `1` | 同时判题数，建议 CPU 核数 - 1 |
@@ -138,7 +140,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 4m;      # 允许上传较大的测试点批次
+        client_max_body_size 16m;     # 单条测试点默认 4 MiB；批量上传请按总量再调大
         proxy_read_timeout 60s;
     }
 }

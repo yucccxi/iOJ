@@ -1,7 +1,7 @@
 # iOJ Server（后端）
 
 iOJ 的后端服务：一个 Spring Boot 单体应用，同时提供 **REST API** 和 **异步评测**。
-接口契约见 [../shared/api.md](../shared/api.md)；项目整体介绍见 [../../README.md](../../README.md)。
+接口契约见 [../shared/api/README.md](../shared/api/README.md)；项目整体介绍见 [../../README.md](../../README.md)。
 
 ## 技术栈
 
@@ -156,9 +156,9 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `ioj.jwt.issuer` | — | `iOJ` | 令牌签发方标识 |
 | `ioj.cors.allowed-origins` | `IOJ_CORS_ORIGINS` | `http://localhost:5173` | 允许的前端来源，逗号分隔 |
 | `ioj.problem.auto-publish` | `IOJ_PROBLEM_AUTO_PUBLISH` | `true` | 普通用户上传题目是否直接发布；`false` 时进入待审核 |
-| `ioj.problem.max-testcases` | — | `100` | 单题测试数据条数上限 |
-| `ioj.problem.max-testcase-bytes` | — | `1048576` | 单条输入/输出内容上限（字节） |
-| `ioj.submission.max-code-length` | — | `65536` | 单次提交代码字符数上限 |
+| `ioj.problem.max-testcases` | `IOJ_PROBLEM_MAX_TESTCASES` | `100` | 单题测试数据条数上限 |
+| `ioj.problem.max-testcase-bytes` | `IOJ_PROBLEM_MAX_TESTCASE_BYTES` | `4194304` | 单条测试点 `input`/`output` 各自的上限（UTF-8 字节，默认 4 MiB）；请求 DTO 不再硬编码，**只认这个配置** |
+| `ioj.submission.max-code-length` | `IOJ_SUBMISSION_MAX_CODE_LENGTH` | `65536` | 单次提交代码字符数上限；超限返回 `4003` |
 | `ioj.judge.enabled` | `IOJ_JUDGE_ENABLED` | `true` | 是否启用评测；关闭后提交停留在排队状态 |
 | `ioj.judge.engine` | `IOJ_JUDGE_ENGINE` | `isolate` | 评测引擎：`isolate`（默认）/ `local`（本机进程回退）/ `docker`（未实现） |
 | `ioj.judge.isolate.*` | — | 见下 | Isolate 路径、box 编号、编译限制、额外目录等 |
@@ -232,7 +232,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 ## 接口
 
 - 统一前缀 `/api/v1`，所有响应为 `{ code, message, data }`。
-- 完整接口（参数含义、字段含义、登录/未登录差异）见 [../shared/api.md](../shared/api.md)。
+- 完整接口（参数含义、字段含义、登录/未登录差异）见 [../shared/api/README.md](../shared/api/README.md)。
 - 常用自测：
 
 ```bash
@@ -255,7 +255,7 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | --- | --- |
 | [./01-architecture.md](./01-architecture.md) | 架构、模块、请求链路、评测时序、权限矩阵、设计取舍 |
 | [./02-database.md](./02-database.md) | ER 图、表结构、枚举、索引、容量估算、备份 |
-| [../shared/api.md](../shared/api.md) | 接口文档（面向前端） |
+| [../shared/api/README.md](../shared/api/README.md) | 接口文档（面向前端） |
 | [./03-judge.md](./03-judge.md) | 评测状态机、引擎选择、Isolate 沙箱与限额、语言配置、生产加固 |
 | [./04-deployment.md](./04-deployment.md) | 建库、配置、systemd/Nginx、备份、上线检查清单 |
 | [./05-development.md](./05-development.md) | 开发规范、扩展方式、测试说明、踩坑记录 |
@@ -276,7 +276,7 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | 评测报编译错误但代码没问题 | 评测机缺少工具链：`apt install -y g++ gcc python3`；Java 代码需使用 `public class Main` |
 | `schema.sql` 执行报"表已存在" | 该脚本不是幂等的，按上文"数据库"小节重建库，或手动删除旧表 |
 | 多个实例间登录互相 401 | 各实例的 `IOJ_JWT_SECRET` 必须一致 |
-| 上传较大的测试数据失败 | 调大 Nginx 的 `client_max_body_size`，以及 `ioj.problem.max-testcase-bytes` |
+| 上传较大的测试数据失败 | 先看错误码：`1000` 是单条超限 → 用 `IOJ_PROBLEM_MAX_TESTCASE_BYTES` 调大（默认 4 MiB）；`413` 是请求体过大 → 调大 Nginx 的 `client_max_body_size`；`500` 且日志提示 packet → 调大 MySQL 的 `max_allowed_packet` |
 | 测试环境与线上行为不一致 | 测试使用 H2（MySQL 模式），请避免使用 MySQL 专有语法（详见 `05-development.md`） |
 
 

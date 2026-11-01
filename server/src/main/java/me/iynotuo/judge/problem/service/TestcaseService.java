@@ -111,10 +111,13 @@ public class TestcaseService {
 
     private void validate(TestcaseRequest request) {
         int maxBytes = properties.getMaxTestcaseBytes();
-        if (request.input().getBytes(StandardCharsets.UTF_8).length > maxBytes
-                || request.output().getBytes(StandardCharsets.UTF_8).length > maxBytes) {
+        if (request.input().getBytes(StandardCharsets.UTF_8).length > maxBytes) {
             throw BusinessException.of(ErrorCode.BAD_REQUEST,
-                    "单个测试点输入/输出不能超过 " + maxBytes + " 字节");
+                    "测试点输入不能超过 " + maxBytes + " 字节");
+        }
+        if (request.output().getBytes(StandardCharsets.UTF_8).length > maxBytes) {
+            throw BusinessException.of(ErrorCode.BAD_REQUEST,
+                    "测试点输出不能超过 " + maxBytes + " 字节");
         }
     }
 }
