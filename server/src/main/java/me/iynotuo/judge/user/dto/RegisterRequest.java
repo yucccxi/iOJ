@@ -21,6 +21,12 @@ public record RegisterRequest(
         String password,
 
         @Size(max = 32, message = "昵称长度不能超过 32")
-        String nickname
+        String nickname,
+
+        // The 6-digit code delivered to the email above. Optional in the DTO because the field is
+        // only required when ioj.email-code.enabled=true; the service enforces that rule, so the
+        // error message can explain what the caller should do.
+        @Pattern(regexp = "^\\d{6}$", message = "邮箱验证码需为 6 位数字")
+        String emailCode
 ) {
 }

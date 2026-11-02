@@ -66,12 +66,19 @@
 | 提交显示 `CHECKER_ERROR` | 该题的自定义判题器编译失败/超时/崩溃 | 提示"评测机处理中，请稍后重试"，同时通知出题者；不要提示"你的代码有错"。判题器编译/启动失败时看 `judgeMessage`，运行期失败时看 `cases[].message` |
 | 怀疑"编辑题目把判题器弄丢了" | `PUT /problems/{id}` 不会改判题器（它走独立接口），`hasChecker` 也不会被影响 | 用 `GET /problems/{id}/checker` 复核源码；前端把判题器编辑放进单独的表单与按钮 |
 | 提交列表里出现了未发布题目的记录 | `GET /submissions` 不按题目可见性过滤（见 [1.6 谁可以调用、能看到什么](01-conventions.md#16-谁可以调用能看到什么)） | 不要据此认为题目已公开；如需严格隔离，请后端补过滤 |
+| 注册返回 `400` + `2007` | 验证码错误、过期、已使用，或输错次数已超限 | 提示 `message`；把“重新获取验证码”按钮恢复可点，不要反复用同一串数字重试 |
+| 注册返回 `429` + `2008` | 同一邮箱 60 秒内重复点击，或一小时内超过上限 | 按 `resendAfterSeconds` 禁用按钮并倒计时 |
+| 点“获取验证码”返回 `503` + `2009` | 邮件服务器发送失败（部署侧 SMTP 配置问题） | 提示稍后重试并通知维护者，不要提示“邮箱错误” |
+| 找回密码点“发送验证码”返回 `404` + `2001` | 该邮箱没有对应账号 | 提示“该邮箱尚未注册”，给一个去注册的入口 |
+| 重置密码返回 `400` + `2007` | 验证码错误/过期/已使用/输错超限，或用了注册验证码 | 提示 `message`，并让用户重新获取“找回密码验证码” |
+| 重置成功后刷新页面还是登录状态 | 改密码不会让已发出的 JWT 失效（见 [2.6](02-accounts.md#26-通过验证码重置密码)） | 属预期行为；引导用户主动退出重新登录 |
 
 ## 9.4 页面与接口对照
 
 | 页面 | 需要的接口 |
 | --- | --- |
-| 登录 / 注册 | `POST /auth/login`、`POST /auth/register`、`GET /auth/me` |
+| 登录 / 注册 | `POST /auth/email-codes`（注册页“获取验证码”）、`POST /auth/register`、`POST /auth/login`、`GET /auth/me` |
+| 找回密码 | `POST /auth/password-reset-codes`、`POST /auth/password-resets` |
 | 题库首页 | `GET /catalog?kind=LOCAL`、`GET /meta/tags`、`GET /meta/sources` |
 | 统一搜索（本地 + 外部） | `GET /catalog`、`GET /meta/tags`、`GET /meta/sources` |
 | 题目详情 | `GET /problems/{id}`、`GET /submissions?problemId={id}`、`POST /submissions` |

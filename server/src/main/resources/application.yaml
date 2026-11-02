@@ -14,6 +14,22 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 2
       connection-timeout: 5000
+  mail:
+# Registration verification mails. The default host does not resolve on purpose: a local run keeps
+# working, and a missing IOJ_MAIL_HOST shows up as a clear send failure instead of a silent connect.
+    host: ${IOJ_MAIL_HOST:smtp.localhost.invalid}
+    port: ${IOJ_MAIL_PORT:25}
+    username: ${IOJ_MAIL_USERNAME:}
+    password: ${IOJ_MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail.smtp.auth: ${IOJ_MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${IOJ_MAIL_STARTTLS:false}
+      mail.smtp.ssl.enable: ${IOJ_MAIL_SSL:false}
+# Bounded timeouts: the mail is sent on the request thread, so a hung SMTP server must not pin it.
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
@@ -41,6 +57,23 @@ ioj:
   submission:
 # Maximum source length per submission, in characters.
     max-code-length: ${IOJ_SUBMISSION_MAX_CODE_LENGTH:65536}
+  email-code:
+# Registration requires a code mailed to the address. Set to false to allow registration without one;
+# the send endpoint then reports that the feature is off.
+    enabled: ${IOJ_EMAIL_CODE_ENABLED:true}
+# How long an issued code stays valid.
+    ttl-minutes: ${IOJ_EMAIL_CODE_TTL_MINUTES:10}
+# Minimum gap between two codes for the same address.
+    resend-interval-seconds: ${IOJ_EMAIL_CODE_RESEND_INTERVAL_SECONDS:60}
+# Codes per address per hour.
+    max-per-hour: ${IOJ_EMAIL_CODE_MAX_PER_HOUR:5}
+# Wrong submissions a code tolerates; the failure that reaches this limit invalidates the code.
+    max-attempts: ${IOJ_EMAIL_CODE_MAX_ATTEMPTS:5}
+# Must be an address the SMTP account is allowed to send as.
+    from: ${IOJ_MAIL_FROM:no-reply@localhost}
+    subject: ${IOJ_EMAIL_CODE_SUBJECT:iOJ 邮箱验证码}
+# Consumed and expired rows are deleted after this many hours.
+    cleanup-retention-hours: 24
   judge:
     enabled: ${IOJ_JUDGE_ENABLED:true}
     engine: ${IOJ_JUDGE_ENGINE:isolate}

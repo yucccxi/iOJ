@@ -50,7 +50,7 @@ me.iynotuo.judge
 ├── common/        统一响应 ApiResponse、分页、ErrorCode、全局异常、业务枚举
 ├── config/        SecurityConfig、JwtProperties、JudgeProperties、线程池
 ├── security/      JwtTokenProvider、JwtAuthenticationFilter、LoginUser
-├── user/          entity / mapper / service / controller / dto
+├── user/          entity / mapper / service / controller / dto / mail（邮箱验证码发信）
 ├── problem/       entity / mapper / service / controller / dto（含测试点、标签）
 ├── submission/    提交记录
 └── judge/         JudgeService、JudgeWorker、JudgeContext、JudgeOutcome、OutputComparator
@@ -128,6 +128,7 @@ sequenceDiagram
 
 | 操作 | 匿名 | 登录用户 | 题目作者 | 管理员 |
 | --- | --- | --- | --- | --- |
+| 注册 / 登录 / 找回密码（邮箱验证码） | ✅ | ✅ | ✅ | ✅ |
 | 浏览已发布题目 / 列表 / 题面样例 | ✅ | ✅ | ✅ | ✅ |
 | 上传题目 | ❌ | ✅ | ✅ | ✅ |
 | 编辑 / 删除题目 | ❌ | ❌ | ✅ | ✅ |

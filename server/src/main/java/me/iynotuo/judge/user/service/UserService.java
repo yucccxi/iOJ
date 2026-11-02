@@ -2,6 +2,7 @@ package me.iynotuo.judge.user.service;
 
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
+import me.iynotuo.judge.common.enums.EmailCodePurpose;
 import me.iynotuo.judge.common.enums.UserRole;
 import me.iynotuo.judge.common.enums.UserStatus;
 import me.iynotuo.judge.common.exception.BusinessException;
@@ -11,6 +12,7 @@ import me.iynotuo.judge.security.LoginUser;
 import me.iynotuo.judge.user.dto.ChangePasswordRequest;
 import me.iynotuo.judge.user.dto.LoginRequest;
 import me.iynotuo.judge.user.dto.LoginResponse;
+import me.iynotuo.judge.user.dto.PasswordResetRequest;
 import me.iynotuo.judge.user.dto.RegisterRequest;
 import me.iynotuo.judge.user.dto.UpdateProfileRequest;
 import me.iynotuo.judge.user.dto.UserProfileVO;
@@ -25,6 +27,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * User account and login logic.
@@ -35,25 +38,35 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final EmailCodeService emailCodeService;
 
-    public UserService(UserMapper userMapper, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider) {
+    public UserService(UserMapper userMapper, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider,
+                       EmailCodeService emailCodeService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
+        this.emailCodeService = emailCodeService;
     }
 
     @Transactional
     public UserVO register(RegisterRequest request) {
+        String email = normalizeEmail(request.email());
         if (userMapper.findByUsername(request.username()) != null) {
             throw BusinessException.of(ErrorCode.USERNAME_TAKEN);
         }
-        if (userMapper.findByEmail(request.email()) != null) {
+        if (userMapper.findByEmail(email) != null) {
             throw BusinessException.of(ErrorCode.EMAIL_TAKEN);
         }
+        // Verify before writing anything: a rejected code must not create a row, and a taken
+        // username must not burn a code. verify() runs in its own transaction so a wrong code is
+        // still counted as an attempt when this transaction rolls back with the exception below.
+        Long codeId = emailCodeService.isEnabled()
+                ? emailCodeService.verify(email, EmailCodePurpose.REGISTER, request.emailCode())
+                : null;
         LocalDateTime now = LocalDateTime.now();
         User user = new User();
         user.setUsername(request.username());
-        user.setEmail(request.email());
+        user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setNickname(StringUtils.hasText(request.nickname()) ? request.nickname().trim() : request.username());
         user.setRole(UserRole.USER);
@@ -66,6 +79,9 @@ public class UserService {
             // Unique indexes guard against concurrent registrations
             throw BusinessException.of(ErrorCode.CONFLICT, "用户名或邮箱已被占用");
         }
+        // Consumed in this transaction, so a failed insert keeps the code usable and a successful
+        // one can never be replayed.
+        emailCodeService.consume(codeId);
         return UserVO.from(user);
     }
 
@@ -108,6 +124,34 @@ public class UserService {
         userMapper.updatePassword(current.id(), passwordEncoder.encode(request.newPassword()), LocalDateTime.now());
     }
 
+    /**
+     * Resets a forgotten password with a code mailed to the account address.
+     *
+     * <p>No login is required, so the code is the only credential. It is checked with
+     * {@code RESET_PASSWORD}, which keeps a registration code from working here, and consumed in the
+     * same transaction that writes the new password: a failed update keeps the code usable, a
+     * successful one can never be replayed.</p>
+     *
+     * @param request address, mailed code and the new password
+     */
+    @Transactional
+    public void resetPassword(PasswordResetRequest request) {
+        if (!emailCodeService.isEnabled()) {
+            throw BusinessException.of(ErrorCode.BAD_REQUEST, "邮箱验证功能未启用，无法通过邮箱找回密码");
+        }
+        String email = normalizeEmail(request.email());
+        User user = userMapper.findByEmail(email);
+        if (user == null) {
+            throw BusinessException.of(ErrorCode.USER_NOT_FOUND, "该邮箱尚未注册");
+        }
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw BusinessException.of(ErrorCode.USER_DISABLED);
+        }
+        Long codeId = emailCodeService.verify(email, EmailCodePurpose.RESET_PASSWORD, request.emailCode());
+        userMapper.updatePassword(user.getId(), passwordEncoder.encode(request.newPassword()), LocalDateTime.now());
+        emailCodeService.consume(codeId);
+    }
+
     public PageResult<UserVO> page(String keyword, PageQuery query) {
         String normalized = StringUtils.hasText(keyword) ? keyword.trim() : null;
         long total = userMapper.countPage(normalized);
@@ -136,6 +180,15 @@ public class UserService {
         }
         requireUser(userId);
         userMapper.updateStatus(userId, status, LocalDateTime.now());
+    }
+
+    /**
+     * Trims and lower-cases an address so one mailbox cannot create two accounts that differ only
+     * in case. MySQL compares case-insensitively by default while H2 does not, and normalizing here
+     * keeps both behaving the same.
+     */
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
     private User requireUser(Long id) {

@@ -10,10 +10,22 @@ spring:
       mode: always
       schema-locations: classpath:db/schema.sql
       encoding: UTF-8
+# The JavaMailSender bean needs a host; test classes capture codes through a fake sender instead of
+# talking to a server, so this value is never connected to.
+  mail:
+    host: localhost
 
 ioj:
   jwt:
     secret: ioj-test-secret-key-at-least-32-bytes-long
+  problem:
+# Problem tests assert that an uploaded problem is published immediately, so the behaviour is pinned
+# here instead of inheriting whatever the local application.yaml happens to configure.
+    auto-publish: true
+  email-code:
+# Most integration tests only need an account, so registration does not ask for a code here.
+# EmailVerificationIntegrationTest switches it back on for its own Spring context.
+    enabled: false
   judge:
 # Integration tests call JudgeService directly instead of relying on the scheduled worker.
     enabled: false

@@ -57,6 +57,38 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_JUDGE_CHECKER_ENABLED` | `true` | 是否允许题目自带判题器（Special Judge）；关闭后带 checker 的题统一判 `CHECKER_ERROR` |
 | `IOJ_JUDGE_CHECKER_TIME_LIMIT_MS` / `IOJ_JUDGE_CHECKER_MEMORY_LIMIT_MB` | `2000` / `512` | 判题器单次运行的 CPU / 内存限制，**与题限无关**（超限判 `CHECKER_ERROR`，不算选手 TLE/MLE） |
 | `ioj.datasource-check.enabled`（yaml） | `true` | 启动时做一次数据库连通性自检；失败会打印实际生效的 URL/用户名并终止启动 |
+| `IOJ_MAIL_HOST` / `IOJ_MAIL_PORT` | `smtp.localhost.invalid` / `25` | SMTP 服务器。默认值不可解析，**生产必须覆盖**，否则发码直接返回 `2009`（部署 profile 默认端口 `465`） |
+| `IOJ_MAIL_USERNAME` / `IOJ_MAIL_PASSWORD` | 空 | SMTP 认证信息；用 465/587 端口时通常都需要 |
+| `IOJ_MAIL_SMTP_AUTH` / `IOJ_MAIL_SSL` / `IOJ_MAIL_STARTTLS` | `false` / `false` / `false`（部署 profile 为 `true` / `true` / `false`） | 加密与认证开关：465 用 SSL，587 用 STARTTLS |
+| `IOJ_MAIL_FROM` | `no-reply@localhost` | 发件人地址。多数 SMTP 服务要求 From 与认证账号同域，否则拒收 |
+| `IOJ_EMAIL_CODE_ENABLED` | `true` | 注册是否必须邮箱验证。设 `false` 时 `POST /auth/email-codes` 直接返回 `1000`，注册也不再校验验证码 |
+| `IOJ_EMAIL_CODE_TTL_MINUTES` | `10` | 验证码有效期（分钟） |
+| `IOJ_EMAIL_CODE_RESEND_INTERVAL_SECONDS` | `60` | 同一邮箱的重发冷却（秒） |
+| `IOJ_EMAIL_CODE_MAX_PER_HOUR` | `5` | 同一邮箱每小时最多发码次数（超过返回 `2008`） |
+| `IOJ_EMAIL_CODE_MAX_ATTEMPTS` | `5` | 单个验证码允许输错的次数；达到上限立即作废，之后即使输对也要求重新获取 |
+
+### SMTP 与发件配置
+
+```bash
+# 465（隐式 SSL，最常见）
+IOJ_MAIL_HOST=smtp.example.com
+IOJ_MAIL_PORT=465
+IOJ_MAIL_USERNAME=no-reply@example.com
+IOJ_MAIL_PASSWORD='授权码/密码'
+IOJ_MAIL_SMTP_AUTH=true
+IOJ_MAIL_SSL=true
+IOJ_MAIL_FROM='iOJ <no-reply@example.com>'
+
+# 587（STARTTLS）
+IOJ_MAIL_PORT=587
+IOJ_MAIL_SSL=false
+IOJ_MAIL_STARTTLS=true
+```
+
+- 发件域名建议配好 SPF/DKIM，否则验证码邮件容易进垃圾箱（这一步在 DNS 侧，不在本仓库）。
+- 发信是**同步**的（在请求线程里发），SMTP 超时被限制为 connection 5s / read 10s / write 10s；SMTP 挂掉时表现为发码接口 `503` + `2009`，不会拖住整个服务。
+- 自测：`curl -s -X POST localhost:8082/api/v1/auth/email-codes -H 'Content-Type: application/json' -d '{"email":"you@example.com"}'`，同时 `journalctl -u ioj -f` 看 `验证码已发送 email=...`。
+- `IOJ_EMAIL_CODE_ENABLED=false` 可用于临时关掉验证（例如 SMTP 还没配好、需要先开放注册）；关闭后旧验证码也不再校验。
 
 其余可调项（测试点上限、代码长度、判题超时等）见 `application.yaml` 中的 `ioj.problem`、`ioj.submission`、`ioj.judge`。
 
@@ -223,7 +255,7 @@ sudo cp target/server-0.0.1-SNAPSHOT.jar /opt/ioj/server.jar
 sudo systemctl start ioj
 ```
 
-涉及表结构变更时，**先**在低峰期执行新增列/新增表的 SQL（当前脚本不含迁移工具，建议后续引入 Flyway）。
+涉及表结构变更时：本项目**不维护迁移脚本**，也不保留历史数据，直接把库重建一遍即可（`DROP DATABASE` → `schema.sql` → `seed.sql`，步骤见 [./02-database.md#11-改表就重建库不维护迁移脚本](./02-database.md#11-改表就重建库不维护迁移脚本)）。重建会清空用户、题目、测试点与提交记录，动手前先按第 7 节做一次 `mysqldump`，需要回滚就整库还原。
 
 ## 10. 上线安全检查清单
 
@@ -235,6 +267,8 @@ sudo systemctl start ioj
 - [ ] 需要公网开放注册时，未使用 `engine=local` 回退（回退模式无法防 fork bomb/网络访问）
 - [ ] Nginx 已开启 HTTPS；`client_max_body_size` 足够上传测试数据
 - [ ] 备份任务已配置并验证过一次恢复
+- [ ] SMTP 已配置并实测过一封验证码邮件（`IOJ_MAIL_HOST` / `IOJ_MAIL_FROM` 必填，凭据不进仓库）
+- [ ] `IOJ_EMAIL_CODE_*` 限流值符合预期（冷却、每小时上限、输错上限），或确认已显式关闭邮箱验证
 - [ ] 判题用户为非 root，`/tmp` 有独立配额或定期清理
 - [ ] 服务器时间同步（`timedatectl`），否则 JWT 过期时间会漂移
 

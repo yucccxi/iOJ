@@ -16,75 +16,34 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
 > `schema.sql` 里没有 `ENGINE/CHARSET` 子句，是为了让 H2 也能执行。生产库请在 `CREATE DATABASE` 时指定 `utf8mb4`。
 >
 > `seed.sql` 使用 `INSERT IGNORE`，可以重复执行；`schema.sql` 不是幂等的（重复执行会报 "Table already exists"）。
-> 需要重建时先 `DROP DATABASE ioj;` 再重新 `CREATE DATABASE ioj ...`，然后依次执行两个脚本。
+> 需要重建时先 `DROP DATABASE ioj;` 再重新 `CREATE DATABASE ioj ...`，然后依次执行两个脚本（见 1.1）。
 
-### 1.1 升级已有库（增量 DDL）
+### 1.1 改表就重建库（不维护迁移脚本）
 
-已有库不重建时，按下面顺序手工执行增量语句（新装环境跳过）：
+本项目**不做增量迁移**，也没有接入 Flyway/Liquibase。目前只有我们自己（本地/内部环境）在用，没有别人的数据要保，所以表结构一变就直接重建库，让 `schema.sql` 成为唯一的结构定义来源——少一套需要同步维护的脚本，也就少一处会写错、会被忘掉的地方。
 
-```sql
--- problems.rating：数值难度分，用于列表筛选/排序；与 difficulty 并存、互不推导
-ALTER TABLE problems ADD COLUMN rating INT NULL;
-CREATE INDEX idx_problems_status_rating ON problems (status, rating);
-
--- 可选：把历史题目的档位回填成初始分（按需调整映射）
-UPDATE problems SET rating = CASE difficulty
-    WHEN 'EASY'   THEN 800
-    WHEN 'MEDIUM' THEN 1500
-    WHEN 'HARD'   THEN 2200
-    ELSE 1200 END
-WHERE rating IS NULL;
-
--- sources：题目来源（管理员维护），problems.source_id 引用它
-CREATE TABLE sources (
-    id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    name       VARCHAR(128) NOT NULL,
-    created_at DATETIME     NOT NULL,
-    CONSTRAINT uk_sources_name UNIQUE (name)
-);
-ALTER TABLE problems ADD COLUMN source_id BIGINT NULL;
-ALTER TABLE problems ADD CONSTRAINT fk_problems_source
-    FOREIGN KEY (source_id) REFERENCES sources (id);
-CREATE INDEX idx_problems_source ON problems (source_id, id);
-
--- 旧的自由文本来源列。有历史数据时先回填再删：
---   INSERT INTO sources (name, created_at)
---   SELECT MIN(TRIM(source)), CURRENT_TIMESTAMP FROM problems
---   WHERE source IS NOT NULL AND TRIM(source) <> '' GROUP BY TRIM(source);
---   UPDATE problems p JOIN sources s ON s.name = TRIM(p.source) SET p.source_id = s.id;
-ALTER TABLE problems DROP COLUMN source;
-
--- external_problems：外部 OJ 题目（只存元数据，不参与判题）；source_id 指向 sources
-CREATE TABLE external_problems (
-    id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    source_id  BIGINT       NOT NULL,
-    title      VARCHAR(200) NOT NULL,
-    rating     INT          NULL,
-    url        VARCHAR(512) NOT NULL,
-    created_at DATETIME     NOT NULL,
-    updated_at DATETIME     NOT NULL,
-    CONSTRAINT uk_external_problems_url UNIQUE (url),
-    CONSTRAINT fk_external_problems_source FOREIGN KEY (source_id) REFERENCES sources (id)
-);
-CREATE INDEX idx_external_problems_source_rating ON external_problems (source_id, rating);
-CREATE INDEX idx_external_problems_rating ON external_problems (rating, id);
-
--- external_problem_tags：外部题与标签的多对多（标签复用 tags 表）
-CREATE TABLE external_problem_tags (
-    external_problem_id BIGINT NOT NULL,
-    tag_id              BIGINT NOT NULL,
-    PRIMARY KEY (external_problem_id, tag_id),
-    CONSTRAINT fk_ept_external FOREIGN KEY (external_problem_id) REFERENCES external_problems (id) ON DELETE CASCADE,
-    CONSTRAINT fk_ept_tag FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
-);
-CREATE INDEX idx_external_problem_tags_tag ON external_problem_tags (tag_id);
-
--- external_problems 增加统计列（从原站/人工导入，本站不累加）
-ALTER TABLE external_problems
-    ADD COLUMN submit_count   INT NOT NULL DEFAULT 0,
-    ADD COLUMN accepted_count INT NOT NULL DEFAULT 0;
+```bash
+# 重建（会清空全部数据，只剩 seed.sql 里的默认管理员与标签）
+mysql -uroot -p -e "DROP DATABASE IF EXISTS ioj;"
+mysql -uroot -p -e "CREATE DATABASE ioj DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+mysql -uioj -p ioj < server/src/main/resources/db/schema.sql
+mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
 ```
 
+注意事项：
+
+- 重建会丢掉**全部**用户、题目、测试点与提交记录。想留下题库就先单独导出再导回：
+  ```bash
+  # 导出（顺序不能乱：被引用的表在前）
+  mysqldump -uioj -p ioj users sources tags problems problem_samples \
+      problem_testcases problem_tags external_problems external_problem_tags > problems.sql
+  # 重建后导入
+  mysql -uioj -p ioj < problems.sql
+  ```
+  导出/导入会带上原始自增 `id`，所以题目、测试点、标签关联之间的外键仍然对得上；`submissions` 不在上面这份清单里，提交记录需要的话自己加。
+- 开发/测试库不用管：集成测试每次用随机名 H2 内存库执行 `schema.sql`，天生就是最新结构。
+- 本地开发的库如果只是缺一张新表，也可以只建那一张（`CREATE TABLE IF NOT EXISTS ...` 粘贴自 `schema.sql`），但这是本地临时手段，**文档里不再维护这类脚本**。
+- 将来真要对外开放、开始有别人的数据时，再引入 Flyway，并按版本补一轮基线脚本。
 
 ## 2. ER 图
 
@@ -102,6 +61,13 @@ erDiagram
     tags ||--o{ external_problem_tags : "tag_id"
     problems ||--o{ submissions : "problem_id"
     submissions ||--o{ submission_cases : "submission_id"
+    email_verification_codes {
+        BIGINT id PK
+        VARCHAR email
+        VARCHAR purpose
+        INT attempts
+        DATETIME expires_at
+    }
 ```
 
 ## 3. 枚举取值（均为 VARCHAR，取值由 Java 枚举保证）
@@ -115,6 +81,7 @@ erDiagram
 | `submissions.language` | `JAVA` / `CPP` / `C` / `PYTHON3` | 与 `ioj.judge.languages` 的 key 一致 |
 | `submissions.status` | `PENDING` / `JUDGING` / `ACCEPTED` / `WRONG_ANSWER` / `TIME_LIMIT_EXCEEDED` / `MEMORY_LIMIT_EXCEEDED` / `OUTPUT_LIMIT_EXCEEDED` / `RUNTIME_ERROR` / `COMPILATION_ERROR` / `CHECKER_ERROR` / `SYSTEM_ERROR` | 提交总状态 |
 | `submission_cases.status` | 同上（不含 `PENDING`/`JUDGING`） | 单测试点状态 |
+| `email_verification_codes.purpose` | `REGISTER` / `RESET_PASSWORD` | 发码用途：注册 / 找回密码。**码与用途绑定**，注册码不能用于重置，反之亦然 |
 
 枚举都用字符串而不是 TINYINT：可读性高、排查问题时不用查字典、加值时不用改表。代价是多占几个字节，俱乐部规模完全无感。
 
@@ -288,6 +255,28 @@ erDiagram
 > + (SELECT COUNT(*) FROM external_problem_tags WHERE tag_id = ?) AS usage;
 > ```
 
+### 4.11 email_verification_codes —— 邮箱验证码
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| id | BIGINT | PK, AUTO_INCREMENT | 自增值同时充当“发出顺序” |
+| email | VARCHAR(128) | NOT NULL | 已 `trim` + 小写化的地址；MySQL 大小写不敏感、H2 敏感，归一化保证两边行为一致 |
+| purpose | VARCHAR(16) | NOT NULL DEFAULT `'REGISTER'` | 发码用途，见 §3 枚举 |
+| code | VARCHAR(16) | NOT NULL | 6 位数字明文。有效期短且一次性使用，六位数字做哈希等于没哈希，所以不存摘要 |
+| attempts | INT | NOT NULL DEFAULT 0 | 已输错次数；达到 `ioj.email-code.max-attempts` 即作废该行 |
+| expires_at | DATETIME | NOT NULL | 过期时间 = 发码时间 + `ioj.email-code.ttl-minutes`；作废时直接置为当前时间 |
+| consumed_at | DATETIME | NULL | 非空表示已成功使用，不可重放 |
+| created_at | DATETIME | NOT NULL | 发码时间，同时用于冷却与每小时上限的统计 |
+
+要点：
+
+- **不做外键**：验证码发生在建号之前，`users` 里还没有对应行。
+- 每次发码插一行而不是覆盖：历史行本身就是限流台账。
+  - 冷却：`ORDER BY id DESC LIMIT 1` 取最新一行的 `created_at`。
+  - 每小时上限：`COUNT(*)` 最近一小时的行数。
+- “作废”复用 `expires_at`（置为当前时间），不额外加 `invalidated_at` 列；查询只认 `expires_at > now` 的行。
+- 清理：`@Scheduled` 每小时删除 `expires_at < now - cleanup-retention-hours` 的行，保留最近一天便于排查误报。该 DELETE 幂等，多实例重复执行无害。
+
 ## 5. 索引设计与关键 SQL
 
 | 索引 | 服务的查询 |
@@ -304,6 +293,8 @@ erDiagram
 | `idx_submissions_problem (problem_id, id)` | 题目下的提交列表 |
 | `idx_submissions_user (user_id, id)` | 用户的提交记录 |
 | `idx_submissions_status (status, id)` | 判题 worker 抢占 `WHERE status='PENDING' ORDER BY id LIMIT 1` |
+| `idx_email_verification_codes_email (email, purpose, id)` | 取该邮箱最新的验证码、统计最近一小时发码数 |
+| `idx_email_verification_codes_expires (expires_at)` | 定时清理过期行 |
 
 判题抢占 SQL（MySQL 8）：
 
@@ -322,6 +313,7 @@ COMMIT;
 - 提交：插入 `submissions` 与 `problems.submit_count + 1` 同一事务；这里允许计数多 1（提交成功但事务回滚的概率极低），计数仅用于展示。
 - 判题落库：删除旧 `submission_cases` → 插入新结果 → 更新 `submissions` → 通过时 `accepted_count + 1`，同一事务。
 - 删除题目：外键 `ON DELETE CASCADE` 自动清理样例、测试点、标签关联与提交记录，避免留下孤儿数据。
+- 注册时验证码与建号的关系：`verify` 只读校验，`users` 插入与 `markConsumed` 在**同一个事务**里，所以插库失败时验证码仍可用、成功时不可能被重放；而“输错次数 +1”走 `REQUIRES_NEW`（`EmailCodeAttemptRecorder`），否则它会随注册事务的回滚一起丢失，尝试次数上限就永远触发不了。
 
 ## 7. 容量估算（俱乐部规模）
 
@@ -332,6 +324,7 @@ COMMIT;
 | problem_testcases | 5000（每题 10 个） | 1~20KB | 10~100MB |
 | submissions | 50000 | 代码 1~5KB | 50~250MB |
 | submission_cases | 500000 | < 200B | < 100MB |
+| email_verification_codes | 每天几十行，保留 24 小时 | < 200B | 可忽略 |
 
 总计 < 500MB，单机 MySQL 轻松承载。日常备份 `mysqldump --single-transaction` 即可（见 04-deployment.md）。
 

@@ -148,6 +148,20 @@ CREATE TABLE submission_cases (
     CONSTRAINT fk_submission_cases_submission FOREIGN KEY (submission_id) REFERENCES submissions (id) ON DELETE CASCADE
 );
 
+-- Email verification codes. One row per send request: the newest row for an (email, purpose)
+-- pair is the one that can be used, and consumed_at marks a code as no longer usable.
+-- Purpose is REGISTER today; a password reset flow can reuse the same table.
+CREATE TABLE email_verification_codes (
+    id          BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    email       VARCHAR(128) NOT NULL,
+    purpose     VARCHAR(16)  NOT NULL DEFAULT 'REGISTER',
+    code        VARCHAR(16)  NOT NULL,
+    attempts    INT          NOT NULL DEFAULT 0,
+    expires_at  DATETIME     NOT NULL,
+    consumed_at DATETIME     NULL,
+    created_at  DATETIME     NOT NULL
+);
+
 CREATE INDEX idx_problems_status_id ON problems (status, id);
 CREATE INDEX idx_problems_status_rating ON problems (status, rating);
 CREATE INDEX idx_problems_author ON problems (author_id, id);
@@ -160,3 +174,5 @@ CREATE INDEX idx_external_problem_tags_tag ON external_problem_tags (tag_id);
 CREATE INDEX idx_submissions_problem ON submissions (problem_id, id);
 CREATE INDEX idx_submissions_user ON submissions (user_id, id);
 CREATE INDEX idx_submissions_status ON submissions (status, id);
+CREATE INDEX idx_email_verification_codes_email ON email_verification_codes (email, purpose, id);
+CREATE INDEX idx_email_verification_codes_expires ON email_verification_codes (expires_at);

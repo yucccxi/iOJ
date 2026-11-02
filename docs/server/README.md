@@ -11,6 +11,7 @@ iOJ 的后端服务：一个 Spring Boot 单体应用，同时提供 **REST API*
 | 框架 | Spring Boot 4.0.9（Spring Framework 7、Spring Security 7、Jackson 3） |
 | 持久层 | MyBatis 4（XML mapper）+ MySQL 8 |
 | 鉴权 | 无状态令牌（jjwt 0.12.6）+ BCrypt 密码哈希 |
+| 邮件 | Spring Mail（Jakarta Mail / angus-mail），注册邮箱验证码 |
 | 参数校验 | Jakarta Validation |
 | 测试 | JUnit 5 + AssertJ + H2（MySQL 兼容模式），含真实编译运行的端到端测试 |
 | 评测 | Isolate 沙箱（默认引擎）；本机进程作为无沙箱环境的回退 |
@@ -26,7 +27,7 @@ server/
     │   ├── common/        统一响应、分页、错误码、全局异常、枚举
     │   ├── config/        安全配置、配置项、评测线程池、启动自检
     │   ├── security/      令牌签发与校验、登录身份
-    │   ├── user/          注册登录、个人资料、管理员用户管理
+    │   ├── user/          注册登录、邮箱验证码（`service` + `mail`）、个人资料、管理员用户管理
     │   ├── problem/       题目、样例、测试数据、标签
     │   ├── submission/    提交记录
     │   └── judge/         评测调度（JudgeService/JudgeWorker）、评测模型、输出比对
@@ -90,6 +91,15 @@ mysql -uioj -pchange-me ioj < src/main/resources/db/seed.sql
 | `IOJ_PROBLEM_AUTO_PUBLISH` | 否 | 普通用户上传题目是否直接发布，默认 `true` |
 | `IOJ_JUDGE_ENABLED` | 否 | 是否启用评测，默认 `true`；设为 `false` 后提交会一直排队 |
 | `IOJ_JUDGE_CONCURRENCY` | 否 | 同时评测数，默认 `1`，建议 CPU 核数 - 1 |
+| `IOJ_MAIL_HOST` / `IOJ_MAIL_PORT` | **是**（开启邮箱验证时） | SMTP 服务器；默认 `smtp.localhost.invalid`（不可解析），不配就会发信失败 |
+| `IOJ_MAIL_USERNAME` / `IOJ_MAIL_PASSWORD` | 视 SMTP 而定 | SMTP 账号；默认 `mail.smtp.auth=false`，需要认证时同时设 `IOJ_MAIL_SMTP_AUTH=true` |
+| `IOJ_MAIL_SSL` / `IOJ_MAIL_STARTTLS` | 否 | 加密方式；465 端口用 `IOJ_MAIL_SSL=true`，587 端口用 `IOJ_MAIL_STARTTLS=true` |
+| `IOJ_MAIL_FROM` | 否 | 发件人地址，必须是 SMTP 账号能发送的身份，默认 `no-reply@localhost` |
+| `IOJ_EMAIL_CODE_ENABLED` | 否 | 注册是否必须通过邮箱验证码，默认 `true`；设 `false` 则注册不需要验证码、发码接口直接报错 |
+| `IOJ_EMAIL_CODE_TTL_MINUTES` | 否 | 验证码有效期，默认 `10` 分钟 |
+| `IOJ_EMAIL_CODE_RESEND_INTERVAL_SECONDS` | 否 | 同一邮箱的重发冷却，默认 `60` 秒 |
+| `IOJ_EMAIL_CODE_MAX_PER_HOUR` | 否 | 同一邮箱每小时最多发几次，默认 `5` |
+| `IOJ_EMAIL_CODE_MAX_ATTEMPTS` | 否 | 单个验证码最多输错几次，默认 `5`；达到上限立即作废 |
 
 启动时服务会先做一次数据库连通性检查，成功会打印：
 
@@ -246,7 +256,7 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 - 对外模型与数据库实体分离：`dto` 包只放接口返回/接收的结构，实体中的敏感字段（如密码哈希）不会出现在响应里。
 - 统一用构造器注入；异常统一抛业务异常并由全局异常处理器转成 `{ code, message, data }`。
 - 新增接口 / 语言 / 评测引擎的步骤见 [./05-development.md](./05-development.md)。
-- 改表结构时同步更新 `db/schema.sql` 与 [./02-database.md](./02-database.md)；`schema.sql` 需要同时能在 MySQL 8 与 H2（MySQL 模式）执行（测试依赖这一点）。
+- 改表结构时同步更新 `db/schema.sql` 与 [./02-database.md](./02-database.md)；`schema.sql` 需要同时能在 MySQL 8 与 H2（MySQL 模式）执行（测试依赖这一点）。不维护增量迁移脚本：改表后重建库即可（见 [02-database.md §1.1](./02-database.md#11-改表就重建库不维护迁移脚本)）。
 - 提交前跑 `./mvnw test`。
 
 ## 相关文档
@@ -268,6 +278,9 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | 启动报 `CannotCreateTransactionException` | 看启动日志里的"实际使用的 JDBC URL / 用户名"：说明账号密码没生效。检查 `IOJ_DB_*` 是否设置在**当前进程**上；bash 中要一行一个 `export`，不要用分号串成一行；IDEA 中在 Run Configuration 的 Environment variables 里配置 |
 | 启动报端口占用 | 换端口：`java -jar ... --server.port=8081`，并同步调整前端与 Nginx |
 | 提交一直"排队中" | 检查 `IOJ_JUDGE_ENABLED` 是否为 `true`；查看日志是否有评测异常；确认评测机装有对应编译器 |
+| 注册时提示 `2009` / 收不到验证码邮件 | 看日志里的 `验证码邮件发送失败`：多半是 `IOJ_MAIL_HOST` 没覆盖（默认 `smtp.localhost.invalid` 不可解析）、端口/加密方式不匹配（465 要 `IOJ_MAIL_SSL=true`，587 要 `IOJ_MAIL_STARTTLS=true`）、或 `IOJ_MAIL_FROM` 与 SMTP 账号不同域被拒收；也检查垃圾箱 |
+| 注册提示 `2008` 验证码太频繁 | 同邮箱 60 秒冷却 / 每小时上限默认 5 次；调试时可用 `IOJ_EMAIL_CODE_RESEND_INTERVAL_SECONDS` / `IOJ_EMAIL_CODE_MAX_PER_HOUR` 放宽 |
+| 本地开发不想配 SMTP | 设 `IOJ_EMAIL_CODE_ENABLED=false`，注册不再校验验证码 |
 | 启动报 `isolate binary is not executable` | 运行用户没有执行权限：`sudo usermod -aG isolate <user>` 后重新登录，确认 `isolate --version` 可用 |
 | `isolate --init` 报 `This box belongs to a different user` | box 编号被其他用户（常见 root）占用：换 `box-id-start`，或让原用户 `isolate --box-id=N --cleanup` |
 | 编译报 `javac: No such file or directory` | 沙箱内无法跟随 `/etc/alternatives`：保持 `resolve-executables: true`，或改用绝对路径 |

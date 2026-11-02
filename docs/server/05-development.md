@@ -11,7 +11,7 @@ me.iynotuo.judge
 │   └── exception  ErrorCode / BusinessException / GlobalExceptionHandler
 ├── config         SecurityConfig / JudgeConfig / *Properties
 ├── security       JwtTokenProvider / JwtAuthenticationFilter / LoginUser / Rest*Handler
-├── user           entity(User) / mapper / service / controller / dto
+├── user           entity(User, EmailVerificationCode) / mapper / service / controller / dto / mail
 ├── problem        entity(Problem, Sample, Testcase, Tag) / mapper / service / controller / dto
 ├── submission     entity(Submission, SubmissionCase) / mapper / service / controller / dto
 └── judge           JudgeService / JudgeWorker / JudgeContext / JudgeOutcome / OutputComparator
@@ -121,7 +121,7 @@ ioj:
   - 不用 `ENGINE/CHARSET/COMMENT`，索引用独立 `CREATE INDEX`；
   - 不用 `GROUP_CONCAT`、`JSON_*`、窗口函数等 MySQL 专有/较新的函数（SQL 里用得少，尽量用标准 SQL）；
   - 唯一约束用 `CONSTRAINT xxx UNIQUE (...)`。
-- 改表时同步更新 `schema.sql` 与 `02-database.md`；当前没有迁移工具，生产环境手工执行 `ALTER TABLE`。
+- 改表时同步更新 `schema.sql` 与 `02-database.md`；**不写增量迁移脚本**——结构变更靠重建库生效（`DROP DATABASE` + 两个脚本，见 `02-database.md` §1.1）。
 - 判题抢占用了 `FOR UPDATE`（H2 支持）。**不要**在 mapper 里写 `SKIP LOCKED`，否则集成测试会失败。
 - Mapper 的 SQL 也要照顾 MySQL：`CAST(NULL AS BIGINT)` 在 H2 能过、**MySQL 会直接语法错误**（生产环境 500，而集成测试全绿）。需要占位空列时写 `NULL AS column_alias`，或 `CAST(NULL AS SIGNED)`；字符/整数类型可以正常用 `CAST(NULL AS CHAR(n))` / `CAST(NULL AS INTEGER)`。
 
@@ -145,6 +145,8 @@ cd server
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、匿名与越权拒绝、题目详情只暴露 `hasChecker`、local 引擎返回 `CHECKER_ERROR` |
 | `ProgramAnswerCheckerTest` | 判题器退出码 0/1/2/其他、超时、崩溃、内存超限、编译失败、缺少二进制（假 Sandbox，无需 isolate） |
 | `IsolateSandboxCommandTest` | isolate 命令行（顺序与两位小数格式）与宿主机到 `/box` 的路径翻译 |
+| `EmailVerificationIntegrationTest` | 发码接口返回有效期/冷却、冷却内重发、每小时上限、无码/错码/正码注册、一次性消费、输错上限作废、过期拒绝、已注册邮箱拒绝；用假 `EmailCodeSender` 捕获验证码，不连 SMTP |
+| `PasswordResetIntegrationTest` | 找回密码全链路：发码、未注册邮箱 `2001`、被封账号 `2004`、码与用途隔离、一次性消费、输错上限作废、新密码规则；直接插入带已知 BCrypt 的账号，验证"旧密码 401 / 新密码 200" |
 
 集成测试的关键配置（`src/test/resources/application-test.yaml`）：
 
@@ -152,6 +154,8 @@ cd server
 - `ioj.judge.enabled=false`：关掉定时任务，测试里显式调用 `judgeService.judge(id)`，结果确定且快；
 - 语言配置直接复用主配置，所以测试会真实调用本机 `javac`。CI 需要 JDK（构建本来就需要）；
 - 两个集成测试类各自用 `@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:...")` 覆盖数据源，从而拥有独立的 H2 内存库，断言总数时不会互相干扰（同时也让 Spring 缓存两个独立的上下文）。
+- `application-test.yaml` 里 `ioj.email-code.enabled=false`：大多数流程测试只需要一个账号，不必先发码。`EmailVerificationIntegrationTest` 与 `PasswordResetIntegrationTest` 用 `@SpringBootTest(properties = "ioj.email-code.enabled=true")` 单独打开该功能，并用 `@Primary` 的假 `EmailCodeSender` 顶掉 SMTP 实现——测试不碰网络，也不需要真的邮箱。
+- 上线前必须知道：**默认行为是"注册需要验证码"**，只有测试 profile 关掉了它。给别的测试类加注册步骤时，要么沿用 profile 的默认（免验证码），要么像 `EmailVerificationIntegrationTest` 那样显式开开关并捕获验证码。
 
 写新的集成测试时：
 
@@ -172,11 +176,13 @@ class MyFeatureTest {
 | Jackson 3 | Boot 4 默认使用 Jackson 3（包名 `tools.jackson.*`）。DTO 用 record 即可；`JsonNode.asString()` 替代了 `asText()` |
 | jjwt | `jjwt-jackson` 依赖 Jackson 2（`com.fasterxml.*`），与 Jackson 3 共存无冲突，只用于 JWT 内部序列化 |
 | Spring Security 7 | 无 `WebSecurityConfigurerAdapter`；用 `SecurityFilterChain` Bean。没有配 `UserDetailsService`，因此在 `ServerApplication` 里排除了 `UserDetailsServiceAutoConfiguration`，避免启动时打印随机密码 |
-| 枚举写入数据库 | MyBatis 默认 `EnumTypeHandler` 存 `name()`，读取按名字映射，所以枚举改名等于数据迁移，**不要随意重命名** |
+| 枚举写入数据库 | MyBatis 默认 `EnumTypeHandler` 存 `name()`，读取按名字映射，所以枚举改名等于要重建数据，**不要随意重命名** |
 | LocalDateTime | MyBatis 自动映射 `DATETIME`；Jackson 3 序列化为 ISO-8601，前端按字符串处理即可 |
 | 自增主键 | `<insert useGeneratedKeys="true" keyProperty="id">`，插入后实体 id 会被回填；但 **`insertBatch`（`<foreach>`）不会回填**，批量插入后需要按唯一键再查一次（参考 `TestcaseService#add`） |
 | H2 差异 | `OCTET_LENGTH`、`CONCAT`、`LIMIT ? OFFSET ?`、`FOR UPDATE` 均可用；`ON UPDATE CURRENT_TIMESTAMP`、`GROUP_CONCAT`、`SKIP LOCKED` 不要用 |
 | 事务 + 长任务 | 判题在事务外执行，`persist` 才开事务；不要在 `claimNext()` 事务里调用引擎。`judge()` 内部调用 `persist()` 属于自调用，`@Transactional` 不生效，所以那里改用 `TransactionTemplate` 显式控制事务 |
+| 事务 + 抛异常 | 想让"失败也要留痕"的写入（例如验证码输错次数）不被外层事务回滚，必须走**另一个 Bean** 的 `@Transactional(propagation = REQUIRES_NEW)`（见 `EmailCodeAttemptRecorder`）。同一个类里自调用不会经过代理，`REQUIRES_NEW` 等于没写 |
+| 邮件 | `spring-boot-starter-mail` 只在设置了 `spring.mail.host` 时才会创建 `JavaMailSender`；`ioj.email-code.enabled=true` 的上下文必须有这个 Bean，否则启动即失败（有意的 fail-fast）。发信逻辑藏在 `EmailCodeSender` 接口后面，测试用假实现替换 |
 
 ## 8. 代码风格与协作
 
