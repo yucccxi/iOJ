@@ -1,0 +1,73 @@
+name: deploy-server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: deploy
+      DEPLOY_DIR: /home/deploy/oj-backend
+      JAR_NAME: server-0.0.1-SNAPSHOT.jar
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Test and package
+        run: mvn -B clean verify
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Upload JAR
+        run: |
+          test -f "target/$JAR_NAME"
+          scp -B -o StrictHostKeyChecking=yes \
+            "target/$JAR_NAME" \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/$JAR_NAME.new"
+
+      - name: Replace JAR and restart
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          cd /home/deploy/oj-backend
+
+          mv -f server-0.0.1-SNAPSHOT.jar.new \
+                server-0.0.1-SNAPSHOT.jar
+
+          sudo -n /usr/bin/systemctl restart ioj
+          /usr/bin/systemctl is-active --quiet ioj-backend.service
+          REMOTE
+
+      - name: Remove SSH private key
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
