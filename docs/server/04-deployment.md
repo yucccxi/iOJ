@@ -129,7 +129,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/oj.example.com/privkey.pem;
 
     # 前端静态资源
-    root /var/www/ioj;
+    root /var/www/oj;
     index index.html;
     location / { try_files $uri $uri/ /index.html; }
 
