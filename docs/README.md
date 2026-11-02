@@ -65,5 +65,5 @@ docs/
 ## 维护约定
 
 - 接口行为有变化时，先更新 [shared/api/](shared/api/README.md) 下对应的章节文件，再改实现。
-- 表结构有变化时，同步更新 [server/02-database.md](server/02-database.md) 与 `server/src/main/resources/db/schema.sql`。本项目不维护增量迁移脚本，改表后按 [02-database.md §1.1](server/02-database.md#11-改表就重建库不维护迁移脚本) 重建库。
+- 表结构有变化时，同步更新 [server/02-database.md](server/02-database.md) 与 `server/src/main/resources/db/schema.sql`。
 - 文中的相对链接保持可点击；新增文档后请补充到本索引。

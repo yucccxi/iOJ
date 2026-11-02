@@ -121,7 +121,7 @@ ioj:
   - 不用 `ENGINE/CHARSET/COMMENT`，索引用独立 `CREATE INDEX`；
   - 不用 `GROUP_CONCAT`、`JSON_*`、窗口函数等 MySQL 专有/较新的函数（SQL 里用得少，尽量用标准 SQL）；
   - 唯一约束用 `CONSTRAINT xxx UNIQUE (...)`。
-- 改表时同步更新 `schema.sql` 与 `02-database.md`；**不写增量迁移脚本**——结构变更靠重建库生效（`DROP DATABASE` + 两个脚本，见 `02-database.md` §1.1）。
+- 改表时同步更新 `schema.sql` 与 `02-database.md`。
 - 判题抢占用了 `FOR UPDATE`（H2 支持）。**不要**在 mapper 里写 `SKIP LOCKED`，否则集成测试会失败。
 - Mapper 的 SQL 也要照顾 MySQL：`CAST(NULL AS BIGINT)` 在 H2 能过、**MySQL 会直接语法错误**（生产环境 500，而集成测试全绿）。需要占位空列时写 `NULL AS column_alias`，或 `CAST(NULL AS SIGNED)`；字符/整数类型可以正常用 `CAST(NULL AS CHAR(n))` / `CAST(NULL AS INTEGER)`。
 

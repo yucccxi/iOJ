@@ -256,7 +256,7 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 - 对外模型与数据库实体分离：`dto` 包只放接口返回/接收的结构，实体中的敏感字段（如密码哈希）不会出现在响应里。
 - 统一用构造器注入；异常统一抛业务异常并由全局异常处理器转成 `{ code, message, data }`。
 - 新增接口 / 语言 / 评测引擎的步骤见 [./05-development.md](./05-development.md)。
-- 改表结构时同步更新 `db/schema.sql` 与 [./02-database.md](./02-database.md)；`schema.sql` 需要同时能在 MySQL 8 与 H2（MySQL 模式）执行（测试依赖这一点）。不维护增量迁移脚本：改表后重建库即可（见 [02-database.md §1.1](./02-database.md#11-改表就重建库不维护迁移脚本)）。
+- 改表结构时同步更新 `db/schema.sql` 与 [./02-database.md](./02-database.md)；`schema.sql` 需要同时能在 MySQL 8 与 H2（MySQL 模式）执行（测试依赖这一点）。
 - 提交前跑 `./mvnw test`。
 
 ## 相关文档

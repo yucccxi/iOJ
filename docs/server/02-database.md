@@ -16,34 +16,7 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
 > `schema.sql` 里没有 `ENGINE/CHARSET` 子句，是为了让 H2 也能执行。生产库请在 `CREATE DATABASE` 时指定 `utf8mb4`。
 >
 > `seed.sql` 使用 `INSERT IGNORE`，可以重复执行；`schema.sql` 不是幂等的（重复执行会报 "Table already exists"）。
-> 需要重建时先 `DROP DATABASE ioj;` 再重新 `CREATE DATABASE ioj ...`，然后依次执行两个脚本（见 1.1）。
-
-### 1.1 改表就重建库（不维护迁移脚本）
-
-本项目**不做增量迁移**，也没有接入 Flyway/Liquibase。目前只有我们自己（本地/内部环境）在用，没有别人的数据要保，所以表结构一变就直接重建库，让 `schema.sql` 成为唯一的结构定义来源——少一套需要同步维护的脚本，也就少一处会写错、会被忘掉的地方。
-
-```bash
-# 重建（会清空全部数据，只剩 seed.sql 里的默认管理员与标签）
-mysql -uroot -p -e "DROP DATABASE IF EXISTS ioj;"
-mysql -uroot -p -e "CREATE DATABASE ioj DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-mysql -uioj -p ioj < server/src/main/resources/db/schema.sql
-mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
-```
-
-注意事项：
-
-- 重建会丢掉**全部**用户、题目、测试点与提交记录。想留下题库就先单独导出再导回：
-  ```bash
-  # 导出（顺序不能乱：被引用的表在前）
-  mysqldump -uioj -p ioj users sources tags problems problem_samples \
-      problem_testcases problem_tags external_problems external_problem_tags > problems.sql
-  # 重建后导入
-  mysql -uioj -p ioj < problems.sql
-  ```
-  导出/导入会带上原始自增 `id`，所以题目、测试点、标签关联之间的外键仍然对得上；`submissions` 不在上面这份清单里，提交记录需要的话自己加。
-- 开发/测试库不用管：集成测试每次用随机名 H2 内存库执行 `schema.sql`，天生就是最新结构。
-- 本地开发的库如果只是缺一张新表，也可以只建那一张（`CREATE TABLE IF NOT EXISTS ...` 粘贴自 `schema.sql`），但这是本地临时手段，**文档里不再维护这类脚本**。
-- 将来真要对外开放、开始有别人的数据时，再引入 Flyway，并按版本补一轮基线脚本。
+> 需要重建时先 `DROP DATABASE ioj;` 再重新 `CREATE DATABASE ioj ...`，然后依次执行两个脚本。
 
 ## 2. ER 图
 

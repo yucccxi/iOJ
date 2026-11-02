@@ -255,8 +255,6 @@ sudo cp target/server-0.0.1-SNAPSHOT.jar /opt/ioj/server.jar
 sudo systemctl start ioj
 ```
 
-涉及表结构变更时：本项目**不维护迁移脚本**，也不保留历史数据，直接把库重建一遍即可（`DROP DATABASE` → `schema.sql` → `seed.sql`，步骤见 [./02-database.md#11-改表就重建库不维护迁移脚本](./02-database.md#11-改表就重建库不维护迁移脚本)）。重建会清空用户、题目、测试点与提交记录，动手前先按第 7 节做一次 `mysqldump`，需要回滚就整库还原。
-
 ## 10. 上线安全检查清单
 
 - [ ] `IOJ_JWT_SECRET` 已替换为随机 48 字节，且不写在仓库里
