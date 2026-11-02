@@ -1,9 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import Icon from "@/components/Icon";
+import { ChevronDown, SquarePlus, User } from "lucide-react";
 import SectionSwitcher from "@/components/SectionSwitcher";
-import chevronDownIcon from "@/assets/icons/chevron-down.svg";
-import squarePlusIcon from "@/assets/icons/square-plus.svg";
-import userIcon from "@/assets/icons/user.svg";
 
 export default function Header() {
   return (
@@ -27,7 +24,7 @@ export default function Header() {
           to="/problems/new"
           className="flex items-center gap-1.5 rounded-control bg-secondary px-3 py-1.5 text-label text-fg"
         >
-          <Icon src={squarePlusIcon} />
+          <SquarePlus size={16} absoluteStrokeWidth />
           贡献题目
         </Link>
         <Link
@@ -36,9 +33,9 @@ export default function Header() {
           className="flex items-center gap-2 rounded-full p-1"
         >
           <span className="flex size-8 items-center justify-center rounded-full border border-line bg-popover text-fg">
-            <Icon src={userIcon} />
+            <User size={16} absoluteStrokeWidth />
           </span>
-          <Icon src={chevronDownIcon} size={14} className="text-fg-subtle" />
+          <ChevronDown size={14} absoluteStrokeWidth className="text-fg-subtle" />
         </Link>
       </div>
     </header>

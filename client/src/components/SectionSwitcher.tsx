@@ -1,22 +1,23 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import Icon from "@/components/Icon";
-import checkIcon from "@/assets/icons/check.svg";
-import chevronDownIcon from "@/assets/icons/chevron-down.svg";
-import historyIcon from "@/assets/icons/history.svg";
-import homeIcon from "@/assets/icons/home.svg";
-import infoIcon from "@/assets/icons/info.svg";
-import libraryIcon from "@/assets/icons/library.svg";
-import messageIcon from "@/assets/icons/message.svg";
+import {
+  Check,
+  ChevronDown,
+  History,
+  House,
+  Info,
+  Library,
+  MessageSquare,
+} from "lucide-react";
 
 const mainSections = [
-  { to: "/", label: "首页", icon: homeIcon },
-  { to: "/problems", label: "题库", icon: libraryIcon },
-  { to: "/discuss", label: "讨论", icon: messageIcon },
-  { to: "/submissions", label: "提交记录", icon: historyIcon },
+  { to: "/", label: "首页", icon: House },
+  { to: "/problems", label: "题库", icon: Library },
+  { to: "/discuss", label: "讨论", icon: MessageSquare },
+  { to: "/submissions", label: "提交记录", icon: History },
 ] as const;
 
-const aboutSection = { to: "/about", label: "关于", icon: infoIcon } as const;
+const aboutSection = { to: "/about", label: "关于", icon: Info } as const;
 
 type Section = (typeof mainSections)[number] | typeof aboutSection;
 
@@ -60,6 +61,7 @@ export default function SectionSwitcher() {
 
   function renderItem(section: Section) {
     const isCurrent = section === current;
+    const SectionIcon = section.icon;
     return (
       <Link
         key={section.to}
@@ -71,9 +73,9 @@ export default function SectionSwitcher() {
           isCurrent ? "text-accent-strong" : "text-fg"
         }`}
       >
-        <Icon src={section.icon} />
+        <SectionIcon size={16} absoluteStrokeWidth />
         <span className="flex-1">{section.label}</span>
-        {isCurrent && <Icon src={checkIcon} size={14} />}
+        {isCurrent && <Check size={14} absoluteStrokeWidth />}
       </Link>
     );
   }
@@ -88,9 +90,9 @@ export default function SectionSwitcher() {
         onClick={() => setOpen((value) => !value)}
         className="flex items-center gap-1.5 rounded-control bg-selected px-2.5 py-1.5 text-field text-accent-strong"
       >
-        <Icon src={current.icon} />
+        <current.icon size={16} absoluteStrokeWidth />
         {current.label}
-        <Icon src={chevronDownIcon} size={14} />
+        <ChevronDown size={14} absoluteStrokeWidth />
       </button>
 
       {open && (

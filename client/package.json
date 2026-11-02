@@ -16,6 +16,7 @@
     "@tanstack/react-router": "^1.170.46",
     "dompurify": "^3.4.17",
     "katex": "~0.18.10",
+    "lucide-react": "^1.66.0",
     "marked": "^18.1.2",
     "marked-katex-extension": "^5.1.13",
     "openapi-fetch": "^0.17.0",
