@@ -1,5 +1,34 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* Light-mode values of the Figma variables; fg/fg-muted/fg-subtle are color/text/primary/secondary/tertiary. */
 @theme {
+  --font-sans: "Noto Sans SC Variable", "PingFang SC", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  --color-canvas: #f0f0f0;
+  --color-fg: #262626;
+  --color-fg-muted: #5c5c5c;
+  --color-fg-subtle: #8c8c8c;
+  --color-accent: #9cacee;
+  --color-accent-strong: #5b6ed4;
+  --color-accent-subtle: #edf0fc;
+  --color-accent-on: #1b2245;
+  --color-selected: #9cacee38;
+  --color-secondary: #0000000d;
+  --color-popover: #ffffff;
+  --color-line: #e8e8e8;
+
+  --radius-control: 8px;
+  --radius-popover: 12px;
+  --shadow-popover: 0 2px 6px 0 #171a290f, 0 8px 24px -4px #171a291a;
+
+  --text-badge: 11px;
+  --text-badge--line-height: 16px;
+  --text-label: 13px;
+  --text-label--line-height: 20px;
+  --text-field: 14px;
+  --text-field--line-height: 20px;
+  --text-body: 15px;
+  --text-body--line-height: 26px;
 }

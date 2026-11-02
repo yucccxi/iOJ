@@ -10,14 +10,27 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as DiscussRouteImport } from './routes/discuss'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ProblemsIndexRouteImport } from './routes/problems/index'
+import { Route as ProblemsNewRouteImport } from './routes/problems/new'
 import { Route as SubmissionsIndexRouteImport } from './routes/submissions/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscussRoute = DiscussRouteImport.update({
+  id: '/discuss',
+  path: '/discuss',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -35,6 +48,11 @@ const ProblemsIndexRoute = ProblemsIndexRouteImport.update({
   path: '/problems/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProblemsNewRoute = ProblemsNewRouteImport.update({
+  id: '/problems/new',
+  path: '/problems/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubmissionsIndexRoute = SubmissionsIndexRouteImport.update({
   id: '/submissions/',
   path: '/submissions/',
@@ -43,38 +61,75 @@ const SubmissionsIndexRoute = SubmissionsIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/discuss': typeof DiscussRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/problems/new': typeof ProblemsNewRoute
   '/problems/': typeof ProblemsIndexRoute
   '/submissions/': typeof SubmissionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/discuss': typeof DiscussRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/problems/new': typeof ProblemsNewRoute
   '/problems': typeof ProblemsIndexRoute
   '/submissions': typeof SubmissionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/discuss': typeof DiscussRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/problems/new': typeof ProblemsNewRoute
   '/problems/': typeof ProblemsIndexRoute
   '/submissions/': typeof SubmissionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register' | '/problems/' | '/submissions/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/discuss'
+    | '/login'
+    | '/register'
+    | '/problems/new'
+    | '/problems/'
+    | '/submissions/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/register' | '/problems' | '/submissions'
-  id: '__root__' | '/' | '/login' | '/register' | '/problems/' | '/submissions/'
+  to:
+    | '/'
+    | '/about'
+    | '/discuss'
+    | '/login'
+    | '/register'
+    | '/problems/new'
+    | '/problems'
+    | '/submissions'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/discuss'
+    | '/login'
+    | '/register'
+    | '/problems/new'
+    | '/problems/'
+    | '/submissions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
+  DiscussRoute: typeof DiscussRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  ProblemsNewRoute: typeof ProblemsNewRoute
   ProblemsIndexRoute: typeof ProblemsIndexRoute
   SubmissionsIndexRoute: typeof SubmissionsIndexRoute
 }
@@ -86,6 +141,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discuss': {
+      id: '/discuss'
+      path: '/discuss'
+      fullPath: '/discuss'
+      preLoaderRoute: typeof DiscussRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -109,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProblemsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/problems/new': {
+      id: '/problems/new'
+      path: '/problems/new'
+      fullPath: '/problems/new'
+      preLoaderRoute: typeof ProblemsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/submissions/': {
       id: '/submissions/'
       path: '/submissions'
@@ -121,8 +197,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
+  DiscussRoute: DiscussRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  ProblemsNewRoute: ProblemsNewRoute,
   ProblemsIndexRoute: ProblemsIndexRoute,
   SubmissionsIndexRoute: SubmissionsIndexRoute,
 }
