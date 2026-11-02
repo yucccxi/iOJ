@@ -13,9 +13,10 @@ import java.util.List;
  *   <li>{@code LOCAL} — a problem hosted here: {@code GET /problems/{id}}, {@code difficulty},
  *       {@code submitCount}, {@code acceptedCount}, {@code authorId} and {@code authorNickname} are
  *       filled in, {@code url} is null;</li>
- *   <li>{@code EXTERNAL} — a link to another OJ: {@code url} is set, while {@code difficulty},
- *       {@code submitCount}, {@code acceptedCount}, {@code authorId} and {@code authorNickname} are
- *       null because that data does not exist locally.</li>
+ *   <li>{@code EXTERNAL} — a link to another OJ: {@code url} is set and
+ *       {@code submitCount}/{@code acceptedCount} are whatever the source OJ reports (imported, not
+ *       counted here), while {@code difficulty}, {@code authorId} and {@code authorNickname} are null
+ *       because that data does not exist locally.</li>
  * </ul>
  *
  * <p>Both kinds share {@code title}, {@code rating}, {@code sourceId}/{@code sourceName} and

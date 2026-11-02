@@ -78,6 +78,11 @@ CREATE TABLE external_problem_tags (
     CONSTRAINT fk_ept_tag FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
 );
 CREATE INDEX idx_external_problem_tags_tag ON external_problem_tags (tag_id);
+
+-- external_problems 增加统计列（从原站/人工导入，本站不累加）
+ALTER TABLE external_problems
+    ADD COLUMN submit_count   INT NOT NULL DEFAULT 0,
+    ADD COLUMN accepted_count INT NOT NULL DEFAULT 0;
 ```
 
 
@@ -251,7 +256,8 @@ erDiagram
 
 ### 4.9 external_problems —— 外部 OJ 题目（仅元数据）
 
-只存“指路牌”：题名、来源、难度分、链接。**不存题面、不存测试数据、不参与本机判题**。
+只存“指路牌”：题名、来源、难度分、链接，以及原站的提交/通过次数。**不存题面、不存测试数据、不参与本机判题**，所以 `submit_count` / `accepted_count` 由导入或管理员维护，
+本站不会因为有人提交而加 1。
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -259,6 +265,8 @@ erDiagram
 | source_id | BIGINT | NOT NULL, FK → sources.id | 来源（OJ 平台或比赛），**与本地题共用同一张来源表**；来源名由 `LEFT JOIN sources` 取得 |
 | title | VARCHAR(200) | NOT NULL | 题目名称（`LIKE` 搜索） |
 | rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比） |
+| submit_count | INT | NOT NULL DEFAULT 0 | 提交次数（**来自原站/人工导入，本站不累加**） |
+| accepted_count | INT | NOT NULL DEFAULT 0 | 通过次数（同上，仅用于展示与通过率） |
 | url | VARCHAR(512) | NOT NULL, UNIQUE | 原题链接；唯一键同时承担“防重复导入” |
 | created_at / updated_at | DATETIME | NOT NULL | |
 

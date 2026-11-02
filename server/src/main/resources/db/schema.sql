@@ -95,13 +95,17 @@ CREATE TABLE problem_tags (
 -- source_id points at sources (the same admin-managed table local problems use), so the
 -- platform/contest list has a single source of truth. url is unique to stop duplicate imports.
 CREATE TABLE external_problems (
-    id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    source_id  BIGINT       NOT NULL,
-    title      VARCHAR(200) NOT NULL,
-    rating     INT          NULL,
-    url        VARCHAR(512) NOT NULL,
-    created_at DATETIME     NOT NULL,
-    updated_at DATETIME     NOT NULL,
+    id             BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    source_id      BIGINT       NOT NULL,
+    title          VARCHAR(200) NOT NULL,
+    rating         INT          NULL,
+    -- Statistics copied from the source OJ (or entered by an administrator). They are NOT
+    -- incremented by this system, because external problems are never judged here.
+    submit_count   INT          NOT NULL DEFAULT 0,
+    accepted_count INT          NOT NULL DEFAULT 0,
+    url            VARCHAR(512) NOT NULL,
+    created_at     DATETIME     NOT NULL,
+    updated_at     DATETIME     NOT NULL,
     CONSTRAINT uk_external_problems_url UNIQUE (url),
     CONSTRAINT fk_external_problems_source FOREIGN KEY (source_id) REFERENCES sources (id)
 );

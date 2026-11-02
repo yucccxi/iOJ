@@ -57,8 +57,8 @@
       "sourceId": 7,
       "sourceName": "Codeforces",
       "url": "https://codeforces.com/problemset/problem/1/A",
-      "submitCount": null,
-      "acceptedCount": null,
+      "submitCount": 4200,
+      "acceptedCount": 3100,
       "authorId": null,
       "authorNickname": null,
       "tags": [{ "id": 3, "name": "数学" }],
@@ -80,7 +80,7 @@
 | `rating` | 数值难度分；可能为 `null`（未设置） |
 | `sourceId` / `sourceName` | 来源 id / 名称；未设置来源时都为 `null`（`EXTERNAL` 一定有值） |
 | `url` | 只有 `EXTERNAL` 有值（原题链接）；`LOCAL` 恒为 `null` |
-| `submitCount` / `acceptedCount` | 只有 `LOCAL` 有值：累计提交次数 / 通过次数；通过率 = `acceptedCount / submitCount`（`submitCount=0` 时不要相除）。`EXTERNAL` 恒为 `null` |
+| `submitCount` / `acceptedCount` | 累计提交次数 / 通过次数；通过率 = `acceptedCount / submitCount`（`submitCount=0` 时不要相除）。`LOCAL` 由本站评测累加；`EXTERNAL` 是原站/导入的数字，本站不维护 |
 | `authorId` / `authorNickname` | 只有 `LOCAL` 有值：出题人 id / 当前昵称；`EXTERNAL` 恒为 `null` |
 | `tags` | 标签数组，两类题目共用标签表 |
 | `createdAt` | 录入时间 |

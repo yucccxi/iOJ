@@ -137,9 +137,10 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         Long sourceId = jdbcTemplate.queryForObject(
                 "SELECT id FROM sources WHERE name = ?", Long.class, "Codeforces");
         String externalUrl = "https://codeforces.com/problemset/problem/1/A";
-        jdbcTemplate.update("INSERT INTO external_problems (source_id, title, rating, url, created_at, updated_at) "
-                        + "VALUES (?, ?, ?, ?, ?, ?)",
-                sourceId, "Two Sum", 1200, externalUrl, LocalDateTime.now(), LocalDateTime.now());
+        jdbcTemplate.update("INSERT INTO external_problems "
+                        + "(source_id, title, rating, submit_count, accepted_count, url, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                sourceId, "Two Sum", 1200, 42, 17, externalUrl, LocalDateTime.now(), LocalDateTime.now());
         Long externalId = jdbcTemplate.queryForObject(
                 "SELECT id FROM external_problems WHERE url = ?", Long.class, externalUrl);
         jdbcTemplate.update("INSERT INTO external_problem_tags (external_problem_id, tag_id) VALUES (?, ?)",
@@ -159,7 +160,10 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(externalItem.path("sourceName").asString()).isEqualTo("Codeforces");
         assertThat(externalItem.path("rating").asInt()).isEqualTo(1200);
         assertThat(externalItem.path("difficulty").isNull()).isTrue();
-        assertThat(externalItem.path("submitCount").isNull()).isTrue();
+        // Counters come from the source OJ (imported), not from local judging
+        assertThat(externalItem.path("submitCount").asInt()).isEqualTo(42);
+        assertThat(externalItem.path("acceptedCount").asInt()).isEqualTo(17);
+        assertThat(externalItem.path("authorId").isNull()).isTrue();
         assertThat(externalItem.path("authorNickname").isNull()).isTrue();
         assertThat(externalItem.path("tags").size()).isEqualTo(1);
 

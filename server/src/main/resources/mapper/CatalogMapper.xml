@@ -9,6 +9,7 @@
         ref_id     problems.id or external_problems.id
         difficulty local problems only (NULL for external rows)
         url        external rows only (NULL for local rows)
+        counts     both kinds (local rows count locally, external rows carry imported numbers)
       Filters are applied inside each branch so the indexes on problems / external_problems can be
       used; tag filtering goes through the branch's own junction table.
     -->
@@ -61,9 +62,9 @@
                e.source_id AS source_id,
                s.name AS source_name,
                e.url AS url,
-               CAST(NULL AS INTEGER) AS submit_count,
-               CAST(NULL AS INTEGER) AS accepted_count,
-               CAST(NULL AS BIGINT) AS author_id,
+               e.submit_count AS submit_count,
+               e.accepted_count AS accepted_count,
+               NULL AS author_id,
                CAST(NULL AS CHAR(32)) AS author_nickname,
                e.created_at AS created_at
         FROM external_problems e
