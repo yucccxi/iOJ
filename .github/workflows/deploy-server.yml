@@ -33,8 +33,10 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+          cache-dependency-path: server/pom.xml
 
       - name: Test and package
+        working-directory: server
         run: mvn -B clean verify
 
       - name: Configure SSH
@@ -50,9 +52,9 @@ jobs:
 
       - name: Upload JAR
         run: |
-          test -f "target/$JAR_NAME"
+          test -f "server/target/$JAR_NAME"
           scp -B -o StrictHostKeyChecking=yes \
-            "target/$JAR_NAME" \
+            "server/target/$JAR_NAME" \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/$JAR_NAME.new"
 
       - name: Replace JAR and restart
