@@ -63,7 +63,7 @@ jobs:
 
           # 在服务器编译、测试和打包
           cd server
-          mvn -B -ntp clean verify
+          mvn -B clean verify
 
           # 构建成功后才替换运行文件
           test -f "target/$JAR_NAME"
