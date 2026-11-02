@@ -1,0 +1,60 @@
+name: Deploy client
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "client/**"
+      - ".github/workflows/deploy-client.yml"
+  workflow_dispatch:
+
+# Two rsyncs writing the same directory at once can leave files from both builds.
+concurrency:
+  group: deploy-client
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Set up SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Upload
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        # rrsync on the server roots this key at /var/www/oj, so the target path is empty.
+        # -rlt with --chmod instead of -a keeps files group-writable for the ioj-web group.
+        run: |
+          rsync -rlt --delete --chmod=D2775,F664 \
+            -e "ssh -p $DEPLOY_PORT -i ~/.ssh/deploy_key -o BatchMode=yes" \
+            dist/ "deploy@$DEPLOY_HOST:"
