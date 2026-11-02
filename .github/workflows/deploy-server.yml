@@ -15,30 +15,14 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_USER: deploy
-      DEPLOY_DIR: /home/deploy/oj-backend
-      JAR_NAME: server-0.0.1-SNAPSHOT.jar
+      COMMIT_SHA: ${{ github.sha }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-          cache-dependency-path: server/pom.xml
-
-      - name: Test and package
-        working-directory: server
-        run: mvn -B clean verify
-
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SERVER_KEY }}
@@ -46,28 +30,49 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
-      - name: Upload JAR
+      - name: Build and deploy on server
         run: |
-          test -f "server/target/$JAR_NAME"
-          scp -B -o StrictHostKeyChecking=yes \
-            "server/target/$JAR_NAME" \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/$JAR_NAME.new"
+          ssh \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=3 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash -se -- '$COMMIT_SHA'" <<'REMOTE'
+          COMMIT_SHA="$1"
 
-      - name: Replace JAR and restart
-        run: |
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
-          cd /home/deploy/oj-backend
+          SOURCE_DIR=/home/deploy/ioj-source
+          DEPLOY_DIR=/home/deploy/oj-backend
+          JAR_NAME=server-0.0.1-SNAPSHOT.jar
 
-          mv -f server-0.0.1-SNAPSHOT.jar.new \
-                server-0.0.1-SNAPSHOT.jar
+          # 防止服务器上同时执行多次部署
+          exec 9>/home/deploy/ioj-build.lock
+          flock -n 9
 
-          sudo -n /usr/bin/systemctl restart ioj
-          /usr/bin/systemctl is-active --quiet ioj-backend.service
+          # 获取本次工作流对应的代码版本
+          cd "$SOURCE_DIR"
+          git fetch origin main
+          git checkout --detach "$COMMIT_SHA"
+
+          # 在服务器编译、测试和打包
+          cd server
+          mvn -B -ntp clean verify
+
+          # 构建成功后才替换运行文件
+          test -f "target/$JAR_NAME"
+          cp "target/$JAR_NAME" "$DEPLOY_DIR/$JAR_NAME.next"
+          mv -f "$DEPLOY_DIR/$JAR_NAME.next" "$DEPLOY_DIR/$JAR_NAME"
+
+          # 重启并检查同一个服务
+          sudo -n /usr/bin/systemctl restart ioj.service
+          /usr/bin/systemctl is-active --quiet ioj.service
           REMOTE
 
       - name: Remove SSH private key
