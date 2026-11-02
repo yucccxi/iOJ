@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, SquarePlus, User } from "lucide-react";
 import SectionSwitcher from "@/components/SectionSwitcher";
+import logoUrl from "@/assets/logo.svg";
 
 export default function Header() {
   return (
@@ -8,10 +9,10 @@ export default function Header() {
       <nav aria-label="面包屑" className="flex items-center gap-2.5">
         <Link
           to="/"
-          aria-label="首页"
-          className="flex size-7 items-center justify-center rounded-lg bg-accent font-mono text-badge text-accent-on"
+          className="flex items-center gap-2 text-card tracking-tight text-fg"
         >
-          OJ
+          <img src={logoUrl} alt="" className="size-7" />
+          iOJ
         </Link>
         <span aria-hidden="true" className="text-body text-fg-subtle">
           /
