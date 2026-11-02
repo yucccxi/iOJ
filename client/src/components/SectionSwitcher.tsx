@@ -67,7 +67,7 @@ export default function SectionSwitcher() {
         role="menuitem"
         activeOptions={{ exact: section.to === "/" }}
         onClick={() => setOpen(false)}
-        className={`flex items-center gap-2.5 rounded-control px-2.5 py-2 text-label font-medium hover:bg-secondary ${
+        className={`flex items-center gap-2.5 rounded-control px-2.5 py-2 text-label hover:bg-hover ${
           isCurrent ? "text-accent-strong" : "text-fg"
         }`}
       >
@@ -86,7 +86,7 @@ export default function SectionSwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex items-center gap-1.5 rounded-control bg-selected px-2.5 py-1.5 text-field font-medium text-accent-strong"
+        className="flex items-center gap-1.5 rounded-control bg-selected px-2.5 py-1.5 text-field text-accent-strong"
       >
         <Icon src={current.icon} />
         {current.label}
@@ -96,7 +96,7 @@ export default function SectionSwitcher() {
       {open && (
         <div
           role="menu"
-          className="absolute top-full left-0 z-20 mt-2 flex w-50 flex-col gap-0.5 rounded-popover border border-line bg-popover p-1.5 shadow-popover"
+          className="absolute top-full left-0 z-20 mt-2 flex w-50 flex-col gap-0.5 rounded-popover border border-line-popover bg-popover p-1.5 shadow-popover backdrop-blur-layer"
         >
           {mainSections.map(renderItem)}
           <div className="p-1">

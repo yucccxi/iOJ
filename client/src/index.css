@@ -1,34 +1,251 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-/* Light-mode values of the Figma variables; fg/fg-muted/fg-subtle are color/text/primary/secondary/tertiary. */
-@theme {
+/*
+ * Figma "Theme" collection, Default mode. Dark and Glass override these on <html data-theme>;
+ * aliases use var() so they follow the override, which only works while data-theme sits on <html>.
+ * Renamed groups: color/text/* → fg-*, color/border/* → line-*, color/bg/* drops the bg/ prefix.
+ * static keeps tokens no class uses yet, so inline styles and JS can still read them.
+ */
+@theme static {
   --font-sans: "Noto Sans SC Variable", "PingFang SC", system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
   --color-canvas: #f0f0f0;
+  --color-layer: #ffffff;
+  --color-layer-inner: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-popover: var(--color-surface);
+  --color-input: var(--color-surface);
+  --color-code: #f7f8fa;
+  --color-hover: #f2f3f5;
+  --color-selected: #9cacee38;
+
   --color-fg: #262626;
   --color-fg-muted: #5c5c5c;
   --color-fg-subtle: #8c8c8c;
+  --color-fg-inverse: #ffffff;
+
+  --color-line: #e8e8e8;
+  --color-line-glass: #ffffff00;
+  --color-line-popover: var(--color-line);
+
   --color-accent: #9cacee;
   --color-accent-strong: #5b6ed4;
+  --color-accent-muted: #7080db;
   --color-accent-subtle: #edf0fc;
   --color-accent-on: #1b2245;
-  --color-selected: #9cacee38;
-  --color-secondary: #0000000d;
-  --color-popover: #ffffff;
-  --color-line: #e8e8e8;
+  --color-accent-ring: #9cacee59;
 
+  --color-secondary: #0000000d;
+  --color-secondary-line: #ffffff00;
+  --color-tag-bg: #0000000d;
+  --color-tag-fg: #5c5c5c;
+
+  --color-status-ac: #2db55d;
+  --color-status-wa: #ef4743;
+  --color-status-tle: #ffa116;
+  --color-status-mle: #e8742a;
+  --color-status-re: #d1407e;
+  --color-status-ce: #8e7cc3;
+  --color-status-pending: #a3a3a3;
+
+  --color-difficulty-easy: #00af9b;
+  --color-difficulty-easy-bg: #00af9b1f;
+  --color-difficulty-medium: #e6a100;
+  --color-difficulty-medium-bg: #ffb80026;
+  --color-difficulty-hard: #ff375f;
+  --color-difficulty-hard-bg: #ff375f1f;
+
+  --color-code-keyword: #4a5fc1;
+  --color-code-number: #c0662b;
+  --color-code-string: #2e8b57;
+  --color-code-comment: #959ba6;
+
+  --color-blob-periwinkle: #9cacee00;
+  --color-blob-lavender: #c9b8f400;
+  --color-blob-sky: #a9d6f200;
+  --color-blob-peach: #f6cfe000;
+
+  --color-shadow-ambient: #00000000;
+  --color-shadow-contact: #00000000;
+  --color-highlight: #ffffff00;
+
+  --radius-layer: 8px;
+  --radius-tile: 6px;
   --radius-control: 8px;
   --radius-popover: 12px;
+
+  /* CSS blur() is half of Figma's background blur value. */
+  --blur-layer: 0px;
+  --blur-tile: 0px;
+
+  /* Effect styles Surface/Layer, Surface/Tile, Surface/Popover. */
+  --shadow-layer:
+    0 8px 32px 0 var(--color-shadow-ambient), 0 1px 2px 0 var(--color-shadow-contact),
+    inset 0 1px 0 0 var(--color-highlight);
+  --shadow-tile: 0 2px 8px 0 var(--color-shadow-contact);
   --shadow-popover: 0 2px 6px 0 #171a290f, 0 8px 24px -4px #171a291a;
 
-  --text-badge: 11px;
-  --text-badge--line-height: 16px;
-  --text-label: 13px;
-  --text-label--line-height: 20px;
-  --text-field: 14px;
-  --text-field--line-height: 20px;
+  --spacing-card-x: 20px;
+  --spacing-card-y-text: 16px;
+  --spacing-card-y-edge: 20px;
+  --spacing-card-gap: 16px;
+  --spacing-card-row-gap: 10px;
+  --spacing-grid-gap: 16px;
+  --spacing-form: 28px;
+  --spacing-form-y-text: 24px;
+  --spacing-form-section-gap: 20px;
+  --spacing-form-field-gap: 16px;
+  --spacing-form-stack-gap: 12px;
+  --spacing-form-label-gap: 6px;
+  --spacing-form-helper-gap: 4px;
+
+  /*
+   * Figma text styles. Styles that differ only in weight share one size:
+   * Body/Strong = text-body font-bold, Body/Marker = text-body font-medium,
+   * Label/Field Strong = text-field font-bold. Mono/* and Code/* still need font-mono.
+   */
+  --text-display: 30px;
+  --text-display--line-height: 40px;
+  --text-display--font-weight: 700;
+  --text-title: 24px;
+  --text-title--line-height: 32px;
+  --text-title--font-weight: 700;
+  --text-section: 19px;
+  --text-section--line-height: 28px;
+  --text-section--font-weight: 700;
+  --text-stat: 18px;
+  --text-stat--line-height: 26px;
+  --text-stat--font-weight: 700;
+  --text-card: 16px;
+  --text-card--line-height: 24px;
+  --text-card--font-weight: 700;
+  --text-math: 17px;
+  --text-math--line-height: 26px;
   --text-body: 15px;
   --text-body--line-height: 26px;
+  --text-button: 15px;
+  --text-button--line-height: 20px;
+  --text-button--font-weight: 500;
+  --text-field: 14px;
+  --text-field--line-height: 20px;
+  --text-field--font-weight: 500;
+  --text-label: 13px;
+  --text-label--line-height: 20px;
+  --text-label--font-weight: 500;
+  --text-meta: 13px;
+  --text-meta--line-height: 20px;
+  --text-tag: 12px;
+  --text-tag--line-height: 18px;
+  --text-tag--font-weight: 500;
+  --text-caption: 12px;
+  --text-caption--line-height: 18px;
+  --text-number: 12px;
+  --text-number--line-height: 18px;
+  --text-number--font-weight: 500;
+  --text-code-inline: 14px;
+  --text-code-inline--line-height: 26px;
+  --text-code-sample: 14px;
+  --text-code-sample--line-height: 22px;
+  --text-code-block: 13px;
+  --text-code-block--line-height: 21px;
+  --text-mono-label: 12px;
+  --text-mono-label--line-height: 18px;
+  --text-mono-label--font-weight: 500;
+  --text-badge: 11px;
+  --text-badge--line-height: 16px;
+  --text-badge--font-weight: 700;
+  --text-mono-meta: 11px;
+  --text-mono-meta--line-height: 16px;
+  --text-mini: 8px;
+  --text-mini--line-height: 16px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-canvas: #1a1a1a;
+  --color-layer: #282828;
+  --color-layer-inner: #303030;
+  --color-surface: #303030;
+  --color-input: var(--color-code);
+  --color-code: #1f1f1f;
+  --color-hover: #ffffff12;
+  --color-selected: #9cacee3d;
+
+  --color-fg: #e6e6e6;
+  --color-fg-muted: #a6a6a6;
+  --color-fg-subtle: #737373;
+  --color-fg-inverse: #1a1a1a;
+
+  --color-line: #3a3a3a;
+
+  --color-accent-strong: #a3b1f2;
+  --color-accent-muted: #8c9be6;
+  --color-accent-subtle: #9cacee29;
+  --color-accent-ring: #9cacee66;
+
+  --color-secondary: #ffffff14;
+  --color-tag-bg: #ffffff14;
+  --color-tag-fg: #a6a6a6;
+
+  --color-status-pending: #8c8c8c;
+
+  --color-difficulty-easy-bg: #00af9b2e;
+  --color-difficulty-medium-bg: #ffb8002e;
+  --color-difficulty-hard-bg: #ff375f2e;
+
+  --color-code-keyword: #8fa0f0;
+  --color-code-number: #e59866;
+  --color-code-string: #6fcf97;
+  --color-code-comment: #7a7f87;
+}
+
+:root[data-theme="glass"] {
+  --color-canvas: #fafafa;
+  --color-layer: #ffffff6b;
+  --color-layer-inner: #ffffff99;
+  --color-popover: #ffffffb8;
+  --color-input: #ffffffb8;
+  --color-code: #f6f7fa;
+  --color-hover: #9cacee29;
+  --color-selected: #ffffff8c;
+
+  --color-fg: #1f2329;
+  --color-fg-muted: #5f6672;
+  --color-fg-subtle: #959ba6;
+
+  --color-line: #e3e5eb;
+  --color-line-glass: #ffffffcc;
+  --color-line-popover: var(--color-line-glass);
+
+  --color-secondary: var(--color-surface);
+  --color-secondary-line: var(--color-line);
+  --color-tag-bg: var(--color-accent-subtle);
+  --color-tag-fg: var(--color-accent-muted);
+
+  --color-status-ac: #2ea66b;
+  --color-status-wa: #e5534b;
+  --color-status-tle: #d9822b;
+  --color-status-mle: #c9622b;
+  --color-status-re: #b5487a;
+  --color-status-pending: #959ba6;
+
+  --color-blob-periwinkle: #9cacee;
+  --color-blob-lavender: #c9b8f4;
+  --color-blob-sky: #a9d6f2;
+  --color-blob-peach: #f6cfe0;
+
+  --color-shadow-ambient: #3d4a8c14;
+  --color-shadow-contact: #3d4a8c0a;
+  --color-highlight: #ffffffe5;
+
+  --radius-layer: 18px;
+  --radius-tile: 10px;
+  --radius-control: 10px;
+  --radius-popover: 16px;
+
+  --blur-layer: 12px;
+  --blur-tile: 8px;
 }

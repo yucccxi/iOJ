@@ -12,7 +12,7 @@ export default function Header() {
         <Link
           to="/"
           aria-label="首页"
-          className="flex size-7 items-center justify-center rounded-lg bg-accent font-mono text-badge font-bold text-accent-on"
+          className="flex size-7 items-center justify-center rounded-lg bg-accent font-mono text-badge text-accent-on"
         >
           OJ
         </Link>
@@ -25,7 +25,7 @@ export default function Header() {
       <div className="flex items-center gap-3">
         <Link
           to="/problems/new"
-          className="flex items-center gap-1.5 rounded-control bg-secondary px-3 py-1.5 text-label font-medium text-fg"
+          className="flex items-center gap-1.5 rounded-control bg-secondary px-3 py-1.5 text-label text-fg"
         >
           <Icon src={squarePlusIcon} />
           贡献题目
