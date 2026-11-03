@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 
 /**
  * Raw row of the unified catalog query. {@code kind} is the constant column produced by the UNION;
- * the LOCAL branch fills the counters and author fields, the EXTERNAL branch leaves them null.
+ * the LOCAL branch fills the counters and author fields, the EXTERNAL branch leaves them null and
+ * fills {@code code} instead.
  */
 @Data
 public class CatalogRow {
@@ -17,6 +18,11 @@ public class CatalogRow {
     private Long refId;
 
     private String title;
+
+    /**
+     * Short identifier of the original OJ problem; null for local problems.
+     */
+    private String code;
 
     private Difficulty difficulty;
 

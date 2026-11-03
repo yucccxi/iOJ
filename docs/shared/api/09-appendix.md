@@ -33,6 +33,7 @@
 | 题目详情 / 统一搜索 | `sourceId`、`sourceName` | 未设置来源时为 `null`（统一搜索里 `EXTERNAL` 一定有来源） |
 | 题目详情 | `hasChecker` | 布尔值，不会是 `null` |
 | 题目详情 | `tags`、`samples` | 空数组（`[]`），不会是 `null` |
+| 统一搜索（`/catalog`） | `code` | `LOCAL` 恒为 `null`；`EXTERNAL` 通常有值，无法推导题号时也可能为 `null` |
 | 统一搜索（`/catalog`） | `difficulty` | 只有 `LOCAL` 有值，`EXTERNAL` 恒为 `null` |
 | 统一搜索（`/catalog`） | `url` | 只有 `EXTERNAL` 有值，`LOCAL` 恒为 `null` |
 | 提交详情 | `code` | 无权限查看 |

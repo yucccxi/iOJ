@@ -1,2 +1,8 @@
 .idea/
 test-client
+
+# clist.by sync script: local credentials, incremental state and virtualenv
+scripts/.env
+scripts/.state/
+scripts/.venv/
+**/__pycache__/

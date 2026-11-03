@@ -1,0 +1,3 @@
+# clist.by 同步脚本的依赖（Python 3.10+）
+requests>=2.31
+PyMySQL>=1.1

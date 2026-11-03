@@ -138,9 +138,10 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
                 "SELECT id FROM sources WHERE name = ?", Long.class, "Codeforces");
         String externalUrl = "https://codeforces.com/problemset/problem/1/A";
         jdbcTemplate.update("INSERT INTO external_problems "
-                        + "(source_id, title, rating, submit_count, accepted_count, url, created_at, updated_at) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                sourceId, "Two Sum", 1200, 42, 17, externalUrl, LocalDateTime.now(), LocalDateTime.now());
+                        + "(source_id, code, title, rating, submit_count, accepted_count, url, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                sourceId, "CF_1A", "Two Sum", 1200, 42, 17, externalUrl,
+                LocalDateTime.now(), LocalDateTime.now());
         Long externalId = jdbcTemplate.queryForObject(
                 "SELECT id FROM external_problems WHERE url = ?", Long.class, externalUrl);
         jdbcTemplate.update("INSERT INTO external_problem_tags (external_problem_id, tag_id) VALUES (?, ?)",
@@ -156,6 +157,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(externalOnly.path("data").path("total").asLong()).isEqualTo(1);
         JsonNode externalItem = externalOnly.path("data").path("items").get(0);
         assertThat(externalItem.path("kind").asString()).isEqualTo("EXTERNAL");
+        assertThat(externalItem.path("code").asString()).isEqualTo("CF_1A");
         assertThat(externalItem.path("url").asString()).isEqualTo(externalUrl);
         assertThat(externalItem.path("sourceName").asString()).isEqualTo("Codeforces");
         assertThat(externalItem.path("rating").asInt()).isEqualTo(1200);
@@ -166,6 +168,11 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(externalItem.path("authorId").isNull()).isTrue();
         assertThat(externalItem.path("authorNickname").isNull()).isTrue();
         assertThat(externalItem.path("tags").size()).isEqualTo(1);
+
+        // Local problems have no original-OJ code
+        JsonNode localItem = get("/api/v1/catalog?kind=LOCAL", null)
+                .path("data").path("items").get(0);
+        assertThat(localItem.path("code").isNull()).isTrue();
 
         // Title search spans both kinds
         assertThat(get("/api/v1/catalog?keyword=Sum", null).path("data").path("total").asLong()).isEqualTo(1);

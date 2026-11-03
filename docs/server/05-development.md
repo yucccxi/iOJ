@@ -12,7 +12,8 @@ me.iynotuo.judge
 ├── config         SecurityConfig / JudgeConfig / *Properties
 ├── security       JwtTokenProvider / JwtAuthenticationFilter / LoginUser / Rest*Handler
 ├── user           entity(User, EmailVerificationCode) / mapper / service / controller / dto / mail
-├── problem        entity(Problem, Sample, Testcase, Tag) / mapper / service / controller / dto
+├── problem        entity(Problem, ProblemSample, ProblemTestcase, Tag, ProblemSource)
+│                  / mapper（含外部题 Catalog 行）/ service（含 CatalogService）/ controller / dto
 ├── submission     entity(Submission, SubmissionCase) / mapper / service / controller / dto
 └── judge           JudgeService / JudgeWorker / JudgeContext / JudgeOutcome / OutputComparator
     ├── sandbox     Sandbox（接口）/ IsolateSandbox / LocalSandbox / SandboxCommand / SandboxResult
@@ -145,6 +146,8 @@ cd server
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、匿名与越权拒绝、题目详情只暴露 `hasChecker`、local 引擎返回 `CHECKER_ERROR` |
 | `ProgramAnswerCheckerTest` | 判题器退出码 0/1/2/其他、超时、崩溃、内存超限、编译失败、缺少二进制（假 Sandbox，无需 isolate） |
 | `IsolateSandboxCommandTest` | isolate 命令行（顺序与两位小数格式）与宿主机到 `/box` 的路径翻译 |
+| `AdminMetaIntegrationTest` | 标签/来源字典的增删改、重复处理、使用量统计、重命名传播、删除保护与 `force=true` |
+| `LimitConfigIntegrationTest` | `max-testcase-bytes` / `max-code-length` 来自配置：边界值通过、超一字节/一字符拒绝 |
 | `EmailVerificationIntegrationTest` | 发码接口返回有效期/冷却、冷却内重发、每小时上限、无码/错码/正码注册、一次性消费、输错上限作废、过期拒绝、已注册邮箱拒绝；用假 `EmailCodeSender` 捕获验证码，不连 SMTP |
 | `PasswordResetIntegrationTest` | 找回密码全链路：发码、未注册邮箱 `2001`、被封账号 `2004`、码与用途隔离、一次性消费、输错上限作废、新密码规则；直接插入带已知 BCrypt 的账号，验证"旧密码 401 / 新密码 200" |
 
@@ -153,7 +156,7 @@ cd server
 - 每个 Spring 上下文一个独立 H2 内存库（`jdbc:h2:mem:ioj-${random.uuid};MODE=MySQL`），启动时执行 `db/schema.sql`；
 - `ioj.judge.enabled=false`：关掉定时任务，测试里显式调用 `judgeService.judge(id)`，结果确定且快；
 - 语言配置直接复用主配置，所以测试会真实调用本机 `javac`。CI 需要 JDK（构建本来就需要）；
-- 两个集成测试类各自用 `@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:...")` 覆盖数据源，从而拥有独立的 H2 内存库，断言总数时不会互相干扰（同时也让 Spring 缓存两个独立的上下文）。
+- 需要独立断言的集成测试类用 `@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:...")` 覆盖数据源，从而拥有独立的 H2 内存库，断言总数时不会互相干扰；代价是每个不同配置都会让 Spring 缓存一个独立上下文。
 - `application-test.yaml` 里 `ioj.email-code.enabled=false`：大多数流程测试只需要一个账号，不必先发码。`EmailVerificationIntegrationTest` 与 `PasswordResetIntegrationTest` 用 `@SpringBootTest(properties = "ioj.email-code.enabled=true")` 单独打开该功能，并用 `@Primary` 的假 `EmailCodeSender` 顶掉 SMTP 实现——测试不碰网络，也不需要真的邮箱。
 - 上线前必须知道：**默认行为是"注册需要验证码"**，只有测试 profile 关掉了它。给别的测试类加注册步骤时，要么沿用 profile 的默认（免验证码），要么像 `EmailVerificationIntegrationTest` 那样显式开开关并捕获验证码。
 

@@ -28,10 +28,12 @@ server/
     │   ├── config/        安全配置、配置项、评测线程池、启动自检
     │   ├── security/      令牌签发与校验、登录身份
     │   ├── user/          注册登录、邮箱验证码（`service` + `mail`）、个人资料、管理员用户管理
-    │   ├── problem/       题目、样例、测试数据、标签
+    │   ├── problem/       题目、样例、测试数据、标签、来源、外部题库元数据、统一搜索
     │   ├── submission/    提交记录
     │   └── judge/         评测调度（JudgeService/JudgeWorker）、评测模型、输出比对
-    │       └── engine/    JudgeEngine 接口与实现（isolate / local）、isolate meta 解析
+    │       ├── sandbox/   Sandbox 接口、Isolate / 本机进程实现、isolate meta 解析
+    │       ├── answer/    AnswerChecker（文本比对 / 作者判题器 / 禁用回退）
+    │       └── engine/    JudgeEngine 接口与实现（isolate / local）
     ├── main/resources/
     │   ├── application.yaml
     │   ├── db/schema.sql  建表脚本（MySQL / H2 通用）
@@ -151,6 +153,10 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、越权访问、`hasChecker` 暴露面、`CHECKER_ERROR` 判定 |
 | `ProgramAnswerCheckerTest` | 判题器结果 → 提交状态的映射（假 Sandbox，覆盖 AC/WA/PE/超时/崩溃/编译失败） |
 | `IsolateSandboxCommandTest` | isolate 命令行与 `/box` 路径翻译，锁住重构不能悄悄改动 |
+| `AdminMetaIntegrationTest` | 标签/来源字典的增删改、重复处理、使用量、重命名传播、删除保护 |
+| `LimitConfigIntegrationTest` | 测试点字节上限与代码长度上限确实来自配置，而不是 DTO 硬编码 |
+| `EmailVerificationIntegrationTest` | 发码冷却/每小时上限、无码/错码/正码注册、一次性消费、输错上限作废、过期拒绝 |
+| `PasswordResetIntegrationTest` | 找回密码全链路、用途隔离、一次性消费、输错上限、旧密码失效/新密码生效 |
 
 ## 配置项
 
@@ -179,6 +185,8 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `ioj.judge.compile-timeout-ms` | — | `30000` | 编译超时（本机进程引擎使用） |
 | `ioj.judge.languages.*` | — | JAVA / CPP / C / PYTHON3 | 各语言源码、编译/运行命令、时间系数、`isolate-processes`、`isolate-memory-extra-mb` |
 | `ioj.judge.checker.*` | `IOJ_JUDGE_CHECKER_*` | 见下 | 自定义判题器（Special Judge）的开关、运行/编译限制与编译命令 |
+
+> `ioj.problem.auto-publish=true` 时，`POST /problems` 会直接返回 `PUBLISHED`，**即使题目还没有测试点**；此时题面可访问，但提交会返回 `3003`。只有管理员通过 `PATCH /admin/problems/{id}/status` 上架时才强制要求至少一个测试点。若希望"有测试点才可见"，应关闭自动发布或在上传后补测试点。
 
 判题器相关默认值（`application.yaml` 中可改）：
 
@@ -210,7 +218,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 
 初始化脚本：
 
-- `src/main/resources/db/schema.sql`：8 张表（`users`、`problems`、`problem_samples`、`problem_testcases`、`tags`、`problem_tags`、`submissions`、`submission_cases`）及外键、索引。
+- `src/main/resources/db/schema.sql`：12 张表（`users`、`sources`、`problems`、`problem_samples`、`problem_testcases`、`tags`、`problem_tags`、`external_problems`、`external_problem_tags`、`submissions`、`submission_cases`、`email_verification_codes`）及外键、索引。
 - `src/main/resources/db/seed.sql`：默认管理员与常用标签，可重复执行。
 
 注意：
@@ -222,6 +230,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
   mysql -uioj -p ioj < src/main/resources/db/schema.sql
   mysql -uioj -p ioj < src/main/resources/db/seed.sql
   ```
+- 外部题库元数据由 `scripts/sync_clist_problems.py` 从 clist.by 导入 Codeforces 与 AtCoder；`sync --clear` 会先清空 `external_problems` 再全量导入。`code`（如 `CF_2278G`）既是脚本的查重标识，也会由 `GET /catalog` 返回给前端（本地题为 `null`）。脚本用法见文件头注释。
 - 表结构与字段说明见 [./02-database.md](./02-database.md)。
 
 ## 评测说明

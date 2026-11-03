@@ -248,12 +248,12 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
   --dir=/box=/tmp/ioj-isolate-XXXX/compile:rw \
   --dir=/etc/java-21-openjdk=/etc/java-21-openjdk \
   --chdir=/box --stdin=/box/empty.txt \
-  --stdout=/box/compile.out --stderr=/box/compile.err \
+  --stdout=/box/stdout.txt --stderr=/box/stderr.txt \
   --meta=/tmp/ioj-isolate-XXXX/compile.meta \
   --run -- /usr/lib/jvm/java-21-openjdk-amd64/bin/javac -encoding UTF-8 -d . Main.java
 ```
 
-编译前，引擎会在 `compile/` 里写好 `Main.java`、`empty.txt`、`compile.out`、`compile.err` 四个文件。
+编译前，引擎会在 `compile/` 里写好 `Main.java`、`empty.txt`、`stdout.txt`、`stderr.txt` 四个文件。`stdout.txt` / `stderr.txt` 是沙箱统一管理的结果文件，编译与运行阶段复用同一套文件名。
 
 ### 6.2 运行阶段
 

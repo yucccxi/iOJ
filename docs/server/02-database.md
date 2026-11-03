@@ -203,12 +203,18 @@ erDiagram
 | --- | --- | --- | --- |
 | id | BIGINT | PK, AUTO_INCREMENT | |
 | source_id | BIGINT | NOT NULL, FK → sources.id | 来源（OJ 平台或比赛），**与本地题共用同一张来源表**；来源名由 `LEFT JOIN sources` 取得 |
+| code | VARCHAR(32) | NULL, UNIQUE | 原站题目的短标识，如 `CF_2278G`、`AT_ABC482_G`；用于导入去重和排查，无法推导题号时可为 `NULL` |
 | title | VARCHAR(200) | NOT NULL | 题目名称（`LIKE` 搜索） |
 | rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比） |
 | submit_count | INT | NOT NULL DEFAULT 0 | 提交次数（**来自原站/人工导入，本站不累加**） |
 | accepted_count | INT | NOT NULL DEFAULT 0 | 通过次数（同上，仅用于展示与通过率） |
 | url | VARCHAR(512) | NOT NULL, UNIQUE | 原题链接；唯一键同时承担“防重复导入” |
 | created_at / updated_at | DATETIME | NOT NULL | |
+
+`code` 由 `scripts/sync_clist_problems.py` 从 clist 的 `url` / `short` 推导后写入，规则见脚本文件头注释。它既是导入查重标识，也会通过 `GET /catalog` 返回给前端（本地题为 `null`）；外部题的定位仍以 `id` + `url` 为准。两个唯一键分工如下：
+
+- `uk_external_problems_url`：同一链接不能重复导入；
+- `uk_external_problems_code`：同一原站题号（如 `CF_2278G`）不能重复；`NULL` 不参与唯一性冲突，无法推导题号的行可以留空。
 
 ### 4.10 external_problem_tags —— 外部题目标签
 
@@ -262,6 +268,8 @@ erDiagram
 | `idx_problem_tags_tag (tag_id)` | 按标签筛选（`EXISTS` 子查询） |
 | `idx_external_problems_source_rating (source_id, rating)` | 外部题按来源 + 难度筛选 |
 | `idx_external_problems_rating (rating, id)` | 外部题按难度区间筛选 |
+| `uk_external_problems_url (url)` | 外部题按链接去重 |
+| `uk_external_problems_code (code)` | 外部题按原站题号去重（`NULL` 不冲突） |
 | `idx_external_problem_tags_tag (tag_id)` | 外部题按标签筛选 |
 | `idx_submissions_problem (problem_id, id)` | 题目下的提交列表 |
 | `idx_submissions_user (user_id, id)` | 用户的提交记录 |

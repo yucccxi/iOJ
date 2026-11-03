@@ -89,7 +89,7 @@ public class CatalogService {
         List<CatalogItemVO> items = rows.stream()
                 .map(row -> {
                     boolean local = KIND_LOCAL.equals(row.getKind());
-                    return new CatalogItemVO(row.getKind(), row.getRefId(), row.getTitle(),
+                    return new CatalogItemVO(row.getKind(), row.getRefId(), row.getTitle(), row.getCode(),
                             row.getDifficulty(), row.getRating(), row.getSourceId(), row.getSourceName(),
                             row.getUrl(), row.getSubmitCount(), row.getAcceptedCount(),
                             row.getAuthorId(), row.getAuthorNickname(),

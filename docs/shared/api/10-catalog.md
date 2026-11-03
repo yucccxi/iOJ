@@ -2,7 +2,7 @@
 
 > 返回目录：[iOJ 前端接口文档（v1）](README.md)
 
-把**本地题目**（`problems`）和**外部 OJ 题目**（`external_problems`，只存链接元数据）放进同一个列表里筛选与分页。两类题目共有的字段是 `title`、`rating`、`sourceId/sourceName`、`tags`，这也是能合并搜索的原因。
+把**本地题目**（`problems`）和**外部 OJ 题目**（`external_problems`，只存链接元数据）放进同一个列表里筛选与分页。两类题目共有的字段是 `title`、`rating`、`sourceId/sourceName`、`tags`，这也是能合并搜索的原因。外部题额外返回 `code`（原站题号，如 `CF_123D`），本地题的 `code` 恒为 `null`。
 
 本地题只返回**已发布（`PUBLISHED`）**的题目；外部题没有发布状态，全部参与。草稿/待审核/已下架的本地题请走 `GET /problems/mine` 或管理员审核接口。
 
@@ -36,6 +36,7 @@
       "kind": "LOCAL",
       "id": 12,
       "title": "A+B Problem",
+      "code": null,
       "difficulty": "EASY",
       "rating": 800,
       "sourceId": 2,
@@ -52,6 +53,7 @@
       "kind": "EXTERNAL",
       "id": 5,
       "title": "Two Sum",
+      "code": "CF_1A",
       "difficulty": null,
       "rating": 1200,
       "sourceId": 7,
@@ -76,6 +78,7 @@
 | `kind` | `LOCAL`（本站题目）/ `EXTERNAL`（外部 OJ 链接）。**详情要走不同接口**，见下 |
 | `id` | 对应那张表的 id：`LOCAL` → `GET /problems/{id}`；`EXTERNAL` → 暂无详情接口，用 `url` 直接跳转 |
 | `title` | 标题 |
+| `code` | `EXTERNAL` 的原站题号（如 `CF_123D`、`AT_ABC123_D`）；`LOCAL` 恒为 `null`，外部题无法推导题号时也可能为 `null` |
 | `difficulty` | 只有 `LOCAL` 有值（`EASY`/`MEDIUM`/`HARD`）；`EXTERNAL` 恒为 `null` |
 | `rating` | 数值难度分；可能为 `null`（未设置） |
 | `sourceId` / `sourceName` | 来源 id / 名称；未设置来源时都为 `null`（`EXTERNAL` 一定有值） |
@@ -91,7 +94,7 @@
 
 ## 10.2 前端渲染建议
 
-- 用一个列表渲染，按 `kind` 切换卡片：`EXTERNAL` 显示 `sourceName + rating + 外链图标`，`LOCAL` 显示 `difficulty + rating + 通过率`（`acceptedCount / submitCount`）；
+- 用一个列表渲染，按 `kind` 切换卡片：`EXTERNAL` 显示 `sourceName + code + rating + 外链图标`，`LOCAL` 显示 `difficulty + rating + 通过率`（`acceptedCount / submitCount`）；
   > 本接口**不返回** `status`：本地题在列表里恒为已发布。
 - 点击 `LOCAL` → `GET /problems/{id}`；点击 `EXTERNAL` → `window.open(url)`（不带 `target="_blank"` 之外的额外跳转逻辑）；
 - 筛选栏：来源下拉（按 `sourceId`）、标签下拉（按 `tagId`）、难度区间（`minRating`/`maxRating`）、搜索框（`keyword`）；可再加一个"只看本站 / 只看外部"的 `kind` 开关；

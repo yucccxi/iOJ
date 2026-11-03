@@ -97,6 +97,9 @@ CREATE TABLE problem_tags (
 CREATE TABLE external_problems (
     id             BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
     source_id      BIGINT       NOT NULL,
+    -- Short identifier used on the original OJ, for example CF_1234E or AT_ABC124F. NULL for rows
+    -- imported before this column existed; the unique key still accepts any number of NULLs.
+    code           VARCHAR(32)  NULL,
     title          VARCHAR(200) NOT NULL,
     rating         INT          NULL,
     -- Statistics copied from the source OJ (or entered by an administrator). They are NOT
@@ -107,6 +110,7 @@ CREATE TABLE external_problems (
     created_at     DATETIME     NOT NULL,
     updated_at     DATETIME     NOT NULL,
     CONSTRAINT uk_external_problems_url UNIQUE (url),
+    CONSTRAINT uk_external_problems_code UNIQUE (code),
     CONSTRAINT fk_external_problems_source FOREIGN KEY (source_id) REFERENCES sources (id)
 );
 
