@@ -73,9 +73,9 @@ export default function SectionSwitcher() {
           isCurrent ? "text-accent-strong" : "text-fg"
         }`}
       >
-        <SectionIcon size={16} absoluteStrokeWidth />
+        <SectionIcon />
         <span className="flex-1">{section.label}</span>
-        {isCurrent && <Check size={14} absoluteStrokeWidth />}
+        {isCurrent && <Check size={14} />}
       </Link>
     );
   }
@@ -90,9 +90,9 @@ export default function SectionSwitcher() {
         onClick={() => setOpen((value) => !value)}
         className="flex items-center gap-1.5 rounded-control bg-selected px-2.5 py-1.5 text-field text-accent-strong"
       >
-        <current.icon size={16} absoluteStrokeWidth />
+        <current.icon />
         {current.label}
-        <ChevronDown size={14} absoluteStrokeWidth />
+        <ChevronDown size={14} />
       </button>
 
       {open && (

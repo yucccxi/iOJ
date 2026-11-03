@@ -6,7 +6,7 @@ import logoUrl from "@/assets/logo.svg";
 export default function Header() {
   return (
     <header className="flex h-11 items-center justify-between">
-      <nav aria-label="面包屑" className="flex items-center gap-2.5">
+      <nav aria-label="breadcrumb" className="flex items-center gap-2.5">
         <Link
           to="/"
           className="flex items-center gap-2 text-card tracking-tight text-fg"
@@ -25,7 +25,7 @@ export default function Header() {
           to="/problems/new"
           className="flex items-center gap-1.5 rounded-control bg-secondary px-3 py-1.5 text-label text-fg"
         >
-          <SquarePlus size={16} absoluteStrokeWidth />
+          <SquarePlus />
           贡献题目
         </Link>
         <Link
@@ -34,9 +34,9 @@ export default function Header() {
           className="flex items-center gap-2 rounded-full p-1"
         >
           <span className="flex size-8 items-center justify-center rounded-full border border-line bg-popover text-fg">
-            <User size={16} absoluteStrokeWidth />
+            <User />
           </span>
-          <ChevronDown size={14} absoluteStrokeWidth className="text-fg-subtle" />
+          <ChevronDown size={14} className="text-fg-subtle" />
         </Link>
       </div>
     </header>
