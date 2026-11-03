@@ -19,9 +19,7 @@ export default defineConfig(({ mode }) => ({
     strictPort: true,
     proxy: {
       "/api": {
-        target:
-          loadEnv(mode, process.cwd(), "").IOJ_API_PROXY_TARGET ||
-          "http://127.0.0.1:8080",
+        target: loadEnv(mode, process.cwd(), "").IOJ_API_PROXY_TARGET,
         changeOrigin: true,
       },
     },
