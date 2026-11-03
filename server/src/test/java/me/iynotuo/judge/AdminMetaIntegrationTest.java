@@ -90,7 +90,7 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(created.path("data").path("rating").asInt()).isZero();
         assertThat(get("/api/v1/problems/mine", adminToken)
                 .path("data").path("items").get(0).path("rating").asInt()).isZero();
-        assertThat(get("/api/v1/catalog?kind=LOCAL", null)
+        assertThat(get("/api/v1/catalog?scope=LOCAL", null)
                 .path("data").path("items").get(0).path("rating").asInt()).isZero();
 
         // An unknown tag id is rejected instead of being created implicitly

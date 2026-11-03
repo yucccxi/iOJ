@@ -81,7 +81,7 @@
 | --- | --- |
 | 登录 / 注册 | `POST /auth/email-codes`（注册页“获取验证码”）、`POST /auth/register`、`POST /auth/login`、`GET /auth/me` |
 | 找回密码 | `POST /auth/password-reset-codes`、`POST /auth/password-resets` |
-| 题库首页 | `GET /catalog?kind=LOCAL`、`GET /meta/tags`、`GET /meta/sources` |
+| 题库首页 | `GET /catalog?scope=LOCAL`、`GET /meta/tags`、`GET /meta/sources` |
 | 统一搜索（本地 + 外部） | `GET /catalog`、`GET /meta/tags`、`GET /meta/sources` |
 | 题目详情 | `GET /problems/{id}`、`GET /submissions?problemId={id}`、`POST /submissions` |
 | 提交结果 | `GET /submissions/{id}`（轮询）、`GET /submissions?userId={id}` |

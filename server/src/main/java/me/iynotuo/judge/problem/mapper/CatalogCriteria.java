@@ -10,7 +10,8 @@ import java.util.List;
  *
  * <p>All filters are optional and combine with AND. {@code sourceId}, {@code rating} and
  * {@code tagId} apply to both branches: {@code tagId} resolves through {@code problem_tags} for
- * local rows and through {@code external_problem_tags} for external rows.</p>
+ * local rows and through {@code external_problem_tags} for external rows. The public {@code scope}
+ * filter is translated into {@code includeLocal}/{@code includeExternal}/{@code externalSources}.</p>
  */
 @Data
 public class CatalogCriteria {
@@ -38,9 +39,19 @@ public class CatalogCriteria {
     private List<Difficulty> difficulties;
 
     /**
-     * {@code LOCAL} or {@code EXTERNAL}; null means both.
+     * Whether the local problem branch participates in the UNION.
      */
-    private String kind;
+    private boolean includeLocal = true;
+
+    /**
+     * Whether the external OJ branch participates in the UNION.
+     */
+    private boolean includeExternal = true;
+
+    /**
+     * External source names, lower-cased; null/empty means every external source.
+     */
+    private List<String> externalSources;
 
     private int offset;
 

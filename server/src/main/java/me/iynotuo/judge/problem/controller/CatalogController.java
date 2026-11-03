@@ -42,7 +42,9 @@ public class CatalogController {
      * @param rating       optional exact rating match
      * @param minRating    optional inclusive lower bound of rating
      * @param maxRating    optional inclusive upper bound of rating
-     * @param kind         optional {@code LOCAL} / {@code EXTERNAL}; omit for both
+     * @param scope        optional source scope: {@code LOCAL}, {@code EXTERNAL}, or a source name
+     *                     such as {@code Codeforces} / {@code AtCoder}; repeatable and
+     *                     case-insensitive, e.g. {@code scope=LOCAL&scope=Codeforces}
      * @param page         1-based page number
      * @param size         page size
      * @return a page mixing both kinds, newest first
@@ -51,14 +53,14 @@ public class CatalogController {
     public ApiResponse<PageResult<CatalogItemVO>> page(@RequestParam(required = false) String keyword,
                                                        @RequestParam(required = false) Long sourceId,
                                                        @RequestParam(required = false) List<Difficulty> difficulty,
+                                                       @RequestParam(required = false) List<String> scope,
                                                        @RequestParam(required = false) Long tagId,
                                                        @RequestParam(required = false) Integer rating,
                                                        @RequestParam(required = false) Integer minRating,
                                                        @RequestParam(required = false) Integer maxRating,
-                                                       @RequestParam(required = false) String kind,
                                                        @RequestParam(required = false) Integer page,
                                                        @RequestParam(required = false) Integer size) {
-        return ApiResponse.ok(catalogService.page(keyword, sourceId, difficulty, tagId, rating,
-                minRating, maxRating, kind, PageQuery.of(page, size)));
+        return ApiResponse.ok(catalogService.page(keyword, sourceId, difficulty, scope, tagId, rating,
+                minRating, maxRating, PageQuery.of(page, size)));
     }
 }

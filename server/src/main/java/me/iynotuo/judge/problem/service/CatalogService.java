@@ -3,8 +3,6 @@ package me.iynotuo.judge.problem.service;
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
 import me.iynotuo.judge.common.enums.Difficulty;
-import me.iynotuo.judge.common.exception.BusinessException;
-import me.iynotuo.judge.common.exception.ErrorCode;
 import me.iynotuo.judge.problem.dto.CatalogItemVO;
 import me.iynotuo.judge.problem.dto.TagVO;
 import me.iynotuo.judge.problem.mapper.CatalogCriteria;
@@ -18,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -52,26 +51,28 @@ public class CatalogService {
      * @param keyword    title keyword (both kinds), blank means no filter
      * @param sourceId   source filter (both kinds), null means no filter
      * @param difficulties coarse difficulty filter; multiple values are OR-ed and apply to both kinds
+     * @param scopes      source scopes: {@code LOCAL}, {@code EXTERNAL}, or source names
+     *                    (case-insensitive, repeatable, OR-ed); null/empty means both kinds
      * @param tagId       tag filter (both kinds), null means no filter
      * @param rating      exact rating match, optional
      * @param minRating   inclusive lower bound, optional
      * @param maxRating   inclusive upper bound, optional
-     * @param kind        {@code LOCAL}, {@code EXTERNAL} or null for both
      * @param query       pagination
      * @return one page mixing both kinds, newest first
      */
-    public PageResult<CatalogItemVO> page(String keyword, Long sourceId, List<Difficulty> difficulties, Long tagId,
+    public PageResult<CatalogItemVO> page(String keyword, Long sourceId, List<Difficulty> difficulties,
+                                          List<String> scopes, Long tagId,
                                           Integer rating, Integer minRating, Integer maxRating,
-                                          String kind, PageQuery query) {
+                                          PageQuery query) {
         CatalogCriteria criteria = new CatalogCriteria();
         criteria.setKeyword(StringUtils.hasText(keyword) ? keyword.trim() : null);
         criteria.setSourceId(sourceId);
         criteria.setDifficulties(difficulties == null || difficulties.isEmpty() ? null : difficulties);
+        applyScope(criteria, scopes);
         criteria.setTagId(tagId);
         criteria.setRating(rating);
         criteria.setMinRating(minRating);
         criteria.setMaxRating(maxRating);
-        criteria.setKind(normalizeKind(kind));
 
         long total = catalogMapper.count(criteria);
         if (total == 0) {
@@ -100,15 +101,33 @@ public class CatalogService {
         return PageResult.of(items, total, query);
     }
 
-    private String normalizeKind(String kind) {
-        if (!StringUtils.hasText(kind)) {
-            return null;
+    /**
+     * Translates the public {@code scope} values into the two UNION-branch flags.
+     *
+     * <p>{@code LOCAL} keeps the local branch, {@code EXTERNAL} keeps every external row, and any
+     * other value is treated as an external source name (case-insensitive). Multiple values are
+     * OR-ed, so {@code LOCAL&scope=Codeforces} returns local problems plus Codeforces problems.</p>
+     */
+    private void applyScope(CatalogCriteria criteria, List<String> scopes) {
+        List<String> normalized = scopes == null ? List.of() : scopes.stream()
+                .filter(StringUtils::hasText)
+                .map(scope -> scope.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+        if (normalized.isEmpty()) {
+            criteria.setIncludeLocal(true);
+            criteria.setIncludeExternal(true);
+            criteria.setExternalSources(null);
+            return;
         }
-        String normalized = kind.trim().toUpperCase();
-        if (!KIND_LOCAL.equals(normalized) && !KIND_EXTERNAL.equals(normalized)) {
-            throw BusinessException.of(ErrorCode.BAD_REQUEST, "kind 只能是 LOCAL 或 EXTERNAL");
-        }
-        return normalized;
+
+        boolean includeAllExternal = normalized.contains("external");
+        List<String> namedSources = normalized.stream()
+                .filter(scope -> !scope.equals("local") && !scope.equals("external"))
+                .toList();
+        criteria.setIncludeLocal(normalized.contains("local"));
+        criteria.setIncludeExternal(includeAllExternal || !namedSources.isEmpty());
+        criteria.setExternalSources(includeAllExternal ? null : namedSources);
     }
 
     private Map<Long, List<TagVO>> loadLocalTags(List<CatalogRow> rows) {

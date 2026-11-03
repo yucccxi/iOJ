@@ -90,7 +90,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(testcases.path("data").size()).isEqualTo(2);
 
         // The public problem list moved to GET /catalog (this endpoint now only serves detail + CRUD)
-        JsonNode list = get("/api/v1/catalog?kind=LOCAL", null);
+        JsonNode list = get("/api/v1/catalog?scope=LOCAL", null);
         assertThat(list.path("data").path("total").asLong()).isEqualTo(1);
         JsonNode listItem = list.path("data").path("items").get(0);
         assertThat(listItem.path("kind").asString()).isEqualTo("LOCAL");
@@ -109,17 +109,17 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(JSON.readTree(retiredList.body()).path("code").asInt()).isEqualTo(1000);
 
         // Rating/difficulty filters live on the catalog now
-        assertThat(get("/api/v1/catalog?kind=LOCAL&rating=800", null)
+        assertThat(get("/api/v1/catalog?scope=LOCAL&rating=800", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?kind=LOCAL&minRating=700&maxRating=900", null)
+        assertThat(get("/api/v1/catalog?scope=LOCAL&minRating=700&maxRating=900", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?kind=LOCAL&minRating=1000", null)
+        assertThat(get("/api/v1/catalog?scope=LOCAL&minRating=1000", null)
                 .path("data").path("total").asLong()).isZero();
-        assertThat(get("/api/v1/catalog?kind=LOCAL&maxRating=799", null)
+        assertThat(get("/api/v1/catalog?scope=LOCAL&maxRating=799", null)
                 .path("data").path("total").asLong()).isZero();
-        assertThat(get("/api/v1/catalog?kind=LOCAL&difficulty=EASY", null)
+        assertThat(get("/api/v1/catalog?scope=LOCAL&difficulty=EASY", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?kind=LOCAL&difficulty=HARD", null)
+        assertThat(get("/api/v1/catalog?scope=LOCAL&difficulty=HARD", null)
                 .path("data").path("total").asLong()).isZero();
 
         // Sources are admin-managed: an unknown sourceId is rejected before hitting the foreign key
@@ -162,9 +162,14 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(catalog.path("data").path("total").asLong()).isEqualTo(2);
         assertThat(catalog.path("data").path("items").size()).isEqualTo(2);
 
-        // kind=EXTERNAL returns only the OJ link, with url and sourceName filled in
-        JsonNode externalOnly = get("/api/v1/catalog?kind=EXTERNAL", null);
+        // scope=EXTERNAL returns only the OJ link, with url and sourceName filled in
+        JsonNode externalOnly = get("/api/v1/catalog?scope=EXTERNAL", null);
         assertThat(externalOnly.path("data").path("total").asLong()).isEqualTo(1);
+        // A concrete source name filters to that external platform; repeated scopes are OR-ed
+        assertThat(get("/api/v1/catalog?scope=codeforces", null)
+                .path("data").path("total").asLong()).isEqualTo(1);
+        assertThat(get("/api/v1/catalog?scope=LOCAL&scope=Codeforces", null)
+                .path("data").path("total").asLong()).isEqualTo(2);
         JsonNode externalItem = externalOnly.path("data").path("items").get(0);
         assertThat(externalItem.path("kind").asString()).isEqualTo("EXTERNAL");
         assertThat(externalItem.path("code").asString()).isEqualTo("CF_1A");
@@ -173,9 +178,9 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(externalItem.path("sourceName").asString()).isEqualTo("Codeforces");
         assertThat(externalItem.path("rating").asInt()).isEqualTo(1200);
         assertThat(externalItem.path("difficulty").asString()).isEqualTo("EASY");
-        assertThat(get("/api/v1/catalog?kind=EXTERNAL&difficulty=EASY", null)
+        assertThat(get("/api/v1/catalog?scope=EXTERNAL&difficulty=EASY", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?kind=EXTERNAL&difficulty=HARD", null)
+        assertThat(get("/api/v1/catalog?scope=EXTERNAL&difficulty=HARD", null)
                 .path("data").path("total").asLong()).isZero();
         assertThat(get("/api/v1/catalog?difficulty=EASY", null)
                 .path("data").path("total").asLong()).isEqualTo(2);
@@ -187,7 +192,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(externalItem.path("tags").size()).isEqualTo(1);
 
         // Local problems have no original-OJ code
-        JsonNode localItem = get("/api/v1/catalog?kind=LOCAL", null)
+        JsonNode localItem = get("/api/v1/catalog?scope=LOCAL", null)
                 .path("data").path("items").get(0);
         assertThat(localItem.path("code").isNull()).isTrue();
         assertThat(localItem.path("time").isNull()).isTrue();
@@ -199,7 +204,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         // Source filter only matches the external row: the local problem has no source
         assertThat(get("/api/v1/catalog?sourceId=" + sourceId, null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?kind=LOCAL&sourceId=" + sourceId, null)
+        assertThat(get("/api/v1/catalog?scope=LOCAL&sourceId=" + sourceId, null)
                 .path("data").path("total").asLong()).isZero();
 
         // The "math" tag is on both rows, so the tag filter keeps both kinds
@@ -212,9 +217,9 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(get("/api/v1/catalog?rating=1200", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
 
-        // An unknown kind is a parameter error, not an empty page
-        HttpResponse<String> badKind = exchange(request("/api/v1/catalog?kind=FOO").GET(), null);
-        assertThat(badKind.statusCode()).isEqualTo(400);
+        // An unknown source scope is simply an empty result, not a parameter error
+        assertThat(get("/api/v1/catalog?scope=FOO", null)
+                .path("data").path("total").asLong()).isZero();
 
         // An external problem without a source rating is UNKNOWN, not EASY
         String unratedUrl = "https://codeforces.com/problemset/problem/2/A";
@@ -224,7 +229,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
                         + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 sourceId, "CF_2A", "Unrated Example", null, "UNKNOWN", 0, 0, unratedUrl,
                 LocalDateTime.now(), LocalDateTime.now());
-        JsonNode unknownOnly = get("/api/v1/catalog?kind=EXTERNAL&difficulty=UNKNOWN", null);
+        JsonNode unknownOnly = get("/api/v1/catalog?scope=EXTERNAL&difficulty=UNKNOWN", null);
         assertThat(unknownOnly.path("data").path("total").asLong()).isEqualTo(1);
         assertThat(unknownOnly.path("data").path("items").get(0).path("difficulty").asString())
                 .isEqualTo("UNKNOWN");

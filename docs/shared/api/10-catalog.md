@@ -6,7 +6,7 @@
 
 本地题只返回**已发布（`PUBLISHED`）**的题目；外部题没有发布状态，全部参与。草稿/待审核/已下架的本地题请走 `GET /problems/mine` 或管理员审核接口。
 
-> 本地题库首页就是 `GET /catalog?kind=LOCAL`；题目详情与出题相关的写操作仍在 `/problems` 下（见 [4. 题库](04-problems.md)）。
+> 本地题库首页就是 `GET /catalog?scope=LOCAL`；题目详情与出题相关的写操作仍在 `/problems` 下（见 [4. 题库](04-problems.md)）。
 
 ## 10.1 搜索题目
 
@@ -22,8 +22,10 @@
 | `tagId` | 整数 | 按标签筛选，**对两类题目都生效**（各自查自己的关联表）；标签 id 从标签列表接口获取 |
 | `rating` | 整数 | 难度分**精确**匹配 |
 | `minRating` / `maxRating` | 整数 | 难度分**区间**（闭区间），可只传一边 |
-| `kind` | string | `LOCAL` / `EXTERNAL`（大小写不敏感）；不传表示两类都要。传其他值返回 `400`（`1000`） |
+| `scope` | string | 来源范围：`LOCAL`（本地题库）、`EXTERNAL`（全部外部题），或来源名称（如 `Codeforces`、`AtCoder`，从 `/meta/sources` 获取）。大小写不敏感，可重复传多个表示 OR，例如 `scope=LOCAL&scope=Codeforces`；不传表示全部。未知来源返回空列表，不报错 |
 | `page` / `size` | 整数 | 分页，见 [1.4 分页](01-conventions.md#14-分页) |
+
+> `scope` 用于区分本地题库和外部平台；`sourceId` 是 `sources` 表的具体来源 id，两者可以组合使用。多个 `scope` 和 `difficulty` 都用重复参数表示 OR。
 
 > 多个 `difficulty` 用重复参数表示 OR：`?difficulty=EASY&difficulty=HARD`；不要写成 `difficulty=EASY,HARD`。
 
@@ -99,12 +101,13 @@
 
 **排序**：按 `createdAt` 倒序（最新在前）；同一时间戳时 `LOCAL` 在 `EXTERNAL` 之后、再按 id 倒序，保证翻页稳定。
 
-**常见错误**：`1000`（`kind` 非法、`rating`/`minRating`/`maxRating` 不是整数、分页参数非法）。
+**常见错误**：`1000`（`rating`/`minRating`/`maxRating` 不是整数、分页参数非法）。未知的 `scope` 不报错，返回空列表。
 
 ## 10.2 前端渲染建议
 
 - 用一个列表渲染，按 `kind` 切换卡片：`EXTERNAL` 显示 `sourceName + code + rating + 外链图标`，`LOCAL` 显示 `difficulty + rating + 通过率`（`acceptedCount / submitCount`）；
   > 本接口**不返回** `status`：本地题在列表里恒为已发布。
 - 点击 `LOCAL` → `GET /problems/{id}`；点击 `EXTERNAL` → `window.open(url)`（不带 `target="_blank"` 之外的额外跳转逻辑）；
-- 筛选栏：来源下拉（按 `sourceId`）、标签下拉（按 `tagId`）、难度区间（`minRating`/`maxRating`）、搜索框（`keyword`）；可再加一个"只看本站 / 只看外部"的 `kind` 开关；
+- 筛选栏：来源范围下拉（`scope=LOCAL` / `scope=Codeforces` / `scope=AtCoder`，可多选）、标签下拉（按 `tagId`）、难度区间（`minRating`/`maxRating`）、搜索框（`keyword`）；
+- `scope` 的来源选项建议从 `GET /meta/sources` 动态生成，本地题库固定加一个 `LOCAL`；
 - 选来源或标签后本地题也会参与结果（两者共用来源表、标签表），不需要前端做特殊分支。
