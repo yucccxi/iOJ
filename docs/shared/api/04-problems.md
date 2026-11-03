@@ -86,7 +86,7 @@
 | 字段 | 说明 |
 | --- | --- |
 | `difficulty` | 档位难度（`EASY` / `MEDIUM` / `HARD`） |
-| `rating` | 数值难度分（0-5000）；未设置时为 `null`，与 `difficulty` 相互独立 |
+| `rating` | 数值难度分（0-5000）；未设置时接口返回 `0`（数据库仍存 `NULL`），与 `difficulty` 相互独立 |
 | `description` | 题面正文（Markdown 或纯文本），渲染前请做 XSS 清洗 |
 | `inputFormat` / `outputFormat` | 输入/输出格式说明，可能为 `null` |
 | `hint` | 提示，可能为 `null` |
@@ -125,7 +125,7 @@
 | --- | --- | --- | --- |
 | `title` | string | 是 | 标题，≤128 字；首尾空格会被去掉 |
 | `difficulty` | string | 是 | `EASY` / `MEDIUM` / `HARD` |
-| `rating` | 整数 | 否 | 数值难度分，0-5000（例如 800 / 1200 / 1500）；不传则为 `null`，**不会**根据 `difficulty` 自动推算 |
+| `rating` | 整数 | 否 | 数值难度分，0-5000（例如 800 / 1200 / 1500）；不传则不设置（数据库为 `NULL`，接口返回 `0`），**不会**根据 `difficulty` 自动推算 |
 | `description` | string | 是 | 题面正文，≤200000 字，支持 Markdown |
 | `inputFormat` | string | 否 | 输入格式说明，≤20000 字 |
 | `outputFormat` | string | 否 | 输出格式说明，≤20000 字 |
@@ -175,7 +175,7 @@
 | 字段 | 不传的后果 |
 | --- | --- |
 | `title` / `difficulty` / `description` | 必填，缺失会返回 `1001` |
-| `rating` | 不传会被清空为 `null`（整体替换；服务端不会用 `difficulty` 反推） |
+| `rating` | 不传会被清空为 `NULL`（接口返回 `0`；整体替换，服务端不会用 `difficulty` 反推） |
 | `sourceId` | 不传会被清空为 `null`（整体替换） |
 | `inputFormat` / `outputFormat` / `hint` | 被清空为 `null` |
 | `timeLimitMs` / `memoryLimitMb` | 恢复默认值 1000 / 256 |

@@ -27,7 +27,6 @@
 
 | 位置 | 字段 | 说明 |
 | --- | --- | --- |
-| 题目列表 / 详情 / 统一搜索 | `rating` | 题目未设置难度分时为 `null`；此时按 `rating` 筛选不会命中它 |
 | 题目详情 | `inputFormat`、`outputFormat`、`hint` | 可能未填写 |
 | 题目详情 | `samples[].explanation` | 可能未填写 |
 | 题目详情 / 统一搜索 | `sourceId`、`sourceName` | 未设置来源时为 `null`（统一搜索里 `EXTERNAL` 一定有来源） |
@@ -46,6 +45,8 @@
 | 提交详情 | `cases[].memoryUsedKb` | 该测试点没有内存统计时为 `null` |
 | 提交详情 | `cases[].message` | 通过/答案错误时一般为 `null` |
 | 列表 | `items` | 无数据或超出页码时为 `[]`，此时 `total` 可能不为 0 |
+
+> `rating` 不在上表：数据库里未评分存的是 `NULL`，但接口统一返回 `0`，前端可以直接展示，不需要按 `null` 处理。
 
 > 数值字段（`timeUsedMs`、`memoryUsedKb`）为 `null` 时，建议统一显示为 `-`，不要直接渲染 `null`。
 

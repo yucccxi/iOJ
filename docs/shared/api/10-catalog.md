@@ -25,7 +25,7 @@
 | `kind` | string | `LOCAL` / `EXTERNAL`（大小写不敏感）；不传表示两类都要。传其他值返回 `400`（`1000`） |
 | `page` / `size` | 整数 | 分页，见 [1.4 分页](01-conventions.md#14-分页) |
 
-> `rating` 的刻度随来源而定（例如 Codeforces 800–3500、校内比赛可能没有评分），**跨来源排序不可比**；未设置评分的题目在按 `rating` 筛选时不会命中。
+> `rating` 的刻度随来源而定（例如 Codeforces 800–3500、校内比赛可能没有评分），**跨来源排序不可比**；未设置评分的题目接口返回 `0`，但按 `rating` 筛选时不会命中（数据库里仍是 `NULL`）。
 
 **响应 `data`**
 
@@ -80,7 +80,7 @@
 | `title` | 标题 |
 | `code` | `EXTERNAL` 的原站题号（如 `CF_123D`、`AT_ABC123_D`）；`LOCAL` 恒为 `null`，外部题无法推导题号时也可能为 `null` |
 | `difficulty` | 只有 `LOCAL` 有值（`EASY`/`MEDIUM`/`HARD`）；`EXTERNAL` 恒为 `null` |
-| `rating` | 数值难度分；可能为 `null`（未设置） |
+| `rating` | 数值难度分；未设置时返回 `0`（数据库仍存 `NULL`） |
 | `sourceId` / `sourceName` | 来源 id / 名称；未设置来源时都为 `null`（`EXTERNAL` 一定有值） |
 | `url` | 只有 `EXTERNAL` 有值（原题链接）；`LOCAL` 恒为 `null` |
 | `submitCount` / `acceptedCount` | 累计提交次数 / 通过次数；通过率 = `acceptedCount / submitCount`（`submitCount=0` 时不要相除）。`LOCAL` 由本站评测累加；`EXTERNAL` 是原站/导入的数字，本站不维护 |

@@ -98,7 +98,7 @@ erDiagram
 | id | BIGINT | PK | |
 | title | VARCHAR(128) | NOT NULL | 标题 |
 | difficulty | VARCHAR(16) | NOT NULL DEFAULT 'EASY' | 难度档位（`EASY`/`MEDIUM`/`HARD`），与 `rating` 相互独立 |
-| rating | INT | NULL | 数值难度分（0-5000），用于列表筛选/排序；未评分为 `NULL`，服务端**不会**由 `difficulty` 推算 |
+| rating | INT | NULL | 数值难度分（0-5000），用于列表筛选/排序；未评分为 `NULL`（接口统一返回 `0`），服务端**不会**由 `difficulty` 推算 |
 | description | MEDIUMTEXT | NOT NULL | 题面（纯文本/Markdown） |
 | input_format | MEDIUMTEXT | NULL | 输入格式说明 |
 | output_format | MEDIUMTEXT | NULL | 输出格式说明 |
@@ -205,7 +205,7 @@ erDiagram
 | source_id | BIGINT | NOT NULL, FK → sources.id | 来源（OJ 平台或比赛），**与本地题共用同一张来源表**；来源名由 `LEFT JOIN sources` 取得 |
 | code | VARCHAR(32) | NULL, UNIQUE | 原站题目的短标识，如 `CF_2278G`、`AT_ABC482_G`；用于导入去重和排查，无法推导题号时可为 `NULL` |
 | title | VARCHAR(200) | NOT NULL | 题目名称（`LIKE` 搜索） |
-| rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比） |
+| rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比）；为 `NULL` 时接口返回 `0` |
 | submit_count | INT | NOT NULL DEFAULT 0 | 提交次数（**来自原站/人工导入，本站不累加**） |
 | accepted_count | INT | NOT NULL DEFAULT 0 | 通过次数（同上，仅用于展示与通过率） |
 | url | VARCHAR(512) | NOT NULL, UNIQUE | 原题链接；唯一键同时承担“防重复导入” |

@@ -8,10 +8,15 @@ import java.util.List;
 
 /**
  * A problem list item. {@code rating} is the numeric difficulty used for filtering/sorting;
- * it may be null when the problem has never been rated.
+ * an unrated problem is exposed as {@code 0} rather than {@code null} so clients never have to
+ * special-case it.
  */
 public record ProblemSummaryVO(Long id, String title, Difficulty difficulty, Integer rating,
                                ProblemStatus status,
                                long submitCount, long acceptedCount, Long authorId, String authorNickname,
                                List<TagVO> tags, LocalDateTime createdAt) {
+
+    public ProblemSummaryVO {
+        rating = rating == null ? 0 : rating;
+    }
 }

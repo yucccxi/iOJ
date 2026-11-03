@@ -20,11 +20,16 @@ import java.util.List;
  * </ul>
  *
  * <p>Both kinds share {@code title}, {@code rating}, {@code sourceId}/{@code sourceName} and
- * {@code tags}, which is what makes a single filtered list possible.</p>
+ * {@code tags}, which is what makes a single filtered list possible. An unrated item exposes
+ * {@code rating} as {@code 0} instead of {@code null}.</p>
  */
 public record CatalogItemVO(String kind, Long id, String title, String code, Difficulty difficulty,
                             Integer rating, Long sourceId, String sourceName, String url,
                             Integer submitCount, Integer acceptedCount, Long authorId, String authorNickname,
                             List<TagVO> tags, LocalDateTime createdAt) {
+
+    public CatalogItemVO {
+        rating = rating == null ? 0 : rating;
+    }
 }
 

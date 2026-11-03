@@ -86,6 +86,12 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         long problemId = created.path("data").path("id").asLong();
         assertThat(created.path("data").path("sourceName").asString()).isEqualTo("洛谷");
         assertThat(created.path("data").path("tags").size()).isEqualTo(1);
+        // Unrated problems expose rating 0 instead of null in every response
+        assertThat(created.path("data").path("rating").asInt()).isZero();
+        assertThat(get("/api/v1/problems/mine", adminToken)
+                .path("data").path("items").get(0).path("rating").asInt()).isZero();
+        assertThat(get("/api/v1/catalog?kind=LOCAL", null)
+                .path("data").path("items").get(0).path("rating").asInt()).isZero();
 
         // An unknown tag id is rejected instead of being created implicitly
         HttpResponse<String> unknownTag = exchange(request("/api/v1/problems").POST(body(Map.of(
