@@ -1,10 +1,21 @@
 import type { ReactNode } from "react";
 import arrowUrl from "@/assets/tooltip-arrow.svg";
 
-type TooltipProps = { label: string; children: ReactNode; className?: string };
+type TooltipProps = {
+  label: ReactNode;
+  children: ReactNode;
+  className?: string;
+  /** Text style of the bubble. */
+  labelClassName?: string;
+};
 
 /** Shows `label` above `children` on hover. */
-export default function Tooltip({ label, children, className = "" }: TooltipProps) {
+export default function Tooltip({
+  label,
+  children,
+  className = "",
+  labelClassName = "text-number",
+}: TooltipProps) {
   return (
     <span className={`group/tooltip relative ${className}`}>
       {children}
@@ -12,7 +23,7 @@ export default function Tooltip({ label, children, className = "" }: TooltipProp
         role="tooltip"
         className="pointer-events-none invisible absolute bottom-full left-1/2 z-30 mb-1 flex -translate-x-1/2 flex-col items-center opacity-0 transition-opacity group-hover/tooltip:visible group-hover/tooltip:opacity-100"
       >
-        <span className="rounded-md bg-fg px-2 py-1 text-number whitespace-nowrap text-fg-inverse">
+        <span className={`rounded-md bg-fg px-2 py-1 whitespace-nowrap text-fg-inverse ${labelClassName}`}>
           {label}
         </span>
         {/* The arrow file has a fixed fill; masking it lets it follow bg-fg in dark mode. */}

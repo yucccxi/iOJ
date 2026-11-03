@@ -8,7 +8,17 @@ export default function RateBar({ accepted, submitted }: RateBarProps) {
   const rate = acceptanceRate(accepted, submitted);
   return (
     <div className="relative z-10 flex items-center gap-2 pr-2">
-      <Tooltip label={`${accepted} / ${submitted}`}>
+      <Tooltip
+        label={
+          <>
+            {/* A full space is a whole mono cell; 2px either side keeps the pair together. */}
+            {accepted}
+            <span className="mx-0.5">/</span>
+            {submitted}
+          </>
+        }
+        labelClassName="font-mono text-mono-label"
+      >
         <span className="block h-1.5 w-16 overflow-hidden rounded-full bg-line">
           <span
             className="block h-full rounded-full bg-accent"
