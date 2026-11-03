@@ -4,6 +4,7 @@ import me.iynotuo.judge.common.api.ApiResponse;
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
 import me.iynotuo.judge.common.enums.Difficulty;
+import me.iynotuo.judge.common.enums.TagMatchMode;
 import me.iynotuo.judge.problem.dto.CatalogItemVO;
 import me.iynotuo.judge.problem.service.CatalogService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,7 +39,9 @@ public class CatalogController {
      * @param difficulties optional coarse difficulties (repeat the parameter to OR them; applies to
      *                     both local and external problems), e.g.
      *                     {@code difficulty=EASY&difficulty=HARD}
-     * @param tagId        optional tag filter (applies to both kinds)
+     * @param tagId        optional tag ids (repeatable; applies to both kinds), e.g.
+     *                     {@code tagId=3&tagId=5}
+     * @param tagMatch     tag match mode: {@code ANY} (default) or {@code ALL}
      * @param rating       optional exact rating match
      * @param minRating    optional inclusive lower bound of rating
      * @param maxRating    optional inclusive upper bound of rating
@@ -54,13 +57,14 @@ public class CatalogController {
                                                        @RequestParam(required = false) Long sourceId,
                                                        @RequestParam(required = false) List<Difficulty> difficulty,
                                                        @RequestParam(required = false) List<String> scope,
-                                                       @RequestParam(required = false) Long tagId,
+                                                       @RequestParam(required = false) List<Long> tagId,
+                                                       @RequestParam(required = false) TagMatchMode tagMatch,
                                                        @RequestParam(required = false) Integer rating,
                                                        @RequestParam(required = false) Integer minRating,
                                                        @RequestParam(required = false) Integer maxRating,
                                                        @RequestParam(required = false) Integer page,
                                                        @RequestParam(required = false) Integer size) {
-        return ApiResponse.ok(catalogService.page(keyword, sourceId, difficulty, scope, tagId, rating,
-                minRating, maxRating, PageQuery.of(page, size)));
+        return ApiResponse.ok(catalogService.page(keyword, sourceId, difficulty, scope, tagId, tagMatch,
+                rating, minRating, maxRating, PageQuery.of(page, size)));
     }
 }

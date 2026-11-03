@@ -211,6 +211,19 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(get("/api/v1/catalog?tagId=" + mathTagId, null)
                 .path("data").path("total").asLong()).isEqualTo(2);
 
+        // Multiple tags: ANY is the default (local + external), ALL only matches the local row
+        String bothTags = "tagId=" + entryTagId + "&tagId=" + mathTagId;
+        assertThat(get("/api/v1/catalog?" + bothTags, null)
+                .path("data").path("total").asLong()).isEqualTo(2);
+        assertThat(get("/api/v1/catalog?" + bothTags + "&tagMatch=ANY", null)
+                .path("data").path("total").asLong()).isEqualTo(2);
+        assertThat(get("/api/v1/catalog?" + bothTags + "&tagMatch=ALL", null)
+                .path("data").path("total").asLong()).isEqualTo(1);
+        assertThat(get("/api/v1/catalog?" + bothTags + "&scope=LOCAL&tagMatch=ALL", null)
+                .path("data").path("total").asLong()).isEqualTo(1);
+        assertThat(get("/api/v1/catalog?" + bothTags + "&scope=EXTERNAL&tagMatch=ALL", null)
+                .path("data").path("total").asLong()).isZero();
+
         // Rating range keeps only the local 800, and exact rating matches one row too
         assertThat(get("/api/v1/catalog?minRating=700&maxRating=900", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
@@ -220,6 +233,11 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         // An unknown source scope is simply an empty result, not a parameter error
         assertThat(get("/api/v1/catalog?scope=FOO", null)
                 .path("data").path("total").asLong()).isZero();
+
+        // tagMatch only accepts ANY / ALL
+        HttpResponse<String> badTagMatch = exchange(request("/api/v1/catalog?tagMatch=FOO").GET(), null);
+        assertThat(badTagMatch.statusCode()).isEqualTo(400);
+        assertThat(JSON.readTree(badTagMatch.body()).path("code").asInt()).isEqualTo(1000);
 
         // An external problem without a source rating is UNKNOWN, not EASY
         String unratedUrl = "https://codeforces.com/problemset/problem/2/A";

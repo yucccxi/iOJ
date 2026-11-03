@@ -19,7 +19,8 @@
 | `keyword` | string | 按**标题**模糊搜索，本地题和外部题都会匹配；空字符串等于不筛选 |
 | `sourceId` | 整数 | 按来源筛选，**对两类题目都生效**（本地题与外部题共用同一张来源表）；没有该来源时返回空列表，不报错 |
 | `difficulty` | string | 档位难度 `EASY` / `MEDIUM` / `HARD` / `UNKNOWN`（`UNKNOWN` 只用于外部题），**对本地题和外部题都生效**；可重复传多个，多个值之间是 OR，例如 `difficulty=EASY&difficulty=HARD`；传其他值返回 `400`（`1000`） |
-| `tagId` | 整数 | 按标签筛选，**对两类题目都生效**（各自查自己的关联表）；标签 id 从标签列表接口获取 |
+| `tagId` | 整数 | 按标签筛选，**对两类题目都生效**（本地题查 `problem_tags`，外部题查 `external_problem_tags`）；可重复传多个，标签 id 从标签列表接口获取 |
+| `tagMatch` | string | 多标签匹配模式：`ANY`（默认，满足任一标签）或 `ALL`（满足全部标签）；只传一个 `tagId` 时两种模式等价；传其他值返回 `400`（`1000`） |
 | `rating` | 整数 | 难度分**精确**匹配 |
 | `minRating` / `maxRating` | 整数 | 难度分**区间**（闭区间），可只传一边 |
 | `scope` | string | 来源范围：`LOCAL`（本地题库）、`EXTERNAL`（全部外部题），或来源名称（如 `Codeforces`、`AtCoder`，从 `/meta/sources` 获取）。大小写不敏感，可重复传多个表示 OR，例如 `scope=LOCAL&scope=Codeforces`；不传表示全部。未知来源返回空列表，不报错 |
@@ -28,6 +29,13 @@
 > `scope` 用于区分本地题库和外部平台；`sourceId` 是 `sources` 表的具体来源 id，两者可以组合使用。多个 `scope` 和 `difficulty` 都用重复参数表示 OR。
 
 > 多个 `difficulty` 用重复参数表示 OR：`?difficulty=EASY&difficulty=HARD`；不要写成 `difficulty=EASY,HARD`。
+
+> 多标签筛选示例：
+> - 满足任一标签：`?tagId=3&tagId=5&tagMatch=ANY`
+> - 满足全部标签：`?tagId=3&tagId=5&tagMatch=ALL`
+> - 默认是 `ANY`，所以 `?tagId=3&tagId=5` 等价于上面的 OR 写法。
+>
+> `tagId` 可以跨本地题和外部题生效：本地题查 `problem_tags`，外部题查 `external_problem_tags`。
 
 > `time` 已转换为中国时区（UTC+8），字符串本身不带时区后缀，前端按 `Asia/Shanghai` 展示即可。
 
@@ -101,7 +109,7 @@
 
 **排序**：按 `createdAt` 倒序（最新在前）；同一时间戳时 `LOCAL` 在 `EXTERNAL` 之后、再按 id 倒序，保证翻页稳定。
 
-**常见错误**：`1000`（`rating`/`minRating`/`maxRating` 不是整数、分页参数非法）。未知的 `scope` 不报错，返回空列表。
+**常见错误**：`1000`（`rating`/`minRating`/`maxRating` 不是整数、`tagMatch` 不是 `ANY`/`ALL`、分页参数非法）。未知的 `scope` 不报错，返回空列表。
 
 ## 10.2 前端渲染建议
 

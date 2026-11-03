@@ -3,6 +3,7 @@ package me.iynotuo.judge.problem.service;
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
 import me.iynotuo.judge.common.enums.Difficulty;
+import me.iynotuo.judge.common.enums.TagMatchMode;
 import me.iynotuo.judge.problem.dto.CatalogItemVO;
 import me.iynotuo.judge.problem.dto.TagVO;
 import me.iynotuo.judge.problem.mapper.CatalogCriteria;
@@ -18,6 +19,7 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -53,7 +55,8 @@ public class CatalogService {
      * @param difficulties coarse difficulty filter; multiple values are OR-ed and apply to both kinds
      * @param scopes      source scopes: {@code LOCAL}, {@code EXTERNAL}, or source names
      *                    (case-insensitive, repeatable, OR-ed); null/empty means both kinds
-     * @param tagId       tag filter (both kinds), null means no filter
+     * @param tagIds      tag ids to match (both kinds); null/empty means no tag filter
+     * @param tagMatch    {@code ANY} (default) or {@code ALL}; only relevant when tagIds is set
      * @param rating      exact rating match, optional
      * @param minRating   inclusive lower bound, optional
      * @param maxRating   inclusive upper bound, optional
@@ -61,7 +64,7 @@ public class CatalogService {
      * @return one page mixing both kinds, newest first
      */
     public PageResult<CatalogItemVO> page(String keyword, Long sourceId, List<Difficulty> difficulties,
-                                          List<String> scopes, Long tagId,
+                                          List<String> scopes, List<Long> tagIds, TagMatchMode tagMatch,
                                           Integer rating, Integer minRating, Integer maxRating,
                                           PageQuery query) {
         CatalogCriteria criteria = new CatalogCriteria();
@@ -69,7 +72,13 @@ public class CatalogService {
         criteria.setSourceId(sourceId);
         criteria.setDifficulties(difficulties == null || difficulties.isEmpty() ? null : difficulties);
         applyScope(criteria, scopes);
-        criteria.setTagId(tagId);
+        List<Long> normalizedTagIds = tagIds == null ? null : tagIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        criteria.setTagIds(normalizedTagIds == null || normalizedTagIds.isEmpty() ? null : normalizedTagIds);
+        criteria.setTagCount(normalizedTagIds == null ? 0 : normalizedTagIds.size());
+        criteria.setMatchAllTags(tagMatch == TagMatchMode.ALL);
         criteria.setRating(rating);
         criteria.setMinRating(minRating);
         criteria.setMaxRating(maxRating);

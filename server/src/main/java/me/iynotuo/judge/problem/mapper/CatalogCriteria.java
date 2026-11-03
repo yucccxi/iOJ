@@ -8,10 +8,11 @@ import java.util.List;
 /**
  * Query criteria for the unified catalog (local problems + external OJ links).
  *
- * <p>All filters are optional and combine with AND. {@code sourceId}, {@code rating} and
- * {@code tagId} apply to both branches: {@code tagId} resolves through {@code problem_tags} for
- * local rows and through {@code external_problem_tags} for external rows. The public {@code scope}
- * filter is translated into {@code includeLocal}/{@code includeExternal}/{@code externalSources}.</p>
+ * <p>All filters are optional and combine with AND. {@code sourceId} and {@code rating} apply to
+ * both branches. {@code tagIds} resolves through {@code problem_tags} for local rows and through
+ * {@code external_problem_tags} for external rows; {@code matchAllTags} selects AND instead of the
+ * default OR. The public {@code scope} filter is translated into
+ * {@code includeLocal}/{@code includeExternal}/{@code externalSources}.</p>
  */
 @Data
 public class CatalogCriteria {
@@ -20,7 +21,20 @@ public class CatalogCriteria {
 
     private Long sourceId;
 
-    private Long tagId;
+    /**
+     * Tag ids to match; null/empty means no tag filter.
+     */
+    private List<Long> tagIds;
+
+    /**
+     * Number of distinct ids in {@link #tagIds}; used by the ALL match query.
+     */
+    private int tagCount;
+
+    /**
+     * {@code true} requires every tag in {@link #tagIds}; {@code false} requires at least one.
+     */
+    private boolean matchAllTags;
 
     /**
      * Exact rating match; {@code minRating}/{@code maxRating} define an inclusive range.
