@@ -3,9 +3,11 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import { codeInspectorPlugin } from "code-inspector-plugin";
 
 export default defineConfig(({ mode }) => ({
   plugins: [
+    codeInspectorPlugin({ bundler: "vite" }),
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),
     tailwindcss(),
