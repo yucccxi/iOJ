@@ -51,22 +51,22 @@ public class CatalogService {
      *
      * @param keyword    title keyword (both kinds), blank means no filter
      * @param sourceId   source filter (both kinds), null means no filter
-     * @param difficulty coarse difficulty filter; applies to local problems only
-     * @param tagId      tag filter (both kinds), null means no filter
-     * @param rating     exact rating match, optional
-     * @param minRating  inclusive lower bound, optional
-     * @param maxRating  inclusive upper bound, optional
-     * @param kind       {@code LOCAL}, {@code EXTERNAL} or null for both
-     * @param query      pagination
+     * @param difficulties coarse difficulty filter; multiple values are OR-ed and apply to both kinds
+     * @param tagId       tag filter (both kinds), null means no filter
+     * @param rating      exact rating match, optional
+     * @param minRating   inclusive lower bound, optional
+     * @param maxRating   inclusive upper bound, optional
+     * @param kind        {@code LOCAL}, {@code EXTERNAL} or null for both
+     * @param query       pagination
      * @return one page mixing both kinds, newest first
      */
-    public PageResult<CatalogItemVO> page(String keyword, Long sourceId, Difficulty difficulty, Long tagId,
+    public PageResult<CatalogItemVO> page(String keyword, Long sourceId, List<Difficulty> difficulties, Long tagId,
                                           Integer rating, Integer minRating, Integer maxRating,
                                           String kind, PageQuery query) {
         CatalogCriteria criteria = new CatalogCriteria();
         criteria.setKeyword(StringUtils.hasText(keyword) ? keyword.trim() : null);
         criteria.setSourceId(sourceId);
-        criteria.setDifficulty(difficulty);
+        criteria.setDifficulties(difficulties == null || difficulties.isEmpty() ? null : difficulties);
         criteria.setTagId(tagId);
         criteria.setRating(rating);
         criteria.setMinRating(minRating);
@@ -90,8 +90,8 @@ public class CatalogService {
                 .map(row -> {
                     boolean local = KIND_LOCAL.equals(row.getKind());
                     return new CatalogItemVO(row.getKind(), row.getRefId(), row.getTitle(), row.getCode(),
-                            row.getDifficulty(), row.getRating(), row.getSourceId(), row.getSourceName(),
-                            row.getUrl(), row.getSubmitCount(), row.getAcceptedCount(),
+                            row.getDifficulty(), row.getTime(), row.getRating(), row.getSourceId(),
+                            row.getSourceName(), row.getUrl(), row.getSubmitCount(), row.getAcceptedCount(),
                             row.getAuthorId(), row.getAuthorNickname(),
                             (local ? localTags : externalTags).getOrDefault(row.getRefId(), List.of()),
                             row.getCreatedAt());

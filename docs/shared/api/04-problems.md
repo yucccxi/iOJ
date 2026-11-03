@@ -124,7 +124,7 @@
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `title` | string | 是 | 标题，≤128 字；首尾空格会被去掉 |
-| `difficulty` | string | 是 | `EASY` / `MEDIUM` / `HARD` |
+| `difficulty` | string | 是 | `EASY` / `MEDIUM` / `HARD`；本地题不支持 `UNKNOWN` |
 | `rating` | 整数 | 否 | 数值难度分，0-5000（例如 800 / 1200 / 1500）；不传则不设置（数据库为 `NULL`，接口返回 `0`），**不会**根据 `difficulty` 自动推算 |
 | `description` | string | 是 | 题面正文，≤200000 字，支持 Markdown |
 | `inputFormat` | string | 否 | 输入格式说明，≤20000 字 |

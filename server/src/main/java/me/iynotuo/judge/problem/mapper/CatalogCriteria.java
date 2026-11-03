@@ -3,6 +3,8 @@ package me.iynotuo.judge.problem.mapper;
 import lombok.Data;
 import me.iynotuo.judge.common.enums.Difficulty;
 
+import java.util.List;
+
 /**
  * Query criteria for the unified catalog (local problems + external OJ links).
  *
@@ -29,9 +31,11 @@ public class CatalogCriteria {
     private Integer maxRating;
 
     /**
-     * Coarse difficulty label ({@code EASY}/{@code MEDIUM}/{@code HARD}); applies to LOCAL rows only.
+     * Coarse difficulty labels ({@code EASY}/{@code MEDIUM}/{@code HARD}/{@code UNKNOWN});
+     * multiple values are OR-ed together and apply to both kinds. Local rows use their own column,
+     * external rows derive it from their rating.
      */
-    private Difficulty difficulty;
+    private List<Difficulty> difficulties;
 
     /**
      * {@code LOCAL} or {@code EXTERNAL}; null means both.

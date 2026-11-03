@@ -206,6 +206,8 @@ erDiagram
 | code | VARCHAR(32) | NULL, UNIQUE | 原站题目的短标识，如 `CF_2278G`、`AT_ABC482_G`；用于导入去重和排查，无法推导题号时可为 `NULL` |
 | title | VARCHAR(200) | NOT NULL | 题目名称（`LIKE` 搜索） |
 | rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比）；为 `NULL` 时接口返回 `0` |
+| difficulty | VARCHAR(16) | NOT NULL DEFAULT 'UNKNOWN' | 由 rating 推导的档位：Codeforces `<1400` / `1400–1999` / `≥2000`，AtCoder `<800` / `800–1599` / `≥1600`；rating 为空归为 `UNKNOWN` |
+| time | DATETIME | NULL | clist 返回的 `time`，已从 UTC 转换为中国时区（UTC+8）；通常是题目所属比赛开始时间，AtCoder 镜像题可能是训练赛时间。通过 `GET /catalog` 的 `time` 返回，本地题为 `null` |
 | submit_count | INT | NOT NULL DEFAULT 0 | 提交次数（**来自原站/人工导入，本站不累加**） |
 | accepted_count | INT | NOT NULL DEFAULT 0 | 通过次数（同上，仅用于展示与通过率） |
 | url | VARCHAR(512) | NOT NULL, UNIQUE | 原题链接；唯一键同时承担“防重复导入” |
@@ -233,6 +235,8 @@ erDiagram
 >   (SELECT COUNT(*) FROM problem_tags          WHERE tag_id = ?)
 > + (SELECT COUNT(*) FROM external_problem_tags WHERE tag_id = ?) AS usage;
 > ```
+
+标签同步来源：Codeforces 使用官方 `problemset.problems` API 的 `tags` 字段，脚本会同步写入 `tags` 并重建对应外部题的 `external_problem_tags` 关联。clist 的 problem 对象本身没有主题标签；AtCoder 没有主题标签来源，正常同步不会修改它已有的标签关联。
 
 ### 4.11 email_verification_codes —— 邮箱验证码
 
@@ -268,6 +272,8 @@ erDiagram
 | `idx_problem_tags_tag (tag_id)` | 按标签筛选（`EXISTS` 子查询） |
 | `idx_external_problems_source_rating (source_id, rating)` | 外部题按来源 + 难度筛选 |
 | `idx_external_problems_rating (rating, id)` | 外部题按难度区间筛选 |
+| `idx_external_problems_difficulty (difficulty)` | 外部题按 `EASY` / `MEDIUM` / `HARD` / `UNKNOWN` 筛选 |
+| `idx_external_problems_time (time)` | 外部题按比赛/题目时间排序或筛选 |
 | `uk_external_problems_url (url)` | 外部题按链接去重 |
 | `uk_external_problems_code (code)` | 外部题按原站题号去重（`NULL` 不冲突） |
 | `idx_external_problem_tags_tag (tag_id)` | 外部题按标签筛选 |

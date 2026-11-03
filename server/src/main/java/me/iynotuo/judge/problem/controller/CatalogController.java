@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * Unified search over the local problem bank and the external OJ catalog.
  *
@@ -33,20 +35,22 @@ public class CatalogController {
      *
      * @param keyword    optional title keyword (applies to both kinds)
      * @param sourceId   optional source filter (applies to both kinds)
-     * @param difficulty optional coarse difficulty (applies to local problems only)
-     * @param tagId      optional tag filter (applies to both kinds)
-     * @param rating     optional exact rating match
-     * @param minRating  optional inclusive lower bound of rating
-     * @param maxRating  optional inclusive upper bound of rating
-     * @param kind       optional {@code LOCAL} / {@code EXTERNAL}; omit for both
-     * @param page       1-based page number
-     * @param size       page size
+     * @param difficulties optional coarse difficulties (repeat the parameter to OR them; applies to
+     *                     both local and external problems), e.g.
+     *                     {@code difficulty=EASY&difficulty=HARD}
+     * @param tagId        optional tag filter (applies to both kinds)
+     * @param rating       optional exact rating match
+     * @param minRating    optional inclusive lower bound of rating
+     * @param maxRating    optional inclusive upper bound of rating
+     * @param kind         optional {@code LOCAL} / {@code EXTERNAL}; omit for both
+     * @param page         1-based page number
+     * @param size         page size
      * @return a page mixing both kinds, newest first
      */
     @GetMapping
     public ApiResponse<PageResult<CatalogItemVO>> page(@RequestParam(required = false) String keyword,
                                                        @RequestParam(required = false) Long sourceId,
-                                                       @RequestParam(required = false) Difficulty difficulty,
+                                                       @RequestParam(required = false) List<Difficulty> difficulty,
                                                        @RequestParam(required = false) Long tagId,
                                                        @RequestParam(required = false) Integer rating,
                                                        @RequestParam(required = false) Integer minRating,

@@ -56,7 +56,7 @@
 {
   "code": 0, "message": "ok",
   "data": [
-    { "id": 2, "name": "2026 新生赛", "createdAt": "2026-10-01T09:00:00", "problemCount": 8 },
+    { "id": 2, "name": "AtCoder", "createdAt": "2026-10-01T09:00:00", "problemCount": 8 },
     { "id": 7, "name": "Codeforces", "createdAt": "2026-11-01T09:00:00", "problemCount": 15 }
   ]
 }

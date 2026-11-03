@@ -230,7 +230,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
   mysql -uioj -p ioj < src/main/resources/db/schema.sql
   mysql -uioj -p ioj < src/main/resources/db/seed.sql
   ```
-- 外部题库元数据由 `scripts/sync_clist_problems.py` 从 clist.by 导入 Codeforces 与 AtCoder；`sync --clear` 会先清空 `external_problems` 再全量导入。`code`（如 `CF_2278G`）既是脚本的查重标识，也会由 `GET /catalog` 返回给前端（本地题为 `null`）。脚本用法见文件头注释。
+- 外部题库元数据由 `scripts/sync_clist_problems.py` 从 clist.by 导入 Codeforces 与 AtCoder；`sync --clear` 会先清空 `external_problems` 再全量导入。脚本同时按平台阈值计算 `difficulty`（EASY / MEDIUM / HARD，rating 为空为 UNKNOWN）、写入 clist 的 `time`（UTC 转中国时区 UTC+8），并从 Codeforces 官方 API 同步 `tags` / `external_problem_tags`（AtCoder 没有主题标签来源）。`code`（如 `CF_2278G`）既是查重标识，也会由 `GET /catalog` 返回给前端（本地题为 `null`）。脚本用法见文件头注释。
 - 表结构与字段说明见 [./02-database.md](./02-database.md)。
 
 ## 评测说明

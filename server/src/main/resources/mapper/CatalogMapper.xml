@@ -8,7 +8,8 @@
         kind       LOCAL / EXTERNAL
         ref_id     problems.id or external_problems.id
         code       external rows only (NULL for local rows); short id from the original OJ
-        difficulty local problems only (NULL for external rows)
+        difficulty both kinds; external rows derive it from their rating
+        time       external rows only (NULL for local rows); China time (UTC+8)
         url        external rows only (NULL for local rows)
         counts     both kinds (local rows count locally, external rows carry imported numbers)
       Filters are applied inside each branch so the indexes on problems / external_problems can be
@@ -20,6 +21,7 @@
                p.title AS title,
                CAST(NULL AS CHAR(32)) AS code,
                p.difficulty AS difficulty,
+               NULL AS time,
                p.rating AS rating,
                p.source_id AS source_id,
                s.name AS source_name,
@@ -39,8 +41,11 @@
         <if test="criteria.sourceId != null">
             AND p.source_id = #{criteria.sourceId}
         </if>
-        <if test="criteria.difficulty != null">
-            AND p.difficulty = #{criteria.difficulty}
+        <if test="criteria.difficulties != null and criteria.difficulties.size() > 0">
+            AND p.difficulty IN
+            <foreach collection="criteria.difficulties" item="difficulty" open="(" separator="," close=")">
+                #{difficulty}
+            </foreach>
         </if>
         <if test="criteria.rating != null">
             AND p.rating = #{criteria.rating}
@@ -60,7 +65,8 @@
                e.id AS ref_id,
                e.title AS title,
                e.code AS code,
-               CAST(NULL AS CHAR(16)) AS difficulty,
+               e.difficulty AS difficulty,
+               e.time AS time,
                e.rating AS rating,
                e.source_id AS source_id,
                s.name AS source_name,
@@ -79,6 +85,12 @@
         <if test="criteria.sourceId != null">
             AND e.source_id = #{criteria.sourceId}
         </if>
+        <if test="criteria.difficulties != null and criteria.difficulties.size() > 0">
+            AND e.difficulty IN
+            <foreach collection="criteria.difficulties" item="difficulty" open="(" separator="," close=")">
+                #{difficulty}
+            </foreach>
+        </if>
         <if test="criteria.rating != null">
             AND e.rating = #{criteria.rating}
         </if>
@@ -95,7 +107,7 @@
     </sql>
 
     <select id="findPage" resultType="me.iynotuo.judge.problem.mapper.CatalogRow">
-        SELECT c.kind, c.ref_id, c.title, c.code, c.difficulty, c.rating, c.source_id, c.source_name, c.url,
+        SELECT c.kind, c.ref_id, c.title, c.code, c.difficulty, c.time, c.rating, c.source_id, c.source_name, c.url,
                c.submit_count, c.accepted_count, c.author_id, c.author_nickname, c.created_at
         FROM ( <include refid="unionBody"/> ) c
         <where>

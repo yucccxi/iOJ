@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 用户角色 | `USER` / `ADMIN` | `user.role`、用户列表、权限判断 |
 | 用户状态 | `ACTIVE` / `BANNED` | 管理后台封禁/解封 |
-| 难度 | `EASY` / `MEDIUM` / `HARD` | 题目创建、筛选、展示 |
+| 难度 | `EASY` / `MEDIUM` / `HARD` / `UNKNOWN` | 本地题只能创建 `EASY` / `MEDIUM` / `HARD`；`UNKNOWN` 只出现在外部题的 `/catalog` 结果里（rating 为空） |
 | 难度分 | 整数 `0`–`5000`（非枚举） | 题目列表/统一搜索的 `rating` / `minRating` / `maxRating` 筛选；与“难度”档位相互独立 |
 | 题目状态 | `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN` | 我的题目、审核列表、题目详情 |
 | 语言 | `JAVA` / `CPP` / `C` / `PYTHON3` | 提交、语言下拉框 |
@@ -33,7 +33,7 @@
 | 题目详情 | `hasChecker` | 布尔值，不会是 `null` |
 | 题目详情 | `tags`、`samples` | 空数组（`[]`），不会是 `null` |
 | 统一搜索（`/catalog`） | `code` | `LOCAL` 恒为 `null`；`EXTERNAL` 通常有值，无法推导题号时也可能为 `null` |
-| 统一搜索（`/catalog`） | `difficulty` | 只有 `LOCAL` 有值，`EXTERNAL` 恒为 `null` |
+| 统一搜索（`/catalog`） | `time` | `LOCAL` 恒为 `null`；`EXTERNAL` 在 clist 没有提供时间时也可能为 `null` |
 | 统一搜索（`/catalog`） | `url` | 只有 `EXTERNAL` 有值，`LOCAL` 恒为 `null` |
 | 提交详情 | `code` | 无权限查看 |
 | 提交详情 | `compileMessage` | 只有编译错误时有值 |

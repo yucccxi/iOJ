@@ -102,6 +102,13 @@ CREATE TABLE external_problems (
     code           VARCHAR(32)  NULL,
     title          VARCHAR(200) NOT NULL,
     rating         INT          NULL,
+    -- Coarse difficulty derived from rating and the source platform:
+    -- Codeforces <1400 / 1400-1999 / >=2000, AtCoder <800 / 800-1599 / >=1600.
+    -- A missing rating cannot be classified and is stored as UNKNOWN.
+    difficulty     VARCHAR(16)  NOT NULL DEFAULT 'UNKNOWN',
+    -- Contest time reported by clist (usually the contest start, possibly a mirror contest for
+    -- AtCoder training problems). NULL when clist did not provide it.
+    time           DATETIME     NULL,
     -- Statistics copied from the source OJ (or entered by an administrator). They are NOT
     -- incremented by this system, because external problems are never judged here.
     submit_count   INT          NOT NULL DEFAULT 0,
@@ -174,6 +181,8 @@ CREATE INDEX idx_problems_difficulty ON problems (difficulty);
 CREATE INDEX idx_problem_tags_tag ON problem_tags (tag_id);
 CREATE INDEX idx_external_problems_source_rating ON external_problems (source_id, rating);
 CREATE INDEX idx_external_problems_rating ON external_problems (rating, id);
+CREATE INDEX idx_external_problems_difficulty ON external_problems (difficulty);
+CREATE INDEX idx_external_problems_time ON external_problems (time);
 CREATE INDEX idx_external_problem_tags_tag ON external_problem_tags (tag_id);
 CREATE INDEX idx_submissions_problem ON submissions (problem_id, id);
 CREATE INDEX idx_submissions_user ON submissions (user_id, id);

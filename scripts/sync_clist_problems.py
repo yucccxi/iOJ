@@ -16,9 +16,15 @@ Field mapping (confirmed against the live API)
     url + short         -> code           "CF_" + contest + index, upper-cased
     name                -> title
     rating              -> rating         (may be null)
+    rating              -> difficulty     EASY / MEDIUM / HARD, per-platform thresholds; null -> UNKNOWN
+    time                -> time           clist contest time, converted from UTC to China time (UTC+8)
     n_attempts          -> submit_count   number of people who attempted
     n_accepted          -> accepted_count number of people who solved
     url                 -> url            the row identity used for updates
+
+Tags: clist's problem payload has no topic tags, so Codeforces topic tags are fetched once from the
+official ``problemset.problems`` API and written to ``tags`` / ``external_problem_tags``. AtCoder
+has no topic-tag source in clist; its existing links are left untouched by a normal sync.
 
 clist allows 10 requests per minute, so requests default to one every 6.2 s. ``--full`` walks the
 whole platform, the default mode stops as soon as it reaches problems already stored in
@@ -26,7 +32,8 @@ whole platform, the default mode stops as soon as it reaches problems already st
 
 ``sync --clear`` deletes every row of ``external_problems`` before importing and therefore forces a
 full sync; use it when the table should be rebuilt from scratch. It is rejected together with
-``--dry-run``.
+``--dry-run``. Existing tag links are snapshotted by URL first, so tags without a refreshable source
+(AtCoder) are restored; Codeforces tags are rebuilt from the official API.
 
 Credentials come from the environment, or from ``scripts/.env`` (git-ignored):
     CLIST_USERNAME, CLIST_API_KEY
@@ -49,7 +56,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +67,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_STATE_FILE = SCRIPT_DIR / ".state" / "clist_sync.json"
 DEFAULT_INTERVAL_SECONDS = 6.2  # ~9.7 requests per minute, below the 10/min limit
 DEFAULT_PAGE_SIZE = 100
+CHINA_TZ = timezone(timedelta(hours=8))  # clist timestamps are UTC; store database time in UTC+8
 
 # How to turn one clist problem into our own columns.
 #   contest -- URL fragment carrying the platform's own contest number (Codeforces: 2278)
@@ -77,7 +85,81 @@ PLATFORMS: dict[str, dict[str, str | None]] = {
 }
 DEFAULT_PLATFORMS = list(PLATFORMS)
 
+# rating -> coarse difficulty. Missing ratings are UNKNOWN because they cannot be classified
+# against the platform thresholds.
+DIFFICULTY_THRESHOLDS: dict[str, tuple[int, int]] = {
+    "codeforces.com": (1400, 2000),
+    "atcoder.jp": (800, 1600),
+}
+
 log = logging.getLogger("sync-clist")
+
+
+def difficulty_for(platform: str, rating: int | None) -> str:
+    """Maps a rating to EASY / MEDIUM / HARD, or UNKNOWN when the rating is missing."""
+    if rating is None:
+        return "UNKNOWN"
+    easy_below, medium_below = DIFFICULTY_THRESHOLDS[platform]
+    if rating < easy_below:
+        return "EASY"
+    if rating < medium_below:
+        return "MEDIUM"
+    return "HARD"
+
+
+def parse_clist_time(value: Any) -> str | None:
+    """Converts clist's UTC timestamp to China time (UTC+8) for the MySQL DATETIME column."""
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(CHINA_TZ).strftime("%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
+def codeforces_problem_key(url: str) -> tuple[int, str] | None:
+    """Extracts (contestId, index) from a Codeforces contest/problemset URL."""
+    match = re.search(r"/(?:contest|gym)/(\d+)/problem/([A-Za-z0-9]+)", url)
+    if match:
+        return int(match.group(1)), match.group(2).upper()
+    match = re.search(r"/problemset/problem/(\d+)/([A-Za-z0-9]+)", url)
+    if match:
+        return int(match.group(1)), match.group(2).upper()
+    return None
+
+
+def fetch_codeforces_tags() -> dict[tuple[int, str], list[str]]:
+    """Fetches the official topic tags for regular Codeforces problems.
+
+    clist's problem object does not expose topic tags, so Codeforces is the one platform where a
+    complete tag source is available. The call is made once per sync. On failure an empty map is
+    returned so existing tag links are left untouched instead of being deleted.
+    """
+    try:
+        response = requests.get(
+            "https://codeforces.com/api/problemset.problems",
+            headers={"User-Agent": "ioj-clist-sync/1.0"},
+            timeout=60,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if payload.get("status") != "OK":
+            log.warning("Codeforces 标签接口返回失败，跳过标签更新：%s", payload.get("comment"))
+            return {}
+        result: dict[tuple[int, str], list[str]] = {}
+        for problem in payload["result"]["problems"]:
+            contest_id = problem.get("contestId")
+            index = problem.get("index")
+            if contest_id is None or not index:
+                continue
+            result[(int(contest_id), str(index).upper())] = list(problem.get("tags") or [])
+        return result
+    except Exception as ex:  # noqa: BLE001 - tag sync must not break the whole import
+        log.warning("Codeforces 标签拉取失败，跳过标签更新：%s", ex)
+        return {}
 
 
 def load_dotenv(path: Path) -> None:
@@ -231,6 +313,7 @@ class Store:
     def __init__(self, connection: Any) -> None:
         self.connection = connection
         self._sources: dict[str, int] = {}
+        self._tags: dict[str, int] = {}
 
     def source_id(self, name: str) -> int:
         if name in self._sources:
@@ -246,32 +329,73 @@ class Store:
         self._sources[name] = int(row[0])
         return int(row[0])
 
-    def upsert(self, source_id: int, code: str, title: str, rating: int | None,
-               attempts: int, accepted: int, url: str) -> str:
+    def upsert(self, source_id: int, code: str, title: str, rating: int | None, difficulty: str,
+               event_time: str | None, attempts: int, accepted: int, url: str) -> tuple[str, int]:
         with self.connection.cursor() as cursor:
             cursor.execute("SELECT id FROM external_problems WHERE code = %s", (code,))
             row = cursor.fetchone()
             if row:
                 cursor.execute(
-                    "UPDATE external_problems SET title = %s, rating = %s, submit_count = %s, "
-                    "accepted_count = %s, updated_at = NOW() WHERE id = %s",
-                    (title, rating, attempts, accepted, row[0]))
-                return "updated"
+                    "UPDATE external_problems SET title = %s, rating = %s, difficulty = %s, "
+                    "`time` = %s, submit_count = %s, accepted_count = %s, updated_at = NOW() WHERE id = %s",
+                    (title, rating, difficulty, event_time, attempts, accepted, row[0]))
+                return "updated", int(row[0])
             cursor.execute("SELECT id FROM external_problems WHERE url = %s", (url,))
             row = cursor.fetchone()
             if row:
                 # Imported earlier without a code: fill it in and refresh the counters.
                 cursor.execute(
-                    "UPDATE external_problems SET code = %s, title = %s, rating = %s, submit_count = %s, "
-                    "accepted_count = %s, updated_at = NOW() WHERE id = %s",
-                    (code, title, rating, attempts, accepted, row[0]))
-                return "updated"
+                    "UPDATE external_problems SET code = %s, title = %s, rating = %s, difficulty = %s, "
+                    "`time` = %s, submit_count = %s, accepted_count = %s, updated_at = NOW() WHERE id = %s",
+                    (code, title, rating, difficulty, event_time, attempts, accepted, row[0]))
+                return "updated", int(row[0])
             cursor.execute(
                 "INSERT INTO external_problems "
-                "(source_id, code, title, rating, submit_count, accepted_count, url, created_at, updated_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())",
-                (source_id, code, title, rating, attempts, accepted, url))
-            return "inserted"
+                "(source_id, code, title, rating, difficulty, `time`, submit_count, accepted_count, url, "
+                "created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())",
+                (source_id, code, title, rating, difficulty, event_time, attempts, accepted, url))
+            return "inserted", int(cursor.lastrowid)
+
+    def replace_external_tags(self, external_id: int, names: list[str]) -> None:
+        """Replaces every tag link of one external problem with the supplied tag names."""
+        unique_names: list[str] = []
+        seen: set[str] = set()
+        for raw_name in names:
+            name = (raw_name or "").strip()
+            if name and name not in seen:
+                seen.add(name)
+                unique_names.append(name)
+
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM external_problem_tags WHERE external_problem_id = %s", (external_id,))
+            for name in unique_names:
+                tag_id = self._tags.get(name)
+                if tag_id is None:
+                    cursor.execute("INSERT IGNORE INTO tags (name) VALUES (%s)", (name,))
+                    cursor.execute("SELECT id FROM tags WHERE name = %s", (name,))
+                    row = cursor.fetchone()
+                    if row is None:
+                        continue
+                    tag_id = int(row[0])
+                    self._tags[name] = tag_id
+                cursor.execute(
+                    "INSERT IGNORE INTO external_problem_tags (external_problem_id, tag_id) "
+                    "VALUES (%s, %s)",
+                    (external_id, tag_id))
+
+    def load_external_tags_by_url(self) -> dict[str, list[str]]:
+        """Snapshots existing tag links keyed by URL, so --clear can restore non-Codeforces tags."""
+        result: dict[str, list[str]] = {}
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT e.url, t.name FROM external_problems e "
+                "JOIN external_problem_tags ept ON ept.external_problem_id = e.id "
+                "JOIN tags t ON t.id = ept.tag_id ORDER BY e.url, t.name")
+            for url, name in cursor.fetchall():
+                result.setdefault(url, []).append(name)
+        return result
 
     def clear_external_problems(self) -> int:
         """Deletes every external problem and its tag links (the FK cascades)."""
@@ -344,19 +468,28 @@ def cmd_sync(args: argparse.Namespace) -> int:
     client = ClistClient(env("CLIST_USERNAME"), env("CLIST_API_KEY"), args.interval)
     state = load_state(args.state_file)
     store = None if args.dry_run else Store(connect())
+    preserved_tags: dict[str, list[str]] = {}
     if store:
         log.info("已连接 %s/%s", env("IOJ_DB_HOST", "127.0.0.1"), env("IOJ_DB_NAME", "ioj"))
         if args.clear:
+            preserved_tags = store.load_external_tags_by_url()
             deleted = store.clear_external_problems()
             # Clearing the table invalidates every incremental watermark. Persist the empty state
             # immediately so an interrupted import cannot leave a high-water mark behind.
             state = {}
             save_state(args.state_file, state)
-            log.info("已清空 external_problems：%s 行", deleted)
+            log.info("已清空 external_problems：%s 行（保留 %s 条标签关联待恢复）",
+                     deleted, sum(len(v) for v in preserved_tags.values()))
+
+    cf_tags: dict[tuple[int, str], list[str]] = {}
+    if store and "codeforces.com" in args.platforms:
+        log.info("拉取 Codeforces 官方题目标签 ...")
+        cf_tags = fetch_codeforces_tags()
+        log.info("Codeforces 标签已加载：%s 道题", len(cf_tags))
 
     totals = {"inserted": 0, "updated": 0, "skipped": 0}
     skip_reasons: dict[str, int] = {}
-    preview: list[tuple[str, str, int | None, int, int]] = []
+    preview: list[tuple[str, str, int | None, str, int, int]] = []
 
     for platform in args.platforms:
         config = PLATFORMS[platform]
@@ -397,17 +530,30 @@ def cmd_sync(args: argparse.Namespace) -> int:
 
                 title = (obj.get("name") or "").strip() or code
                 rating = obj.get("rating")
+                difficulty = difficulty_for(platform, rating)
+                event_time = parse_clist_time(obj.get("time"))
                 attempts = int(obj.get("n_attempts") or 0)
                 accepted = int(obj.get("n_accepted") or 0)
 
                 if store is None:
                     totals["inserted"] += 1
                     if len(preview) < 5:
-                        preview.append((code, title, rating, attempts, accepted))
+                        preview.append((code, title, rating, difficulty, attempts, accepted))
                     continue
 
                 try:
-                    action = store.upsert(source_id, code, title, rating, attempts, accepted, url)
+                    action, external_id = store.upsert(source_id, code, title, rating, difficulty,
+                                                       event_time, attempts, accepted, url)
+
+                    tags_to_write: list[str] | None = None
+                    if platform == "codeforces.com":
+                        key = codeforces_problem_key(url)
+                        if key is not None and key in cf_tags:
+                            tags_to_write = cf_tags[key]
+                    if tags_to_write is None:
+                        tags_to_write = preserved_tags.get(url)
+                    if tags_to_write is not None:
+                        store.replace_external_tags(external_id, tags_to_write)
                 except Exception as ex:  # noqa: BLE001 - one bad row must not stop the run
                     store.connection.rollback()
                     log.warning("写入失败 code=%s：%s", code, ex)
@@ -434,8 +580,9 @@ def cmd_sync(args: argparse.Namespace) -> int:
         save_state(args.state_file, state)
     if preview:
         print("\n--dry-run：以下 5 条为示例，未写入数据库")
-        for code, title, rating, attempts, accepted in preview:
-            print(f"  {code:<14} rating={rating!s:<6} 提交人数={attempts:<6} 通过人数={accepted:<6} {title}")
+        for code, title, rating, difficulty, attempts, accepted in preview:
+            print(f"  {code:<14} rating={rating!s:<6} difficulty={difficulty:<6} "
+                  f"提交人数={attempts:<6} 通过人数={accepted:<6} {title}")
     if args.dry_run:
         log.info("dry-run 完成：可处理 %s 条，跳过 %s 条（没有写入数据库）",
                  totals["inserted"], totals["skipped"])

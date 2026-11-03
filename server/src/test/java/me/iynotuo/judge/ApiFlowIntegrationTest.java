@@ -131,6 +131,14 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(badSource.statusCode()).isEqualTo(400);
         assertThat(JSON.readTree(badSource.body()).path("message").asString()).contains("来源");
 
+        // UNKNOWN is reserved for external problems; locally authored problems reject it
+        HttpResponse<String> badDifficulty = exchange(request("/api/v1/problems").POST(body(Map.of(
+                "title", "Bad Difficulty",
+                "difficulty", "UNKNOWN",
+                "description", "本地题不能使用 UNKNOWN"))), token);
+        assertThat(badDifficulty.statusCode()).isEqualTo(400);
+        assertThat(JSON.readTree(badDifficulty.body()).path("message").asString()).contains("EASY");
+
         // --- Unified catalog: local problems and external OJ links in one filtered list ---
         jdbcTemplate.update("INSERT INTO sources (name, created_at) VALUES (?, ?)",
                 "Codeforces", LocalDateTime.now());
@@ -138,9 +146,11 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
                 "SELECT id FROM sources WHERE name = ?", Long.class, "Codeforces");
         String externalUrl = "https://codeforces.com/problemset/problem/1/A";
         jdbcTemplate.update("INSERT INTO external_problems "
-                        + "(source_id, code, title, rating, submit_count, accepted_count, url, created_at, updated_at) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                sourceId, "CF_1A", "Two Sum", 1200, 42, 17, externalUrl,
+                        + "(source_id, code, title, rating, difficulty, `time`, submit_count, accepted_count, url, "
+                        + "created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                sourceId, "CF_1A", "Two Sum", 1200, "EASY",
+                LocalDateTime.of(2026, 10, 31, 22, 35), 42, 17, externalUrl,
                 LocalDateTime.now(), LocalDateTime.now());
         Long externalId = jdbcTemplate.queryForObject(
                 "SELECT id FROM external_problems WHERE url = ?", Long.class, externalUrl);
@@ -158,10 +168,17 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         JsonNode externalItem = externalOnly.path("data").path("items").get(0);
         assertThat(externalItem.path("kind").asString()).isEqualTo("EXTERNAL");
         assertThat(externalItem.path("code").asString()).isEqualTo("CF_1A");
+        assertThat(externalItem.path("time").asString()).isEqualTo("2026-10-31T22:35:00");
         assertThat(externalItem.path("url").asString()).isEqualTo(externalUrl);
         assertThat(externalItem.path("sourceName").asString()).isEqualTo("Codeforces");
         assertThat(externalItem.path("rating").asInt()).isEqualTo(1200);
-        assertThat(externalItem.path("difficulty").isNull()).isTrue();
+        assertThat(externalItem.path("difficulty").asString()).isEqualTo("EASY");
+        assertThat(get("/api/v1/catalog?kind=EXTERNAL&difficulty=EASY", null)
+                .path("data").path("total").asLong()).isEqualTo(1);
+        assertThat(get("/api/v1/catalog?kind=EXTERNAL&difficulty=HARD", null)
+                .path("data").path("total").asLong()).isZero();
+        assertThat(get("/api/v1/catalog?difficulty=EASY", null)
+                .path("data").path("total").asLong()).isEqualTo(2);
         // Counters come from the source OJ (imported), not from local judging
         assertThat(externalItem.path("submitCount").asInt()).isEqualTo(42);
         assertThat(externalItem.path("acceptedCount").asInt()).isEqualTo(17);
@@ -173,6 +190,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         JsonNode localItem = get("/api/v1/catalog?kind=LOCAL", null)
                 .path("data").path("items").get(0);
         assertThat(localItem.path("code").isNull()).isTrue();
+        assertThat(localItem.path("time").isNull()).isTrue();
 
         // Title search spans both kinds
         assertThat(get("/api/v1/catalog?keyword=Sum", null).path("data").path("total").asLong()).isEqualTo(1);
@@ -197,6 +215,32 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         // An unknown kind is a parameter error, not an empty page
         HttpResponse<String> badKind = exchange(request("/api/v1/catalog?kind=FOO").GET(), null);
         assertThat(badKind.statusCode()).isEqualTo(400);
+
+        // An external problem without a source rating is UNKNOWN, not EASY
+        String unratedUrl = "https://codeforces.com/problemset/problem/2/A";
+        jdbcTemplate.update("INSERT INTO external_problems "
+                        + "(source_id, code, title, rating, difficulty, submit_count, accepted_count, url, "
+                        + "created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                sourceId, "CF_2A", "Unrated Example", null, "UNKNOWN", 0, 0, unratedUrl,
+                LocalDateTime.now(), LocalDateTime.now());
+        JsonNode unknownOnly = get("/api/v1/catalog?kind=EXTERNAL&difficulty=UNKNOWN", null);
+        assertThat(unknownOnly.path("data").path("total").asLong()).isEqualTo(1);
+        assertThat(unknownOnly.path("data").path("items").get(0).path("difficulty").asString())
+                .isEqualTo("UNKNOWN");
+
+        // Repeated difficulty parameters are OR-ed: local EASY, external EASY and external HARD
+        String hardUrl = "https://codeforces.com/problemset/problem/3/A";
+        jdbcTemplate.update("INSERT INTO external_problems "
+                        + "(source_id, code, title, rating, difficulty, submit_count, accepted_count, url, "
+                        + "created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                sourceId, "CF_3A", "Hard Example", 2500, "HARD", 0, 0, hardUrl,
+                LocalDateTime.now(), LocalDateTime.now());
+        assertThat(get("/api/v1/catalog?difficulty=EASY&difficulty=HARD", null)
+                .path("data").path("total").asLong()).isEqualTo(3);
+        assertThat(get("/api/v1/catalog?difficulty=HARD", null)
+                .path("data").path("total").asLong()).isEqualTo(1);
 
         String correctCode = """
                 import java.util.Scanner;

@@ -2,6 +2,7 @@ package me.iynotuo.judge.problem.service;
 
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
+import me.iynotuo.judge.common.enums.Difficulty;
 import me.iynotuo.judge.common.enums.ProblemStatus;
 import me.iynotuo.judge.common.exception.BusinessException;
 import me.iynotuo.judge.common.exception.ErrorCode;
@@ -206,6 +207,9 @@ public class ProblemService {
     }
 
     private void applyRequest(Problem problem, ProblemSaveRequest request) {
+        if (request.difficulty() == Difficulty.UNKNOWN) {
+            throw BusinessException.of(ErrorCode.BAD_REQUEST, "本地题目难度只能是 EASY、MEDIUM 或 HARD");
+        }
         problem.setTitle(request.title().trim());
         problem.setDifficulty(request.difficulty());
         // Rating is an independent, optional numeric difficulty used for filtering; it is not

@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 /**
  * Raw row of the unified catalog query. {@code kind} is the constant column produced by the UNION;
  * the LOCAL branch fills the counters and author fields, the EXTERNAL branch leaves them null and
- * fills {@code code} instead.
+ * fills {@code code} and {@code time} instead.
  */
 @Data
 public class CatalogRow {
@@ -25,6 +25,11 @@ public class CatalogRow {
     private String code;
 
     private Difficulty difficulty;
+
+    /**
+     * Contest time of an external problem in China time (UTC+8); null for local problems.
+     */
+    private LocalDateTime time;
 
     private Integer rating;
 
