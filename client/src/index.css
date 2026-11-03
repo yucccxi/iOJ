@@ -1,10 +1,13 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* Only the glass theme blurs. Any backdrop-filter, even blur(0px), gives the element its own
+   compositing layer, and Chrome can leave such layers unpainted after a resize until a scroll. */
+@custom-variant glass (&:where([data-theme="glass"] *));
+
 /*
- * Figma "Theme" collection, Default mode. Dark and Glass override these on <html data-theme>;
+ * Default theme. Dark and Glass override these on <html data-theme>;
  * aliases use var() so they follow the override, which only works while data-theme sits on <html>.
- * Renamed groups: color/text/* → fg-*, color/border/* → line-*, color/bg/* drops the bg/ prefix.
  * static keeps tokens no class uses yet, so inline styles and JS can still read them.
  */
 @theme static {
@@ -76,13 +79,12 @@
   --radius-control: 8px;
   --radius-popover: 12px;
 
-  /* CSS blur() is half of Figma's background blur value. */
   --blur-layer: 0px;
   --blur-tile: 0px;
 
-  /* Effect styles Surface/Layer, Surface/Tile, Surface/Popover. */
   --shadow-layer:
-    0 8px 32px 0 var(--color-shadow-ambient), 0 1px 2px 0 var(--color-shadow-contact),
+    0 8px 32px 0 var(--color-shadow-ambient),
+    0 1px 2px 0 var(--color-shadow-contact),
     inset 0 1px 0 0 var(--color-highlight);
   --shadow-tile: 0 2px 8px 0 var(--color-shadow-contact);
   --shadow-popover: 0 2px 6px 0 #171a290f, 0 8px 24px -4px #171a291a;
@@ -102,9 +104,8 @@
   --spacing-form-helper-gap: 4px;
 
   /*
-   * Figma text styles. Styles that differ only in weight share one size:
-   * Body/Strong = text-body font-bold, Body/Marker = text-body font-medium,
-   * Label/Field Strong = text-field font-bold. Mono/* and Code/* still need font-mono.
+   * Weight variants share a size: text-body font-bold, text-body font-medium, text-field font-bold.
+   * Mono and code sizes still need font-mono.
    */
   --text-display: 30px;
   --text-display--line-height: 40px;

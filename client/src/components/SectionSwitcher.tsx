@@ -98,7 +98,7 @@ export default function SectionSwitcher() {
       {open && (
         <div
           role="menu"
-          className="absolute top-full left-0 z-20 mt-2 flex w-50 flex-col gap-0.5 rounded-popover border border-line-popover bg-popover p-1.5 shadow-popover backdrop-blur-layer"
+          className="absolute top-full left-0 z-20 mt-2 flex w-50 flex-col gap-0.5 rounded-popover border border-line-popover bg-popover p-1.5 shadow-popover glass:backdrop-blur-layer"
         >
           {mainSections.map(renderItem)}
           <div className="p-1">
