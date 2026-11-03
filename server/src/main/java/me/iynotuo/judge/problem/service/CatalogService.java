@@ -2,8 +2,12 @@ package me.iynotuo.judge.problem.service;
 
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
+import me.iynotuo.judge.common.enums.CatalogSort;
 import me.iynotuo.judge.common.enums.Difficulty;
+import me.iynotuo.judge.common.enums.SortOrder;
 import me.iynotuo.judge.common.enums.TagMatchMode;
+import me.iynotuo.judge.common.exception.BusinessException;
+import me.iynotuo.judge.common.exception.ErrorCode;
 import me.iynotuo.judge.problem.dto.CatalogItemVO;
 import me.iynotuo.judge.problem.dto.TagVO;
 import me.iynotuo.judge.problem.mapper.CatalogCriteria;
@@ -53,25 +57,35 @@ public class CatalogService {
      * @param keyword    title keyword (both kinds), blank means no filter
      * @param sourceId   source filter (both kinds), null means no filter
      * @param difficulties coarse difficulty filter; multiple values are OR-ed and apply to both kinds
-     * @param scopes      source scopes: {@code LOCAL}, {@code EXTERNAL}, or source names
-     *                    (case-insensitive, repeatable, OR-ed); null/empty means both kinds
+     * @param scopes      source scopes: {@code LOCAL} or source names (case-insensitive,
+     *                    repeatable, OR-ed); null/empty means both kinds
      * @param tagIds      tag ids to match (both kinds); null/empty means no tag filter
      * @param tagMatch    {@code ANY} (default) or {@code ALL}; only relevant when tagIds is set
      * @param rating      exact rating match, optional
      * @param minRating   inclusive lower bound, optional
      * @param maxRating   inclusive upper bound, optional
+     * @param sort        sort key; null means {@code DEFAULT}. {@code RATING} requires exactly one
+     *                    {@code scope} because ratings are not comparable across sources
+     * @param order       sort direction; null means {@code DESC}
      * @param query       pagination
-     * @return one page mixing both kinds, newest first
+     * @return one page mixing both kinds, sorted by the requested key
      */
     public PageResult<CatalogItemVO> page(String keyword, Long sourceId, List<Difficulty> difficulties,
                                           List<String> scopes, List<Long> tagIds, TagMatchMode tagMatch,
                                           Integer rating, Integer minRating, Integer maxRating,
-                                          PageQuery query) {
+                                          CatalogSort sort, SortOrder order, PageQuery query) {
+        CatalogSort effectiveSort = sort == null ? CatalogSort.DEFAULT : sort;
+        List<String> normalizedScopes = normalizeScopes(scopes);
+        if (effectiveSort == CatalogSort.RATING && normalizedScopes.size() != 1) {
+            throw BusinessException.of(ErrorCode.BAD_REQUEST,
+                    "按 rating 排序时必须且只能指定一个 scope");
+        }
+
         CatalogCriteria criteria = new CatalogCriteria();
         criteria.setKeyword(StringUtils.hasText(keyword) ? keyword.trim() : null);
         criteria.setSourceId(sourceId);
         criteria.setDifficulties(difficulties == null || difficulties.isEmpty() ? null : difficulties);
-        applyScope(criteria, scopes);
+        applyScope(criteria, normalizedScopes);
         List<Long> normalizedTagIds = tagIds == null ? null : tagIds.stream()
                 .filter(Objects::nonNull)
                 .distinct()
@@ -82,6 +96,8 @@ public class CatalogService {
         criteria.setRating(rating);
         criteria.setMinRating(minRating);
         criteria.setMaxRating(maxRating);
+        criteria.setSort(effectiveSort.name());
+        criteria.setSortAscending(order == SortOrder.ASC);
 
         long total = catalogMapper.count(criteria);
         if (total == 0) {
@@ -113,30 +129,32 @@ public class CatalogService {
     /**
      * Translates the public {@code scope} values into the two UNION-branch flags.
      *
-     * <p>{@code LOCAL} keeps the local branch, {@code EXTERNAL} keeps every external row, and any
-     * other value is treated as an external source name (case-insensitive). Multiple values are
-     * OR-ed, so {@code LOCAL&scope=Codeforces} returns local problems plus Codeforces problems.</p>
+     * <p>{@code LOCAL} keeps the local branch and any other value is treated as an external source
+     * name (case-insensitive). Multiple values are OR-ed, so {@code LOCAL&scope=Codeforces} returns
+     * local problems plus Codeforces problems.</p>
      */
-    private void applyScope(CatalogCriteria criteria, List<String> scopes) {
-        List<String> normalized = scopes == null ? List.of() : scopes.stream()
+    private List<String> normalizeScopes(List<String> scopes) {
+        return scopes == null ? List.of() : scopes.stream()
                 .filter(StringUtils::hasText)
                 .map(scope -> scope.trim().toLowerCase(Locale.ROOT))
                 .distinct()
                 .toList();
-        if (normalized.isEmpty()) {
+    }
+
+    private void applyScope(CatalogCriteria criteria, List<String> normalizedScopes) {
+        if (normalizedScopes.isEmpty()) {
             criteria.setIncludeLocal(true);
             criteria.setIncludeExternal(true);
             criteria.setExternalSources(null);
             return;
         }
 
-        boolean includeAllExternal = normalized.contains("external");
-        List<String> namedSources = normalized.stream()
-                .filter(scope -> !scope.equals("local") && !scope.equals("external"))
+        List<String> namedSources = normalizedScopes.stream()
+                .filter(scope -> !scope.equals("local"))
                 .toList();
-        criteria.setIncludeLocal(normalized.contains("local"));
-        criteria.setIncludeExternal(includeAllExternal || !namedSources.isEmpty());
-        criteria.setExternalSources(includeAllExternal ? null : namedSources);
+        criteria.setIncludeLocal(normalizedScopes.contains("local"));
+        criteria.setIncludeExternal(!namedSources.isEmpty());
+        criteria.setExternalSources(namedSources.isEmpty() ? null : namedSources);
     }
 
     private Map<Long, List<TagVO>> loadLocalTags(List<CatalogRow> rows) {

@@ -23,8 +23,14 @@
 | `tagMatch` | string | 多标签匹配模式：`ANY`（默认，满足任一标签）或 `ALL`（满足全部标签）；只传一个 `tagId` 时两种模式等价；传其他值返回 `400`（`1000`） |
 | `rating` | 整数 | 难度分**精确**匹配 |
 | `minRating` / `maxRating` | 整数 | 难度分**区间**（闭区间），可只传一边 |
-| `scope` | string | 来源范围：`LOCAL`（本地题库）、`EXTERNAL`（全部外部题），或来源名称（如 `Codeforces`、`AtCoder`，从 `/meta/sources` 获取）。大小写不敏感，可重复传多个表示 OR，例如 `scope=LOCAL&scope=Codeforces`；不传表示全部。未知来源返回空列表，不报错 |
+| `scope` | string | 来源范围：`LOCAL`（本地题库）或来源名称（如 `Codeforces`、`AtCoder`，从 `/meta/sources` 获取）。大小写不敏感，可重复传多个表示 OR，例如 `scope=LOCAL&scope=Codeforces`；不传表示全部。未知来源返回空列表，不报错 |
+| `sort` | string | 排序依据：`DEFAULT`、`RATING`、`ACCEPTED`、`SUBMISSIONS`、`ACCEPTANCE_RATE`；不传为 `DEFAULT`。`RATING` 必须且只能指定一个 `scope` |
+| `order` | string | 排序方向：`ASC` / `DESC`；不传为 `DESC`。无提交的题目在 `ACCEPTANCE_RATE` 下始终排最后，不受方向影响 |
 | `page` / `size` | 整数 | 分页，见 [1.4 分页](01-conventions.md#14-分页) |
+
+> 排序示例：`?scope=Codeforces&sort=RATING&order=ASC` 在 Codeforces 内从易到难，`?sort=ACCEPTED&order=DESC` 按通过数从高到低；`order` 不传时默认 `DESC`。
+
+> 因为不同来源的 rating 刻度不可比，`sort=RATING` 必须且只能指定一个 `scope`。例如 `scope=Codeforces&sort=RATING` 合法；不传 `scope` 或传多个 `scope` 会返回 `400`（`1000`）。
 
 > `scope` 用于区分本地题库和外部平台；`sourceId` 是 `sources` 表的具体来源 id，两者可以组合使用。多个 `scope` 和 `difficulty` 都用重复参数表示 OR。
 
@@ -37,7 +43,7 @@
 >
 > `tagId` 可以跨本地题和外部题生效：本地题查 `problem_tags`，外部题查 `external_problem_tags`。
 
-> `time` 已转换为中国时区（UTC+8），字符串本身不带时区后缀，前端按 `Asia/Shanghai` 展示即可。
+> `time` 已转换为 UTC+8，字符串本身不带时区后缀。
 
 > `rating` 的刻度随来源而定（例如 Codeforces 800–3500、校内比赛可能没有评分），**跨来源排序不可比**；未设置评分的题目接口返回 `0`，但按 `rating` 筛选时不会命中（数据库里仍是 `NULL`）。
 
@@ -107,9 +113,21 @@
 | `tags` | 标签数组，两类题目共用标签表；外部题目前只有 Codeforces 有主题标签，AtCoder 通常为空 |
 | `createdAt` | 录入时间 |
 
-**排序**：按 `createdAt` 倒序（最新在前）；同一时间戳时 `LOCAL` 在 `EXTERNAL` 之后、再按 id 倒序，保证翻页稳定。
+**排序**：
 
-**常见错误**：`1000`（`rating`/`minRating`/`maxRating` 不是整数、`tagMatch` 不是 `ANY`/`ALL`、分页参数非法）。未知的 `scope` 不报错，返回空列表。
+| `sort` | 排序规则 |
+| --- | --- |
+| `DEFAULT` | 本地题按 `updatedAt`，外部题按 `time`；方向由 `order` 决定，默认 `DESC`；时间为空的外部题始终排最后 |
+| `RATING` | 按 `rating`；未评分按 `0` 处理 |
+| `ACCEPTED` | 按 `acceptedCount` |
+| `SUBMISSIONS` | 按 `submitCount` |
+| `ACCEPTANCE_RATE` | 按 `acceptedCount / submitCount`；`submitCount=0` 的题目始终排在最后 |
+
+`RATING`、`ACCEPTED`、`SUBMISSIONS`、`ACCEPTANCE_RATE` 的方向也由 `order` 决定，默认 `DESC`。
+
+以上排序在值相同时，都会再按 `LOCAL` / `EXTERNAL` 和 id 倒序做稳定 tie-break，保证翻页结果稳定。
+
+**常见错误**：`1000`（`rating`/`minRating`/`maxRating` 不是整数、`tagMatch` 不是 `ANY`/`ALL`、`sort` 或 `order` 不是合法枚举值、`sort=RATING` 时没有指定单一 `scope`、分页参数非法）。未知的 `scope` 不报错，返回空列表。
 
 ## 10.2 前端渲染建议
 

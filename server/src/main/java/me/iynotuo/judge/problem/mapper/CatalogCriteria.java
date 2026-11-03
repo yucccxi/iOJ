@@ -67,6 +67,17 @@ public class CatalogCriteria {
      */
     private List<String> externalSources;
 
+    /**
+     * Sort key name: {@code DEFAULT}, {@code RATING}, {@code ACCEPTED}, {@code SUBMISSIONS} or
+     * {@code ACCEPTANCE_RATE}.
+     */
+    private String sort = "DEFAULT";
+
+    /**
+     * {@code true} for ascending order, {@code false} for descending (the default).
+     */
+    private boolean sortAscending;
+
     private int offset;
 
     private int limit;

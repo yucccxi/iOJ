@@ -3,7 +3,9 @@ package me.iynotuo.judge.problem.controller;
 import me.iynotuo.judge.common.api.ApiResponse;
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
+import me.iynotuo.judge.common.enums.CatalogSort;
 import me.iynotuo.judge.common.enums.Difficulty;
+import me.iynotuo.judge.common.enums.SortOrder;
 import me.iynotuo.judge.common.enums.TagMatchMode;
 import me.iynotuo.judge.problem.dto.CatalogItemVO;
 import me.iynotuo.judge.problem.service.CatalogService;
@@ -36,7 +38,7 @@ public class CatalogController {
      *
      * @param keyword    optional title keyword (applies to both kinds)
      * @param sourceId   optional source filter (applies to both kinds)
-     * @param difficulties optional coarse difficulties (repeat the parameter to OR them; applies to
+     * @param difficulty optional coarse difficulties (repeat the parameter to OR them; applies to
      *                     both local and external problems), e.g.
      *                     {@code difficulty=EASY&difficulty=HARD}
      * @param tagId        optional tag ids (repeatable; applies to both kinds), e.g.
@@ -45,12 +47,16 @@ public class CatalogController {
      * @param rating       optional exact rating match
      * @param minRating    optional inclusive lower bound of rating
      * @param maxRating    optional inclusive upper bound of rating
-     * @param scope        optional source scope: {@code LOCAL}, {@code EXTERNAL}, or a source name
-     *                     such as {@code Codeforces} / {@code AtCoder}; repeatable and
-     *                     case-insensitive, e.g. {@code scope=LOCAL&scope=Codeforces}
+     * @param scope        optional source scope: {@code LOCAL} or a source name such as
+     *                     {@code Codeforces} / {@code AtCoder}; repeatable and case-insensitive,
+     *                     e.g. {@code scope=LOCAL&scope=Codeforces}
+     * @param sort         sort key: {@code DEFAULT}, {@code RATING}, {@code ACCEPTED},
+     *                     {@code SUBMISSIONS} or {@code ACCEPTANCE_RATE}; omitted means
+     *                     {@code DEFAULT}. {@code RATING} requires exactly one {@code scope}
+     * @param order        sort direction: {@code ASC} or {@code DESC}; omitted means {@code DESC}
      * @param page         1-based page number
      * @param size         page size
-     * @return a page mixing both kinds, newest first
+     * @return a page mixing both kinds, sorted by the requested key
      */
     @GetMapping
     public ApiResponse<PageResult<CatalogItemVO>> page(@RequestParam(required = false) String keyword,
@@ -62,9 +68,11 @@ public class CatalogController {
                                                        @RequestParam(required = false) Integer rating,
                                                        @RequestParam(required = false) Integer minRating,
                                                        @RequestParam(required = false) Integer maxRating,
+                                                       @RequestParam(required = false) CatalogSort sort,
+                                                       @RequestParam(required = false) SortOrder order,
                                                        @RequestParam(required = false) Integer page,
                                                        @RequestParam(required = false) Integer size) {
         return ApiResponse.ok(catalogService.page(keyword, sourceId, difficulty, scope, tagId, tagMatch,
-                rating, minRating, maxRating, PageQuery.of(page, size)));
+                rating, minRating, maxRating, sort, order, PageQuery.of(page, size)));
     }
 }

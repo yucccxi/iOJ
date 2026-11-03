@@ -150,7 +150,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
                         + "created_at, updated_at) "
                         + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 sourceId, "CF_1A", "Two Sum", 1200, "EASY",
-                LocalDateTime.of(2026, 10, 31, 22, 35), 42, 17, externalUrl,
+                LocalDateTime.of(2020, 1, 1, 8, 0), 42, 17, externalUrl,
                 LocalDateTime.now(), LocalDateTime.now());
         Long externalId = jdbcTemplate.queryForObject(
                 "SELECT id FROM external_problems WHERE url = ?", Long.class, externalUrl);
@@ -162,8 +162,8 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(catalog.path("data").path("total").asLong()).isEqualTo(2);
         assertThat(catalog.path("data").path("items").size()).isEqualTo(2);
 
-        // scope=EXTERNAL returns only the OJ link, with url and sourceName filled in
-        JsonNode externalOnly = get("/api/v1/catalog?scope=EXTERNAL", null);
+        // scope=Codeforces returns only the OJ link, with url and sourceName filled in
+        JsonNode externalOnly = get("/api/v1/catalog?scope=Codeforces", null);
         assertThat(externalOnly.path("data").path("total").asLong()).isEqualTo(1);
         // A concrete source name filters to that external platform; repeated scopes are OR-ed
         assertThat(get("/api/v1/catalog?scope=codeforces", null)
@@ -173,14 +173,14 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         JsonNode externalItem = externalOnly.path("data").path("items").get(0);
         assertThat(externalItem.path("kind").asString()).isEqualTo("EXTERNAL");
         assertThat(externalItem.path("code").asString()).isEqualTo("CF_1A");
-        assertThat(externalItem.path("time").asString()).isEqualTo("2026-10-31T22:35:00");
+        assertThat(externalItem.path("time").asString()).isEqualTo("2020-01-01T08:00:00");
         assertThat(externalItem.path("url").asString()).isEqualTo(externalUrl);
         assertThat(externalItem.path("sourceName").asString()).isEqualTo("Codeforces");
         assertThat(externalItem.path("rating").asInt()).isEqualTo(1200);
         assertThat(externalItem.path("difficulty").asString()).isEqualTo("EASY");
-        assertThat(get("/api/v1/catalog?scope=EXTERNAL&difficulty=EASY", null)
+        assertThat(get("/api/v1/catalog?scope=Codeforces&difficulty=EASY", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?scope=EXTERNAL&difficulty=HARD", null)
+        assertThat(get("/api/v1/catalog?scope=Codeforces&difficulty=HARD", null)
                 .path("data").path("total").asLong()).isZero();
         assertThat(get("/api/v1/catalog?difficulty=EASY", null)
                 .path("data").path("total").asLong()).isEqualTo(2);
@@ -221,8 +221,49 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
                 .path("data").path("total").asLong()).isEqualTo(1);
         assertThat(get("/api/v1/catalog?" + bothTags + "&scope=LOCAL&tagMatch=ALL", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?" + bothTags + "&scope=EXTERNAL&tagMatch=ALL", null)
+        assertThat(get("/api/v1/catalog?" + bothTags + "&scope=Codeforces&tagMatch=ALL", null)
                 .path("data").path("total").asLong()).isZero();
+
+        // Sorting: external has the higher rating/counters, local has no submissions
+        assertThat(get("/api/v1/catalog?scope=Codeforces&sort=RATING", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("EXTERNAL");
+        assertThat(get("/api/v1/catalog?sort=ACCEPTED", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("EXTERNAL");
+        assertThat(get("/api/v1/catalog?sort=SUBMISSIONS", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("EXTERNAL");
+        assertThat(get("/api/v1/catalog?sort=ACCEPTANCE_RATE", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("EXTERNAL");
+        assertThat(get("/api/v1/catalog?sort=ACCEPTANCE_RATE", null)
+                .path("data").path("items").get(1).path("kind").asString()).isEqualTo("LOCAL");
+        assertThat(get("/api/v1/catalog?sort=DEFAULT", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("LOCAL");
+
+        // ASC reverses the primary direction, but zero-submission rows stay last for rate
+        assertThat(get("/api/v1/catalog?scope=LOCAL&sort=RATING&order=ASC", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("LOCAL");
+        assertThat(get("/api/v1/catalog?sort=ACCEPTED&order=ASC", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("LOCAL");
+        assertThat(get("/api/v1/catalog?sort=SUBMISSIONS&order=ASC", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("LOCAL");
+        assertThat(get("/api/v1/catalog?sort=ACCEPTANCE_RATE&order=ASC", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("EXTERNAL");
+        assertThat(get("/api/v1/catalog?sort=DEFAULT&order=ASC", null)
+                .path("data").path("items").get(0).path("kind").asString()).isEqualTo("EXTERNAL");
+
+        HttpResponse<String> badSort = exchange(request("/api/v1/catalog?sort=FOO").GET(), null);
+        assertThat(badSort.statusCode()).isEqualTo(400);
+        assertThat(JSON.readTree(badSort.body()).path("code").asInt()).isEqualTo(1000);
+        HttpResponse<String> badOrder = exchange(request("/api/v1/catalog?order=FOO").GET(), null);
+        assertThat(badOrder.statusCode()).isEqualTo(400);
+        assertThat(JSON.readTree(badOrder.body()).path("code").asInt()).isEqualTo(1000);
+        HttpResponse<String> ratingWithoutScope = exchange(
+                request("/api/v1/catalog?sort=RATING").GET(), null);
+        assertThat(ratingWithoutScope.statusCode()).isEqualTo(400);
+        assertThat(JSON.readTree(ratingWithoutScope.body()).path("code").asInt()).isEqualTo(1000);
+        HttpResponse<String> ratingWithMultipleScopes = exchange(
+                request("/api/v1/catalog?scope=LOCAL&scope=Codeforces&sort=RATING").GET(), null);
+        assertThat(ratingWithMultipleScopes.statusCode()).isEqualTo(400);
+        assertThat(JSON.readTree(ratingWithMultipleScopes.body()).path("code").asInt()).isEqualTo(1000);
 
         // Rating range keeps only the local 800, and exact rating matches one row too
         assertThat(get("/api/v1/catalog?minRating=700&maxRating=900", null)
@@ -247,7 +288,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
                         + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 sourceId, "CF_2A", "Unrated Example", null, "UNKNOWN", 0, 0, unratedUrl,
                 LocalDateTime.now(), LocalDateTime.now());
-        JsonNode unknownOnly = get("/api/v1/catalog?scope=EXTERNAL&difficulty=UNKNOWN", null);
+        JsonNode unknownOnly = get("/api/v1/catalog?scope=Codeforces&difficulty=UNKNOWN", null);
         assertThat(unknownOnly.path("data").path("total").asLong()).isEqualTo(1);
         assertThat(unknownOnly.path("data").path("items").get(0).path("difficulty").asString())
                 .isEqualTo("UNKNOWN");

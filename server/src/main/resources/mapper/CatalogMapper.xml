@@ -30,7 +30,8 @@
                p.accepted_count AS accepted_count,
                p.author_id AS author_id,
                u.nickname AS author_nickname,
-               p.created_at AS created_at
+               p.created_at AS created_at,
+               p.updated_at AS sort_time
         FROM problems p
         LEFT JOIN sources s ON s.id = p.source_id
         JOIN users u ON u.id = p.author_id
@@ -94,7 +95,8 @@
                e.accepted_count AS accepted_count,
                NULL AS author_id,
                CAST(NULL AS CHAR(32)) AS author_nickname,
-               e.created_at AS created_at
+               e.created_at AS created_at,
+               e.time AS sort_time
         FROM external_problems e
         JOIN sources s ON s.id = e.source_id
         WHERE 1 = 1
@@ -154,7 +156,43 @@
         SELECT c.kind, c.ref_id, c.title, c.code, c.difficulty, c.time, c.rating, c.source_id, c.source_name, c.url,
                c.submit_count, c.accepted_count, c.author_id, c.author_nickname, c.created_at
         FROM ( <include refid="unionBody"/> ) c
-        ORDER BY c.created_at DESC, c.kind, c.ref_id DESC
+        <choose>
+            <when test="criteria.sort == 'RATING'">
+                ORDER BY COALESCE(c.rating, 0)
+                <if test="criteria.sortAscending">ASC</if>
+                <if test="!criteria.sortAscending">DESC</if>,
+                c.kind, c.ref_id DESC
+            </when>
+            <when test="criteria.sort == 'ACCEPTED'">
+                ORDER BY c.accepted_count
+                <if test="criteria.sortAscending">ASC</if>
+                <if test="!criteria.sortAscending">DESC</if>,
+                c.kind, c.ref_id DESC
+            </when>
+            <when test="criteria.sort == 'SUBMISSIONS'">
+                ORDER BY c.submit_count
+                <if test="criteria.sortAscending">ASC</if>
+                <if test="!criteria.sortAscending">DESC</if>,
+                c.kind, c.ref_id DESC
+            </when>
+            <when test="criteria.sort == 'ACCEPTANCE_RATE'">
+                ORDER BY
+                    CASE WHEN c.submit_count = 0 THEN 1 ELSE 0 END ASC,
+                    CASE WHEN c.submit_count = 0 THEN 0
+                         ELSE c.accepted_count * 1.0 / c.submit_count END
+                    <if test="criteria.sortAscending">ASC</if>
+                    <if test="!criteria.sortAscending">DESC</if>,
+                    c.kind, c.ref_id DESC
+            </when>
+            <otherwise>
+                ORDER BY
+                    CASE WHEN c.sort_time IS NULL THEN 1 ELSE 0 END ASC,
+                    c.sort_time
+                    <if test="criteria.sortAscending">ASC</if>
+                    <if test="!criteria.sortAscending">DESC</if>,
+                    c.kind, c.ref_id DESC
+            </otherwise>
+        </choose>
         LIMIT #{criteria.limit} OFFSET #{criteria.offset}
     </select>
 
