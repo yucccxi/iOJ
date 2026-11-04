@@ -15,13 +15,13 @@ import me.iynotuo.judge.problem.mapper.CatalogMapper;
 import me.iynotuo.judge.problem.mapper.CatalogRow;
 import me.iynotuo.judge.problem.mapper.ExternalProblemTagMapper;
 import me.iynotuo.judge.problem.mapper.ExternalProblemTagRow;
+import me.iynotuo.judge.problem.mapper.ProblemScopeMapper;
 import me.iynotuo.judge.problem.mapper.ProblemTagRow;
 import me.iynotuo.judge.problem.mapper.TagMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -42,13 +42,16 @@ public class CatalogService {
     private final CatalogMapper catalogMapper;
     private final TagMapper tagMapper;
     private final ExternalProblemTagMapper externalProblemTagMapper;
+    private final ProblemScopeMapper problemScopeMapper;
 
     public CatalogService(CatalogMapper catalogMapper,
                           TagMapper tagMapper,
-                          ExternalProblemTagMapper externalProblemTagMapper) {
+                          ExternalProblemTagMapper externalProblemTagMapper,
+                          ProblemScopeMapper problemScopeMapper) {
         this.catalogMapper = catalogMapper;
         this.tagMapper = tagMapper;
         this.externalProblemTagMapper = externalProblemTagMapper;
+        this.problemScopeMapper = problemScopeMapper;
     }
 
     /**
@@ -56,8 +59,7 @@ public class CatalogService {
      *
      * @param keyword    title keyword (both kinds), blank means no filter
      * @param difficulties coarse difficulty filter; multiple values are OR-ed and apply to both kinds
-     * @param scopes      scope filter: {@code LOCAL} or scope names (case-insensitive,
-     *                    repeatable, OR-ed); null/empty means both kinds
+     * @param scopeIds    scope ids to match (repeatable, OR-ed); null/empty means every scope
      * @param tagIds      tag ids to match (both kinds); null/empty means no tag filter
      * @param tagMatch    {@code ANY} (default) or {@code ALL}; only relevant when tagIds is set
      * @param rating      exact rating match, optional
@@ -70,20 +72,25 @@ public class CatalogService {
      * @return one page mixing both kinds, sorted by the requested key
      */
     public PageResult<CatalogItemVO> page(String keyword, List<Difficulty> difficulties,
-                                          List<String> scopes, List<Long> tagIds, TagMatchMode tagMatch,
+                                          List<Long> scopeIds, List<Long> tagIds, TagMatchMode tagMatch,
                                           Integer rating, Integer minRating, Integer maxRating,
                                           CatalogSort sort, SortOrder order, PageQuery query) {
         CatalogSort effectiveSort = sort == null ? CatalogSort.DEFAULT : sort;
-        List<String> normalizedScopes = normalizeScopes(scopes);
-        if (effectiveSort == CatalogSort.RATING && normalizedScopes.size() != 1) {
+        List<Long> normalizedScopeIds = normalizeScopeIds(scopeIds);
+        // A scope id that does not exist is a request-parameter error, not an empty result.
+        if (!normalizedScopeIds.isEmpty()
+                && problemScopeMapper.countByIds(normalizedScopeIds) != normalizedScopeIds.size()) {
+            throw BusinessException.of(ErrorCode.BAD_REQUEST, "scope 不存在");
+        }
+        if (effectiveSort == CatalogSort.RATING && normalizedScopeIds.size() != 1) {
             throw BusinessException.of(ErrorCode.BAD_REQUEST,
-                    "按 rating 排序时必须且只能指定一个 scope");
+                    "按 rating 排序时必须且只能指定一个 scopeId");
         }
 
         CatalogCriteria criteria = new CatalogCriteria();
         criteria.setKeyword(StringUtils.hasText(keyword) ? keyword.trim() : null);
         criteria.setDifficulties(difficulties == null || difficulties.isEmpty() ? null : difficulties);
-        applyScope(criteria, normalizedScopes);
+        criteria.setScopeIds(normalizedScopeIds.isEmpty() ? null : normalizedScopeIds);
         List<Long> normalizedTagIds = tagIds == null ? null : tagIds.stream()
                 .filter(Objects::nonNull)
                 .distinct()
@@ -125,34 +132,14 @@ public class CatalogService {
     }
 
     /**
-     * Translates the public {@code scope} values into the two UNION-branch flags.
-     *
-     * <p>{@code LOCAL} keeps the local branch and any other value is treated as an external scope
-     * name (case-insensitive). Multiple values are OR-ed, so {@code LOCAL&scope=Codeforces} returns
-     * local problems plus Codeforces problems.</p>
+     * Deduplicates the supplied scope ids and drops nulls. Existence is validated by the caller so
+     * an unknown id returns a request-parameter error instead of silently producing an empty page.
      */
-    private List<String> normalizeScopes(List<String> scopes) {
-        return scopes == null ? List.of() : scopes.stream()
-                .filter(StringUtils::hasText)
-                .map(scope -> scope.trim().toLowerCase(Locale.ROOT))
+    private List<Long> normalizeScopeIds(List<Long> scopeIds) {
+        return scopeIds == null ? List.of() : scopeIds.stream()
+                .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-    }
-
-    private void applyScope(CatalogCriteria criteria, List<String> normalizedScopes) {
-        if (normalizedScopes.isEmpty()) {
-            criteria.setIncludeLocal(true);
-            criteria.setIncludeExternal(true);
-            criteria.setExternalScopes(null);
-            return;
-        }
-
-        List<String> namedScopes = normalizedScopes.stream()
-                .filter(scope -> !scope.equals("local"))
-                .toList();
-        criteria.setIncludeLocal(normalizedScopes.contains("local"));
-        criteria.setIncludeExternal(!namedScopes.isEmpty());
-        criteria.setExternalScopes(namedScopes.isEmpty() ? null : namedScopes);
     }
 
     private Map<Long, List<TagVO>> loadLocalTags(List<CatalogRow> rows) {

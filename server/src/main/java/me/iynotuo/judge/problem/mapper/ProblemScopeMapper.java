@@ -17,6 +17,11 @@ public interface ProblemScopeMapper {
     ProblemScope findByName(@Param("name") String name);
 
     /**
+     * Counts how many of the supplied ids exist; used to reject unknown scope ids on search.
+     */
+    long countByIds(@Param("ids") List<Long> ids);
+
+    /**
      * Scopes with how many local problems and external OJ links reference them, for the admin page.
      */
     List<ScopeUsageRow> findAllWithUsage();

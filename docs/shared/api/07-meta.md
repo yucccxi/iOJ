@@ -65,7 +65,7 @@
 
 | 字段 | 说明 |
 | --- | --- |
-| `id` | scope id，用于响应里的 `scopeId` |
+| `id` | scope id，用于响应里的 `scopeId`，以及 `GET /catalog?scopeId={id}` 筛选 |
 | `name` | scope 名。`LOCAL` 是系统保留 scope，所有本地题都引用它；其余为外部 OJ 平台/比赛 |
 | `createdAt` | 创建时间 |
 | `problemCount` | 引用该 scope 的题目数（本地题 + 外部 OJ 链接）；`0` 表示可安全删除 |

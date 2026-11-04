@@ -6,7 +6,7 @@
 
 本地题只返回**已发布（`PUBLISHED`）**的题目；外部题没有发布状态，全部参与。草稿/待审核/已下架的本地题请走 `GET /problems/mine` 或管理员审核接口。
 
-> 本地题库首页就是 `GET /catalog?scope=LOCAL`；题目详情与出题相关的写操作仍在 `/problems` 下（见 [4. 题库](04-problems.md)）。
+> 本地题库首页可以请求 `GET /catalog?scopeId={LOCAL 的 id}`（id 从 `/meta/scopes` 获取）；题目详情与出题相关的写操作仍在 `/problems` 下（见 [4. 题库](04-problems.md)）。
 
 ## 10.1 搜索题目
 
@@ -22,18 +22,18 @@
 | `tagMatch` | string | 多标签匹配模式：`ANY`（默认，满足任一标签）或 `ALL`（满足全部标签）；只传一个 `tagId` 时两种模式等价；传其他值返回 `400`（`1000`） |
 | `rating` | 整数 | 难度分**精确**匹配 |
 | `minRating` / `maxRating` | 整数 | 难度分**区间**（闭区间），可只传一边 |
-| `scope` | string | scope 过滤：`LOCAL`（本地题库）或 scope 名称（如 `Codeforces`、`AtCoder`，从 `/meta/scopes` 获取）。大小写不敏感，可重复传多个表示 OR，例如 `scope=LOCAL&scope=Codeforces`；不传表示全部。未知 scope 返回空列表，不报错 |
-| `sort` | string | 排序依据：`DEFAULT`、`RATING`、`ACCEPTED`、`SUBMISSIONS`、`ACCEPTANCE_RATE`；不传为 `DEFAULT`。`RATING` 必须且只能指定一个 `scope` |
+| `scopeId` | 整数 | scope id（从 `/meta/scopes` 获取）。可重复传多个表示 OR，例如 `scopeId=16&scopeId=7`；本地题的 scope 是 `LOCAL` 的 id，外部题是各自平台的 id。不传表示全部。**传入不存在的 id 返回 `400`（`1000`）**，不是空列表 |
+| `sort` | string | 排序依据：`DEFAULT`、`RATING`、`ACCEPTED`、`SUBMISSIONS`、`ACCEPTANCE_RATE`；不传为 `DEFAULT`。`RATING` 必须且只能指定一个 `scopeId` |
 | `order` | string | 排序方向：`ASC` / `DESC`；不传为 `DESC`。无提交的题目在 `ACCEPTANCE_RATE` 下始终排最后，不受方向影响 |
 | `page` / `size` | 整数 | 分页，见 [1.4 分页](01-conventions.md#14-分页) |
 
-> 按具体 scope 过滤请使用 `scope=<name>`。
+> 按具体 scope 过滤请使用 `scopeId=<id>`。
 
-> 排序示例：`?scope=Codeforces&sort=RATING&order=ASC` 在 Codeforces 内从易到难，`?sort=ACCEPTED&order=DESC` 按通过数从高到低；`order` 不传时默认 `DESC`。
+> 排序示例：`?scopeId=7&sort=RATING&order=ASC` 在 Codeforces 内从易到难，`?sort=ACCEPTED&order=DESC` 按通过数从高到低；`order` 不传时默认 `DESC`。
 
-> 因为不同 scope 的 rating 刻度不可比，`sort=RATING` 必须且只能指定一个 `scope`。例如 `scope=Codeforces&sort=RATING` 合法；不传 `scope` 或传多个 `scope` 会返回 `400`（`1000`）。
+> 因为不同 scope 的 rating 刻度不可比，`sort=RATING` 必须且只能指定一个 `scopeId`。例如 `scopeId=7&sort=RATING` 合法；不传 `scopeId` 或传多个 `scopeId` 会返回 `400`（`1000`）。
 
-> `scope` 用于区分本地题库和外部平台；scope 名称来自 `/meta/scopes`。多个 `scope` 和 `difficulty` 都用重复参数表示 OR。
+> `scopeId` 的取值是对应 scope 的 id，名称只用于展示；id 从 `/meta/scopes` 获取。多个 `scopeId` 和 `difficulty` 都用重复参数表示 OR。
 
 > 多个 `difficulty` 用重复参数表示 OR：`?difficulty=EASY&difficulty=HARD`；不要写成 `difficulty=EASY,HARD`。
 
@@ -127,13 +127,13 @@
 
 以上排序在值相同时，都会再按本地/外部和 id 倒序做稳定 tie-break，保证翻页结果稳定。
 
-**常见错误**：`1000`（`rating`/`minRating`/`maxRating` 不是整数、`tagMatch` 不是 `ANY`/`ALL`、`sort` 或 `order` 不是合法枚举值、`sort=RATING` 时没有指定单一 `scope`、分页参数非法）。未知的 `scope` 不报错，返回空列表。
+**常见错误**：`1000`（`scopeId`/`rating`/`minRating`/`maxRating` 不是整数、`scopeId` 对应的 scope 不存在、`tagMatch` 不是 `ANY`/`ALL`、`sort` 或 `order` 不是合法枚举值、`sort=RATING` 时没有指定单一 `scopeId`、分页参数非法）。
 
 ## 10.2 前端渲染建议
 
 - 用一个列表渲染，用 `url` 区分卡片：外链题显示 `scopeName + code + rating + 外链图标`；本地题显示 `difficulty + rating + 通过率`（`acceptedCount / submitCount`）；
   > 本接口**不返回** `status`：本地题在列表里恒为已发布。
 - 本地题点击 → `GET /problems/{id}`；外链题点击 → `window.open(url)`（不带 `target="_blank"` 之外的额外跳转逻辑）；
-- 筛选栏：scope 下拉（`scope=LOCAL` / `scope=Codeforces` / `scope=AtCoder`，可多选）、标签下拉（按 `tagId`）、难度区间（`minRating`/`maxRating`）、搜索框（`keyword`）；
-- `scope` 的选项可直接使用 `GET /meta/scopes` 返回的名称（其中包含保留 scope `LOCAL`）；`scope` 大小写不敏感；
+- 筛选栏：scope 下拉（选项来自 `GET /meta/scopes`，选中后用其 `id` 作为 `scopeId` 参数，可多选）、标签下拉（按 `tagId`）、难度区间（`minRating`/`maxRating`）、搜索框（`keyword`）；
+- `scopeId` 的选项可直接使用 `GET /meta/scopes` 返回的 `id` 与 `name`（其中包含保留 scope `LOCAL`）；
 - 选择 scope 或标签后本地题也会参与结果（两者共用 scope 表、标签表），不需要前端做特殊分支。

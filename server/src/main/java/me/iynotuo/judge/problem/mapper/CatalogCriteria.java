@@ -11,8 +11,8 @@ import java.util.List;
  * <p>All filters are optional and combine with AND. {@code rating} applies to both branches.
  * {@code tagIds} resolves through {@code problem_tags} for local rows and through
  * {@code external_problem_tags} for external rows; {@code matchAllTags} selects AND instead of the
- * default OR. The public {@code scope} filter is translated into
- * {@code includeLocal}/{@code includeExternal}/{@code externalScopes}.</p>
+ * default OR. The public {@code scopeId} parameter is a list of scope ids and is applied to both
+ * branches.</p>
  */
 @Data
 public class CatalogCriteria {
@@ -51,19 +51,9 @@ public class CatalogCriteria {
     private List<Difficulty> difficulties;
 
     /**
-     * Whether the local problem branch participates in the UNION.
+     * Scope ids to match; null/empty means every scope. Applied to both local and external rows.
      */
-    private boolean includeLocal = true;
-
-    /**
-     * Whether the external OJ branch participates in the UNION.
-     */
-    private boolean includeExternal = true;
-
-    /**
-     * External scope names, lower-cased; null/empty means every external scope.
-     */
-    private List<String> externalScopes;
+    private List<Long> scopeIds;
 
     /**
      * Sort key name: {@code DEFAULT}, {@code RATING}, {@code ACCEPTED}, {@code SUBMISSIONS} or

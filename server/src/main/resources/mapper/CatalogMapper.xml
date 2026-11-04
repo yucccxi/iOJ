@@ -36,8 +36,11 @@
         LEFT JOIN scopes s ON s.id = p.scope_id
         JOIN users u ON u.id = p.author_id
         WHERE p.status = 'PUBLISHED'
-        <if test="criteria.includeLocal == false">
-            AND 1 = 0
+        <if test="criteria.scopeIds != null and criteria.scopeIds.size() > 0">
+            AND p.scope_id IN
+            <foreach collection="criteria.scopeIds" item="scopeId" open="(" separator="," close=")">
+                #{scopeId}
+            </foreach>
         </if>
         <if test="criteria.keyword != null and criteria.keyword != ''">
             AND p.title LIKE CONCAT('%', #{criteria.keyword}, '%')
@@ -97,13 +100,10 @@
         FROM external_problems e
         JOIN scopes s ON s.id = e.scope_id
         WHERE 1 = 1
-        <if test="criteria.includeExternal == false">
-            AND 1 = 0
-        </if>
-        <if test="criteria.includeExternal == true and criteria.externalScopes != null and criteria.externalScopes.size() > 0">
-            AND LOWER(s.name) IN
-            <foreach collection="criteria.externalScopes" item="scope" open="(" separator="," close=")">
-                #{scope}
+        <if test="criteria.scopeIds != null and criteria.scopeIds.size() > 0">
+            AND e.scope_id IN
+            <foreach collection="criteria.scopeIds" item="scopeId" open="(" separator="," close=")">
+                #{scopeId}
             </foreach>
         </if>
         <if test="criteria.keyword != null and criteria.keyword != ''">

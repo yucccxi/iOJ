@@ -94,7 +94,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(testcases.path("data").size()).isEqualTo(2);
 
         // The public problem list moved to GET /catalog (this endpoint now only serves detail + CRUD)
-        JsonNode list = get("/api/v1/catalog?scope=LOCAL", null);
+        JsonNode list = get("/api/v1/catalog?scopeId=" + localScopeId, null);
         assertThat(list.path("data").path("total").asLong()).isEqualTo(1);
         JsonNode listItem = list.path("data").path("items").get(0);
         assertThat(listItem.path("kind").isMissingNode()).isTrue();
@@ -115,17 +115,17 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(JSON.readTree(retiredList.body()).path("code").asInt()).isEqualTo(1000);
 
         // Rating/difficulty filters live on the catalog now
-        assertThat(get("/api/v1/catalog?scope=LOCAL&rating=800", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId + "&rating=800", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?scope=LOCAL&minRating=700&maxRating=900", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId + "&minRating=700&maxRating=900", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?scope=LOCAL&minRating=1000", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId + "&minRating=1000", null)
                 .path("data").path("total").asLong()).isZero();
-        assertThat(get("/api/v1/catalog?scope=LOCAL&maxRating=799", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId + "&maxRating=799", null)
                 .path("data").path("total").asLong()).isZero();
-        assertThat(get("/api/v1/catalog?scope=LOCAL&difficulty=EASY", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId + "&difficulty=EASY", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?scope=LOCAL&difficulty=HARD", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId + "&difficulty=HARD", null)
                 .path("data").path("total").asLong()).isZero();
 
         // A scopeId in the payload is ignored (the field no longer exists): local problems keep LOCAL
@@ -172,13 +172,11 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(catalog.path("data").path("total").asLong()).isEqualTo(2);
         assertThat(catalog.path("data").path("items").size()).isEqualTo(2);
 
-        // scope=Codeforces returns only the OJ link, with url and scopeName filled in
-        JsonNode externalOnly = get("/api/v1/catalog?scope=Codeforces", null);
+        // Filtering by the Codeforces scope id returns only the OJ link
+        JsonNode externalOnly = get("/api/v1/catalog?scopeId=" + scopeId, null);
         assertThat(externalOnly.path("data").path("total").asLong()).isEqualTo(1);
-        // A concrete scope name filters to that external platform; repeated scopes are OR-ed
-        assertThat(get("/api/v1/catalog?scope=codeforces", null)
-                .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?scope=LOCAL&scope=Codeforces", null)
+        // Repeated scope ids are OR-ed
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId + "&scopeId=" + scopeId, null)
                 .path("data").path("total").asLong()).isEqualTo(2);
         JsonNode externalItem = externalOnly.path("data").path("items").get(0);
         assertThat(externalItem.path("code").asString()).isEqualTo("CF_1A");
@@ -187,9 +185,9 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(externalItem.path("scopeName").asString()).isEqualTo("Codeforces");
         assertThat(externalItem.path("rating").asInt()).isEqualTo(1200);
         assertThat(externalItem.path("difficulty").asString()).isEqualTo("EASY");
-        assertThat(get("/api/v1/catalog?scope=Codeforces&difficulty=EASY", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + scopeId + "&difficulty=EASY", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?scope=Codeforces&difficulty=HARD", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + scopeId + "&difficulty=HARD", null)
                 .path("data").path("total").asLong()).isZero();
         assertThat(get("/api/v1/catalog?difficulty=EASY", null)
                 .path("data").path("total").asLong()).isEqualTo(2);
@@ -201,7 +199,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(externalItem.path("tags").size()).isEqualTo(1);
 
         // Local problems have no original-OJ code
-        JsonNode localItem = get("/api/v1/catalog?scope=LOCAL", null)
+        JsonNode localItem = get("/api/v1/catalog?scopeId=" + localScopeId, null)
                 .path("data").path("items").get(0);
         assertThat(localItem.path("code").isNull()).isTrue();
         assertThat(localItem.path("time").isNull()).isTrue();
@@ -210,10 +208,10 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(get("/api/v1/catalog?keyword=Sum", null).path("data").path("total").asLong()).isEqualTo(1);
         assertThat(get("/api/v1/catalog?keyword=Problem", null).path("data").path("total").asLong()).isEqualTo(1);
 
-        // Scope filtering: Codeforces matches only the external row, LOCAL only the local one
-        assertThat(get("/api/v1/catalog?scope=Codeforces", null)
+        // Scope id filtering: Codeforces matches only the external row, LOCAL only the local one
+        assertThat(get("/api/v1/catalog?scopeId=" + scopeId, null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?scope=LOCAL", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId, null)
                 .path("data").path("total").asLong()).isEqualTo(1);
 
         // The "math" tag is on both rows, so the tag filter keeps both kinds
@@ -228,14 +226,14 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
                 .path("data").path("total").asLong()).isEqualTo(2);
         assertThat(get("/api/v1/catalog?" + bothTags + "&tagMatch=ALL", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?" + bothTags + "&scope=LOCAL&tagMatch=ALL", null)
+        assertThat(get("/api/v1/catalog?" + bothTags + "&scopeId=" + localScopeId + "&tagMatch=ALL", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
-        assertThat(get("/api/v1/catalog?" + bothTags + "&scope=Codeforces&tagMatch=ALL", null)
+        assertThat(get("/api/v1/catalog?" + bothTags + "&scopeId=" + scopeId + "&tagMatch=ALL", null)
                 .path("data").path("total").asLong()).isZero();
 
         // Sorting: external has the higher rating/counters, local has no submissions.
         // Without a kind field, an external row is identified by its non-null url.
-        assertThat(get("/api/v1/catalog?scope=Codeforces&sort=RATING", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + scopeId + "&sort=RATING", null)
                 .path("data").path("items").get(0).path("url").isNull()).isFalse();
         assertThat(get("/api/v1/catalog?sort=ACCEPTED", null)
                 .path("data").path("items").get(0).path("url").isNull()).isFalse();
@@ -249,7 +247,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
                 .path("data").path("items").get(0).path("url").isNull()).isTrue();
 
         // ASC reverses the primary direction, but zero-submission rows stay last for rate
-        assertThat(get("/api/v1/catalog?scope=LOCAL&sort=RATING&order=ASC", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId + "&sort=RATING&order=ASC", null)
                 .path("data").path("items").get(0).path("url").isNull()).isTrue();
         assertThat(get("/api/v1/catalog?sort=ACCEPTED&order=ASC", null)
                 .path("data").path("items").get(0).path("url").isNull()).isTrue();
@@ -271,7 +269,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(ratingWithoutScope.statusCode()).isEqualTo(400);
         assertThat(JSON.readTree(ratingWithoutScope.body()).path("code").asInt()).isEqualTo(1000);
         HttpResponse<String> ratingWithMultipleScopes = exchange(
-                request("/api/v1/catalog?scope=LOCAL&scope=Codeforces&sort=RATING").GET(), null);
+                request("/api/v1/catalog?scopeId=" + localScopeId + "&scopeId=" + scopeId + "&sort=RATING").GET(), null);
         assertThat(ratingWithMultipleScopes.statusCode()).isEqualTo(400);
         assertThat(JSON.readTree(ratingWithMultipleScopes.body()).path("code").asInt()).isEqualTo(1000);
 
@@ -281,9 +279,10 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(get("/api/v1/catalog?rating=1200", null)
                 .path("data").path("total").asLong()).isEqualTo(1);
 
-        // An unknown scope is simply an empty result, not a parameter error
-        assertThat(get("/api/v1/catalog?scope=FOO", null)
-                .path("data").path("total").asLong()).isZero();
+        // An unknown scope id is a request-parameter error
+        HttpResponse<String> unknownScope = exchange(request("/api/v1/catalog?scopeId=999999").GET(), null);
+        assertThat(unknownScope.statusCode()).isEqualTo(400);
+        assertThat(JSON.readTree(unknownScope.body()).path("code").asInt()).isEqualTo(1000);
 
         // tagMatch only accepts ANY / ALL
         HttpResponse<String> badTagMatch = exchange(request("/api/v1/catalog?tagMatch=FOO").GET(), null);
@@ -298,7 +297,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
                         + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 scopeId, "CF_2A", "Unrated Example", null, "UNKNOWN", 0, 0, unratedUrl,
                 LocalDateTime.now(), LocalDateTime.now());
-        JsonNode unknownOnly = get("/api/v1/catalog?scope=Codeforces&difficulty=UNKNOWN", null);
+        JsonNode unknownOnly = get("/api/v1/catalog?scopeId=" + scopeId + "&difficulty=UNKNOWN", null);
         assertThat(unknownOnly.path("data").path("total").asLong()).isEqualTo(1);
         assertThat(unknownOnly.path("data").path("items").get(0).path("difficulty").asString())
                 .isEqualTo("UNKNOWN");

@@ -10,6 +10,13 @@
         SELECT id, name, created_at FROM scopes WHERE name = #{name}
     </select>
 
+    <select id="countByIds" resultType="long">
+        SELECT COUNT(*) FROM scopes WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
     <select id="findAllWithUsage" resultType="me.iynotuo.judge.problem.mapper.ScopeUsageRow">
         SELECT s.id AS id,
                s.name AS name,

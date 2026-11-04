@@ -104,7 +104,7 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(created.path("data").path("rating").asInt()).isZero();
         assertThat(get("/api/v1/problems/mine", adminToken)
                 .path("data").path("items").get(0).path("rating").asInt()).isZero();
-        assertThat(get("/api/v1/catalog?scope=LOCAL", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + localScopeId, null)
                 .path("data").path("items").get(0).path("rating").asInt()).isZero();
 
         // An unknown tag id is rejected instead of being created implicitly
@@ -146,7 +146,7 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(detail.path("data").path("tags").get(0).path("name").asString()).isEqualTo("图论");
         // The local problem keeps LOCAL; only external rows use the renamed scope
         assertThat(detail.path("data").path("scopeName").asString()).isEqualTo("LOCAL");
-        assertThat(get("/api/v1/catalog?scope=Codeforces", null)
+        assertThat(get("/api/v1/catalog?scopeId=" + scopeId, null)
                 .path("data").path("items").get(0).path("scopeName").asString()).isEqualTo("Codeforces");
 
         // force=true detaches the tag from every problem and then deletes it

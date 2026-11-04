@@ -46,9 +46,8 @@ public class CatalogController {
      * @param rating       optional exact rating match
      * @param minRating    optional inclusive lower bound of rating
      * @param maxRating    optional inclusive upper bound of rating
-     * @param scope        optional scope filter: {@code LOCAL} or a scope name such as
-     *                     {@code Codeforces} / {@code AtCoder}; repeatable and case-insensitive,
-     *                     e.g. {@code scope=LOCAL&scope=Codeforces}
+     * @param scopeId      optional scope ids (from {@code GET /meta/scopes}); repeatable and OR-ed,
+     *                     e.g. {@code scopeId=1&scopeId=7}. An unknown id returns {@code 400/1000}.
      * @param sort         sort key: {@code DEFAULT}, {@code RATING}, {@code ACCEPTED},
      *                     {@code SUBMISSIONS} or {@code ACCEPTANCE_RATE}; omitted means
      *                     {@code DEFAULT}. {@code RATING} requires exactly one {@code scope}
@@ -60,7 +59,7 @@ public class CatalogController {
     @GetMapping
     public ApiResponse<PageResult<CatalogItemVO>> page(@RequestParam(required = false) String keyword,
                                                        @RequestParam(required = false) List<Difficulty> difficulty,
-                                                       @RequestParam(required = false) List<String> scope,
+                                                       @RequestParam(required = false) List<Long> scopeId,
                                                        @RequestParam(required = false) List<Long> tagId,
                                                        @RequestParam(required = false) TagMatchMode tagMatch,
                                                        @RequestParam(required = false) Integer rating,
@@ -70,7 +69,7 @@ public class CatalogController {
                                                        @RequestParam(required = false) SortOrder order,
                                                        @RequestParam(required = false) Integer page,
                                                        @RequestParam(required = false) Integer size) {
-        return ApiResponse.ok(catalogService.page(keyword, difficulty, scope, tagId, tagMatch,
+        return ApiResponse.ok(catalogService.page(keyword, difficulty, scopeId, tagId, tagMatch,
                 rating, minRating, maxRating, sort, order, PageQuery.of(page, size)));
     }
 }
