@@ -102,7 +102,8 @@ export default function ProblemTable({
             <th
               key={column.label}
               scope="col"
-              className={`bg-layer-inner py-2 font-normal first:rounded-l-control last:rounded-r-control ${cell}`}
+              className={`bg-layer-inner py-2 font-normal
+              first:rounded-l-control last:rounded-r-control ${cell}`}
             >
               {column.label}
             </th>
@@ -127,7 +128,8 @@ export default function ProblemTable({
             >
               <td
                 title={item.code ?? undefined}
-                className={`truncate border-b border-line py-2.5 font-mono text-mono-label text-fg-muted ${cell}`}
+                className={`truncate border-b border-line py-2.5 font-mono
+                  text-mono-label text-fg-muted ${cell}`}
               >
                 {problemCode(item)}
               </td>
@@ -163,7 +165,9 @@ export default function ProblemTable({
                 colSpan={columns.length}
                 className="border-b border-line px-3 py-2.5"
               >
-                <div className="h-6.5 animate-pulse rounded-control bg-layer-inner" />
+                <div
+                  className="h-6.5 animate-pulse rounded-control bg-layer-inner"
+                />
               </td>
             </tr>
           ))

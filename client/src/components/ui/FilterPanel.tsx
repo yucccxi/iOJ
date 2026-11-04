@@ -10,7 +10,11 @@ type FilterHeaderProps = {
 };
 
 /** Panel title, with an optional clear action on the right. */
-export function FilterHeader({ title, onClear, className = "" }: FilterHeaderProps) {
+export function FilterHeader({
+  title,
+  onClear,
+  className = "",
+}: FilterHeaderProps) {
   return (
     <div className={`flex items-center justify-between ${className}`}>
       <span className="text-field font-bold text-fg">{title}</span>
@@ -28,7 +32,9 @@ export function FilterHeader({ title, onClear, className = "" }: FilterHeaderPro
 }
 
 export function FilterGroupLabel({ children }: { children: ReactNode }) {
-  return <p className="pt-1.5 pb-0.5 pl-2 text-caption text-fg-subtle">{children}</p>;
+  return (
+    <p className="pt-1.5 pb-0.5 pl-2 text-caption text-fg-subtle">{children}</p>
+  );
 }
 
 type FilterOptionProps = {
@@ -40,11 +46,21 @@ type FilterOptionProps = {
 };
 
 /** A checkbox row: the option on the left, its problem count on the right. */
-export function FilterOption({ checked, onChange, count, children }: FilterOptionProps) {
+export function FilterOption({
+  checked,
+  onChange,
+  count,
+  children,
+}: FilterOptionProps) {
   return (
-    <label className="flex cursor-pointer items-center gap-2.5 rounded-control p-2 hover:bg-hover">
+    <label
+      className="flex cursor-pointer items-center gap-2.5 rounded-control p-2
+        hover:bg-hover"
+    >
       <Checkbox checked={checked} onChange={onChange} />
-      <span className="flex min-w-0 flex-1 items-center gap-2.5">{children}</span>
+      <span className="flex min-w-0 flex-1 items-center gap-2.5">
+        {children}
+      </span>
       <span className="shrink-0 font-mono text-mono-label text-fg-subtle">
         {count === undefined ? "—" : formatCount(count)}
       </span>

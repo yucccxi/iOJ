@@ -60,7 +60,10 @@ export default function SourceFilter({ value, onChange }: SourceFilterProps) {
             onChange={() => toggle(local.id)}
             count={local.problemCount}
           >
-            <span className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-accent text-tag text-accent-on">
+            <span
+              className="flex size-5 shrink-0 items-center justify-center
+                rounded-sm bg-accent text-tag text-accent-on"
+            >
               站
             </span>
             <span className="truncate text-label text-fg">用户上传</span>

@@ -75,7 +75,10 @@ export default function Popover({
         <div
           role={role}
           aria-label={label}
-          className={`absolute top-full z-20 mt-1.5 rounded-popover border border-line-popover bg-popover shadow-popover glass:backdrop-blur-layer ${align === "start" ? "left-0" : "right-0"} ${className}`}
+          className={`absolute top-full z-20 mt-1.5 rounded-popover border
+          border-line-popover bg-popover shadow-popover
+          glass:backdrop-blur-layer ${align === "start" ? "left-0" : "right-0"}
+          ${className}`}
         >
           {typeof children === "function" ? children(close) : children}
         </div>

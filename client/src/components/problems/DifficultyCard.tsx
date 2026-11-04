@@ -15,7 +15,9 @@ const levels: { level: Difficulty; bar: string }[] = [
 /** Bars are scaled to the largest level. */
 export default function DifficultyCard() {
   const totals = useQueries({
-    queries: levels.map(({ level }) => catalogTotalQuery({ difficulty: [level] })),
+    queries: levels.map(({ level }) =>
+      catalogTotalQuery({ difficulty: [level] }),
+    ),
   }).map((result) => result.data);
   const max = Math.max(1, ...totals.map((total) => total ?? 0));
 
@@ -30,13 +32,19 @@ export default function DifficultyCard() {
             <div className="flex w-16 shrink-0">
               <DifficultyBadge level={level} />
             </div>
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-layer-inner">
+            <div
+              className="h-1.5 flex-1 overflow-hidden rounded-full
+                bg-layer-inner"
+            >
               <div
                 className={`h-full rounded-full ${bar}`}
                 style={{ width: `${((totals[i] ?? 0) / max) * 100}%` }}
               />
             </div>
-            <span className="w-14 text-right font-mono text-mono-label text-fg-muted">
+            <span
+              className="w-14 text-right font-mono text-mono-label
+                text-fg-muted"
+            >
               {totals[i] === undefined ? "—" : formatCount(totals[i])}
             </span>
           </div>

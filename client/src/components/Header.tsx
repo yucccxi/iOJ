@@ -23,7 +23,8 @@ export default function Header() {
       <div className="flex items-center gap-3">
         <Link
           to="/problems/new"
-          className="flex items-center gap-1.5 rounded-control bg-secondary px-3 py-1.5 text-label text-fg"
+          className="flex items-center gap-1.5 rounded-control bg-secondary px-3
+            py-1.5 text-label text-fg"
         >
           <SquarePlus />
           贡献题目
@@ -33,7 +34,10 @@ export default function Header() {
           aria-label="登录"
           className="flex items-center gap-2 rounded-full p-1"
         >
-          <span className="flex size-8 items-center justify-center rounded-full border border-line bg-popover text-fg">
+          <span
+            className="flex size-8 items-center justify-center rounded-full
+              border border-line bg-popover text-fg"
+          >
             <User />
           </span>
           <ChevronDown size={14} className="text-fg-subtle" />

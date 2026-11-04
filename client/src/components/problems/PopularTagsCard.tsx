@@ -28,7 +28,8 @@ export default function PopularTagsCard() {
           disabled
           aria-label="全部标签"
           title="筛选功能即将开放"
-          className="flex size-7 items-center justify-center rounded-control text-fg-subtle disabled:cursor-not-allowed"
+          className="flex size-7 items-center justify-center rounded-control
+            text-fg-subtle disabled:cursor-not-allowed"
         >
           <ArrowRight />
         </button>
@@ -39,7 +40,10 @@ export default function PopularTagsCard() {
       ) : (
         <div className="flex flex-wrap gap-2">
           {tags?.map((tag) => (
-            <Tag key={tag.id} label={`${tag.name} ${formatCompact(tag.problemCount)}`} />
+            <Tag
+              key={tag.id}
+              label={`${tag.name} ${formatCompact(tag.problemCount)}`}
+            />
           ))}
         </div>
       )}

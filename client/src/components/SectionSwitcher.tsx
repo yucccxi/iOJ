@@ -44,9 +44,10 @@ export default function SectionSwitcher() {
         role="menuitem"
         activeOptions={{ exact: section.to === "/" }}
         onClick={close}
-        className={`flex items-center gap-2.5 rounded-control px-2.5 py-2 text-label hover:bg-hover ${
-          isCurrent ? "text-accent-strong" : "text-fg"
-        }`}
+        className={`flex items-center gap-2.5 rounded-control px-2.5 py-2
+          text-label hover:bg-hover ${
+            isCurrent ? "text-accent-strong" : "text-fg"
+          }`}
       >
         <SectionIcon />
         <span className="flex-1">{section.label}</span>
@@ -59,12 +60,13 @@ export default function SectionSwitcher() {
     <Popover
       label="切换栏目"
       role="menu"
-      className="flex w-50 flex-col gap-0.5 p-1.5 -translate-x-2"
+      className="flex w-50 -translate-x-2 flex-col gap-0.5 p-1.5"
       trigger={(props) => (
         <button
           {...props}
           type="button"
-          className="flex items-center gap-1.5 rounded-control bg-selected px-2.5 py-1.5 text-field text-accent-strong"
+          className="flex items-center gap-1.5 rounded-control bg-selected
+            px-2.5 py-1.5 text-field text-accent-strong"
         >
           <current.icon />
           {current.label}

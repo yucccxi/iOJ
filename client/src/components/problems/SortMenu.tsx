@@ -25,7 +25,12 @@ type SortMenuProps = {
 };
 
 /** Stays open after a pick so the order can be changed in the same visit. */
-export default function SortMenu({ sort, order, onChange, ratingAllowed }: SortMenuProps) {
+export default function SortMenu({
+  sort,
+  order,
+  onChange,
+  ratingAllowed,
+}: SortMenuProps) {
   const active = sort !== "DEFAULT" || order !== "DESC";
   return (
     <Popover
@@ -37,7 +42,8 @@ export default function SortMenu({ sort, order, onChange, ratingAllowed }: SortM
           {...props}
           type="button"
           aria-label="排序"
-          className={`flex size-9 shrink-0 items-center justify-center rounded-control border ${
+          className={`flex size-9 shrink-0 items-center justify-center
+          rounded-control border ${
             active
               ? "border-accent bg-accent-subtle text-accent-strong"
               : "border-line bg-surface text-fg-muted hover:bg-hover"
@@ -47,7 +53,9 @@ export default function SortMenu({ sort, order, onChange, ratingAllowed }: SortM
         </button>
       )}
     >
-      <p className="pt-1.5 pb-0.5 pl-2.5 text-caption text-fg-subtle">排序依据</p>
+      <p className="pt-1.5 pb-0.5 pl-2.5 text-caption text-fg-subtle">
+        排序依据
+      </p>
       {sortOptions.map((option) => {
         const selected = option.value === sort;
         const disabled = option.value === "RATING" && !ratingAllowed;
@@ -59,7 +67,9 @@ export default function SortMenu({ sort, order, onChange, ratingAllowed }: SortM
             disabled={disabled}
             title={disabled ? "先在来源中只选一个，才能按难度排序" : undefined}
             onClick={() => onChange({ sort: option.value })}
-            className={`flex items-center gap-2.5 rounded-control px-2.5 py-2 text-left text-label enabled:hover:bg-hover disabled:cursor-not-allowed disabled:text-fg-subtle ${
+            className={`flex items-center gap-2.5 rounded-control px-2.5 py-2
+            text-left text-label enabled:hover:bg-hover
+            disabled:cursor-not-allowed disabled:text-fg-subtle ${
               selected ? "text-accent-strong" : "text-fg"
             }`}
           >

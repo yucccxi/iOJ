@@ -12,7 +12,8 @@ export default function Avatar({ name, size }: AvatarProps) {
   return (
     <span
       aria-hidden="true"
-      className={`flex shrink-0 items-center justify-center rounded-full bg-accent-subtle text-accent-strong ${sizes[size]}`}
+      className={`flex shrink-0 items-center justify-center rounded-full
+        bg-accent-subtle text-accent-strong ${sizes[size]}`}
     >
       {name.charAt(0).toUpperCase()}
     </span>

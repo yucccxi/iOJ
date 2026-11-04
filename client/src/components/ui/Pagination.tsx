@@ -50,7 +50,9 @@ export default function Pagination({
           aria-label="上一页"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className={`${buttonClass} border border-line text-fg-muted enabled:hover:bg-hover disabled:cursor-not-allowed disabled:text-fg-subtle`}
+          className={`${buttonClass} border border-line text-fg-muted
+            enabled:hover:bg-hover disabled:cursor-not-allowed
+            disabled:text-fg-subtle`}
         >
           ‹
         </button>
@@ -58,7 +60,7 @@ export default function Pagination({
           item === "gap" ? (
             <span
               key={`gap-${i}`}
-              className="self-end  font-mono text-mono-label text-fg-subtle"
+              className="self-end font-mono text-mono-label text-fg-subtle"
             >
               ...
             </span>
@@ -72,7 +74,7 @@ export default function Pagination({
                 item === page
                   ? "bg-accent-subtle text-accent-strong"
                   : "border border-line text-fg-muted hover:bg-hover"
-              }`}
+                }`}
             >
               {item}
             </button>
@@ -83,7 +85,9 @@ export default function Pagination({
           aria-label="下一页"
           disabled={page >= count}
           onClick={() => onPageChange(page + 1)}
-          className={`${buttonClass} border border-line text-fg-muted enabled:hover:bg-hover disabled:cursor-not-allowed disabled:text-fg-subtle`}
+          className={`${buttonClass} border border-line text-fg-muted
+            enabled:hover:bg-hover disabled:cursor-not-allowed
+            disabled:text-fg-subtle`}
         >
           ›
         </button>

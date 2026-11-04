@@ -46,11 +46,14 @@ export function catalogQuery(params: CatalogParams) {
  * How many problems match, read from a one-item page since there is no stats endpoint.
  * Shares its cache entry with `catalogQuery({ ...params, size: 1 })`.
  */
-export function catalogTotalQuery(params: Omit<CatalogParams, "page" | "size">) {
+export function catalogTotalQuery(
+  params: Omit<CatalogParams, "page" | "size">,
+) {
   const pageParams = { ...params, size: 1 };
   return queryOptions({
     queryKey: ["catalog", pageParams],
-    queryFn: ({ signal }) => get<Page<CatalogItem>>("/catalog", pageParams, signal),
+    queryFn: ({ signal }) =>
+      get<Page<CatalogItem>>("/catalog", pageParams, signal),
     select: (page) => page.total,
   });
 }

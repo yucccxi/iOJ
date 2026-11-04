@@ -19,7 +19,9 @@ export default function Card({
 }: CardProps) {
   return (
     <section
-      className={`flex flex-col gap-card-gap rounded-layer bg-layer px-card-x pt-card-y-text pb-card-y-edge shadow-layer ring-1 ring-line-glass ring-inset glass:backdrop-blur-layer ${className}`}
+      className={`flex flex-col gap-card-gap rounded-layer bg-layer px-card-x
+        pt-card-y-text pb-card-y-edge shadow-layer ring-1 ring-line-glass
+        ring-inset glass:backdrop-blur-layer ${className}`}
     >
       <header className="relative flex items-center justify-between gap-4">
         <h2 className="text-card text-fg">{title}</h2>

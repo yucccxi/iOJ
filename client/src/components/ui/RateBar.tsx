@@ -7,7 +7,7 @@ type RateBarProps = { accepted: number; submitted: number };
 export default function RateBar({ accepted, submitted }: RateBarProps) {
   const rate = acceptanceRate(accepted, submitted);
   return (
-    <div className="cursor-default relative z-10 flex items-center gap-2 pr-2">
+    <div className="relative z-10 flex cursor-default items-center gap-2 pr-2">
       <Tooltip
         label={
           <>
@@ -28,7 +28,8 @@ export default function RateBar({ accepted, submitted }: RateBarProps) {
         </span>
       </Tooltip>
       <span
-        className={`w-11 font-mono text-mono-label text-fg-muted ${rate === null ? "text-center" : "text-right"}`}
+        className={`w-11 font-mono text-mono-label text-fg-muted
+          ${rate === null ? "text-center" : "text-right"}`}
       >
         {rate === null ? "—" : `${(rate * 100).toFixed(1)}%`}
       </span>

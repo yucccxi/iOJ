@@ -21,9 +21,15 @@ export default function Tooltip({
       {children}
       <span
         role="tooltip"
-        className="pointer-events-none invisible absolute bottom-full left-1/2 z-30 mb-1 flex -translate-x-1/2 flex-col items-center opacity-0 transition-opacity group-hover/tooltip:visible group-hover/tooltip:opacity-100"
+        className="pointer-events-none invisible absolute bottom-full left-1/2
+          z-30 mb-1 flex -translate-x-1/2 flex-col items-center opacity-0
+          transition-opacity group-hover/tooltip:visible
+          group-hover/tooltip:opacity-100"
       >
-        <span className={`rounded-md bg-fg px-2 py-1 whitespace-nowrap text-fg-inverse ${labelClassName}`}>
+        <span
+          className={`rounded-md bg-fg px-2 py-1 whitespace-nowrap
+            text-fg-inverse ${labelClassName}`}
+        >
           {label}
         </span>
         {/* The arrow file has a fixed fill; masking it lets it follow bg-fg in dark mode. */}

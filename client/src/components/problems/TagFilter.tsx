@@ -64,14 +64,20 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
   const shown = tags?.filter((tag) => tag.name.toLowerCase().includes(needle));
 
   function toggle(id: number) {
-    setSelected((ids) => (ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id]));
+    setSelected((ids) =>
+      ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id],
+    );
   }
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3">
       <FilterHeader title="标签" />
 
-      <label className="flex h-8.5 items-center gap-2 rounded-control border border-line bg-layer-inner px-2.5 focus-within:border-accent focus-within:ring-3 focus-within:ring-accent-ring">
+      <label
+        className="flex h-8.5 items-center gap-2 rounded-control border
+          border-line bg-layer-inner px-2.5 focus-within:border-accent
+          focus-within:ring-3 focus-within:ring-accent-ring"
+      >
         <Search size={14} className="text-fg-subtle" />
         <input
           type="search"
@@ -80,12 +86,17 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
           placeholder="搜索标签…"
           aria-label="搜索标签"
           autoFocus
-          className="min-w-0 flex-1 bg-transparent text-meta text-fg outline-none placeholder:text-fg-subtle [&::-webkit-search-cancel-button]:hidden"
+          className="min-w-0 flex-1 bg-transparent text-meta text-fg
+            outline-none placeholder:text-fg-subtle
+            [&::-webkit-search-cancel-button]:hidden"
         />
       </label>
 
       {/* The tag list is long; it scrolls so the actions stay in view. */}
-      <div className="flex max-h-60 flex-wrap content-start gap-1.5 overflow-y-auto">
+      <div
+        className="flex max-h-60 flex-wrap content-start gap-1.5
+          overflow-y-auto"
+      >
         {shown?.length === 0 && (
           <p className="text-caption text-fg-subtle">没有匹配的标签</p>
         )}
@@ -97,7 +108,8 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
               type="button"
               aria-pressed={on}
               onClick={() => toggle(tag.id)}
-              className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-tag ${
+              className={`flex items-center gap-1 rounded-full border px-2.5
+              py-1 text-tag ${
                 on
                   ? "border-accent bg-accent-subtle text-accent-strong"
                   : "border-line bg-surface text-fg-muted hover:bg-hover"
@@ -114,11 +126,18 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
 
       <div className="flex items-center gap-2">
         <span className="text-caption text-fg-muted">匹配方式</span>
-        <Segmented options={matchOptions} value={match} onChange={setMatch} label="匹配方式" />
+        <Segmented
+          options={matchOptions}
+          value={match}
+          onChange={setMatch}
+          label="匹配方式"
+        />
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-caption text-fg-subtle">已选 {selected.length} 个标签</span>
+        <span className="text-caption text-fg-subtle">
+          已选 {selected.length} 个标签
+        </span>
         <div className="flex gap-2">
           <Button
             variant="secondary"

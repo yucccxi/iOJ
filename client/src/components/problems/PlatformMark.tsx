@@ -22,7 +22,11 @@ type PlatformMarkProps = {
 };
 
 /** Logo of a known external platform. */
-export default function PlatformMark({ scopeName, className, fallback = null }: PlatformMarkProps) {
+export default function PlatformMark({
+  scopeName,
+  className,
+  fallback = null,
+}: PlatformMarkProps) {
   const mark = platformMarks[scopeName.toLowerCase()];
   if (!mark) return fallback;
   return (
@@ -31,7 +35,8 @@ export default function PlatformMark({ scopeName, className, fallback = null }: 
     <img
       src={mark}
       alt=""
-      className={`shrink-0 rounded-sm object-contain ${mark === luoguMark ? "mix-blend-multiply" : ""} ${className}`}
+      className={`shrink-0 rounded-sm object-contain
+        ${mark === luoguMark ? "mix-blend-multiply" : ""} ${className}`}
     />
   );
 }

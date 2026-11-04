@@ -17,11 +17,12 @@ export default function SelectButton({
   return (
     <button
       type="button"
-      className={`flex h-9 shrink-0 items-center gap-1.5 rounded-control border px-3 text-label disabled:cursor-not-allowed ${
-        active
-          ? "border-accent bg-accent-subtle text-accent-strong"
-          : "border-line bg-surface text-fg enabled:hover:bg-hover"
-      } ${className}`}
+      className={`flex h-9 shrink-0 items-center gap-1.5 rounded-control border
+        px-3 text-label disabled:cursor-not-allowed ${
+          active
+            ? "border-accent bg-accent-subtle text-accent-strong"
+            : "border-line bg-surface text-fg enabled:hover:bg-hover"
+        } ${className}`}
       {...props}
     >
       {label}

@@ -199,7 +199,8 @@ function ProblemsPage() {
         </div>
 
         <div
-          className={`transition-opacity ${isFetching && isPlaceholderData ? "opacity-60" : ""}`}
+          className={`transition-opacity
+            ${isFetching && isPlaceholderData ? "opacity-60" : ""}`}
         >
           <ProblemTable
             items={data?.items}
@@ -221,7 +222,9 @@ function ProblemsPage() {
         )}
       </Card>
 
-      <aside className="flex w-88.75 shrink-0 flex-col gap-grid-gap max-lg:w-full">
+      <aside
+        className="flex w-88.75 shrink-0 flex-col gap-grid-gap max-lg:w-full"
+      >
         <DifficultyCard />
         <PopularTagsCard />
         <ContributorsCard />
