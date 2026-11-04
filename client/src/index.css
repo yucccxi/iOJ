@@ -59,6 +59,8 @@
   --color-difficulty-medium-bg: #ffb80026;
   --color-difficulty-hard: #ff375f;
   --color-difficulty-hard-bg: #ff375f1f;
+  --color-difficulty-unknown: var(--color-fg-subtle);
+  --color-difficulty-unknown-bg: var(--color-tag-bg);
 
   --color-code-keyword: #4a5fc1;
   --color-code-number: #c0662b;

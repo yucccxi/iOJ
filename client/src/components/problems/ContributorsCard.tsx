@@ -5,8 +5,6 @@ import Card from "@/components/ui/Card";
 import UserChip from "@/components/ui/UserChip";
 import { formatCount } from "@/lib/format";
 
-// The largest page the API returns. Counting authors needs every local problem in one page.
-const MAX_PAGE = 100;
 const SHOWN = 5;
 
 function topAuthors(items: CatalogItem[]) {
@@ -27,7 +25,7 @@ function topAuthors(items: CatalogItem[]) {
 
 /** Problems uploaded here and who uploaded the most. */
 export default function ContributorsCard() {
-  const { data } = useQuery(catalogQuery({ kind: "LOCAL", size: MAX_PAGE }));
+  const { data } = useQuery(catalogQuery({ scope: ["LOCAL"] }));
   // Without a stats endpoint the ranking is exact only while everything fits in one page.
   const authors =
     data && data.total <= data.items.length ? topAuthors(data.items) : [];

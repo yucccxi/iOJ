@@ -1,5 +1,5 @@
 import { useQueries } from "@tanstack/react-query";
-import { catalogQuery } from "@/api/catalog";
+import { catalogTotalQuery } from "@/api/catalog";
 import type { Difficulty } from "@/api/types";
 import Card from "@/components/ui/Card";
 import DifficultyBadge from "@/components/ui/DifficultyBadge";
@@ -9,16 +9,13 @@ const levels: { level: Difficulty; bar: string }[] = [
   { level: "EASY", bar: "bg-difficulty-easy" },
   { level: "MEDIUM", bar: "bg-difficulty-medium" },
   { level: "HARD", bar: "bg-difficulty-hard" },
+  { level: "UNKNOWN", bar: "bg-difficulty-unknown" },
 ];
 
 /** Bars are scaled to the largest level. */
 export default function DifficultyCard() {
-  // There is no stats endpoint; a one-item page per level returns the count as `total`.
   const totals = useQueries({
-    queries: levels.map(({ level }) => ({
-      ...catalogQuery({ kind: "LOCAL", difficulty: level, size: 1 }),
-      select: (page: { total: number }) => page.total,
-    })),
+    queries: levels.map(({ level }) => catalogTotalQuery({ difficulty: [level] })),
   }).map((result) => result.data);
   const max = Math.max(1, ...totals.map((total) => total ?? 0));
 

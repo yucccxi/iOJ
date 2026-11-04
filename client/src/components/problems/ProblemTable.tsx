@@ -104,7 +104,8 @@ export default function ProblemTable({
               className="group/row relative hover:bg-hover"
             >
               <td
-                className={`border-b border-line py-2.5 font-mono text-mono-label text-fg-muted ${cell}`}
+                title={item.code ?? undefined}
+                className={`truncate border-b border-line py-2.5 font-mono text-mono-label text-fg-muted ${cell}`}
               >
                 {problemCode(item)}
               </td>
@@ -120,13 +121,7 @@ export default function ProblemTable({
                 </div>
               </td>
               <td className={`border-b border-line py-2.5 ${cell}`}>
-                {item.difficulty ? (
-                  <DifficultyBadge level={item.difficulty} />
-                ) : (
-                  <span className="font-mono text-mono-label text-fg-muted">
-                    {item.rating ?? "—"}
-                  </span>
-                )}
+                <DifficultyBadge level={item.difficulty} />
               </td>
               <td className={`border-b border-line py-2.5 ${cell}`}>
                 <RateBar

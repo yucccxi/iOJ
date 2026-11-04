@@ -1,5 +1,6 @@
 type Envelope<T> = { code: number; message: string; data: T };
-type Query = Record<string, string | number | undefined>;
+type QueryValue = string | number;
+type Query = Record<string, QueryValue | readonly QueryValue[] | undefined>;
 
 /** A failed request; `code` is the backend business code from docs/shared/api/01-conventions.md. */
 export class ApiError extends Error {
@@ -12,7 +13,10 @@ export class ApiError extends Error {
   }
 }
 
-/** GETs `/api/v1{path}` and returns the envelope's `data`; empty query values are dropped. */
+/**
+ * GETs `/api/v1{path}` and returns the envelope's `data`. Arrays become repeated params
+ * (`a=1&a=2`); empty values are dropped.
+ */
 export async function get<T>(
   path: string,
   query: Query = {},
@@ -20,7 +24,9 @@ export async function get<T>(
 ): Promise<T> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== "") params.set(key, String(value));
+    for (const item of [value].flat()) {
+      if (item !== undefined && item !== "") params.append(key, String(item));
+    }
   }
   const search = params.size > 0 ? `?${params}` : "";
   const response = await fetch(`/api/v1${path}${search}`, { signal });
