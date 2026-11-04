@@ -12,7 +12,7 @@ Subcommands
               (CF_2278G, AT_AWC0191E, ...) and upsert one row per problem
 
 Field mapping (confirmed against the live API)
-    resource            -> sources.name   (created on demand)
+    resource            -> scopes.name    (created on demand)
     url + short         -> code           "CF_" + contest + index, upper-cased
     name                -> title
     rating              -> rating         (may be null)
@@ -79,9 +79,9 @@ CHINA_TZ = timezone(timedelta(hours=8))  # clist timestamps are UTC; store datab
 # Only Codeforces and AtCoder are imported; adding another platform here also requires a code
 # derivation rule (contest or task) and a matching toolchain for the catalog.
 PLATFORMS: dict[str, dict[str, str | None]] = {
-    "codeforces.com": {"source": "Codeforces", "prefix": "CF_",
+    "codeforces.com": {"scope": "Codeforces", "prefix": "CF_",
                        "contest": r"/(?:contest|gym|problemset/problem)/(\d+)"},
-    "atcoder.jp": {"source": "AtCoder", "prefix": "AT_", "task": r"/tasks/([^/?#]+)"},
+    "atcoder.jp": {"scope": "AtCoder", "prefix": "AT_", "task": r"/tasks/([^/?#]+)"},
 }
 DEFAULT_PLATFORMS = list(PLATFORMS)
 
@@ -312,24 +312,24 @@ class Store:
 
     def __init__(self, connection: Any) -> None:
         self.connection = connection
-        self._sources: dict[str, int] = {}
+        self._scopes: dict[str, int] = {}
         self._tags: dict[str, int] = {}
 
-    def source_id(self, name: str) -> int:
-        if name in self._sources:
-            return self._sources[name]
+    def scope_id(self, name: str) -> int:
+        if name in self._scopes:
+            return self._scopes[name]
         with self.connection.cursor() as cursor:
             cursor.execute(
-                "INSERT IGNORE INTO sources (name, created_at) VALUES (%s, NOW())", (name,))
-            cursor.execute("SELECT id FROM sources WHERE name = %s", (name,))
+                "INSERT IGNORE INTO scopes (name, created_at) VALUES (%s, NOW())", (name,))
+            cursor.execute("SELECT id FROM scopes WHERE name = %s", (name,))
             row = cursor.fetchone()
         if row is None:
-            sys.exit(f"无法创建来源 {name}（sources 表是否有写权限？）")
+            sys.exit(f"无法创建 scope {name}（scopes 表是否有写权限？）")
         self.connection.commit()
-        self._sources[name] = int(row[0])
+        self._scopes[name] = int(row[0])
         return int(row[0])
 
-    def upsert(self, source_id: int, code: str, title: str, rating: int | None, difficulty: str,
+    def upsert(self, scope_id: int, code: str, title: str, rating: int | None, difficulty: str,
                event_time: str | None, attempts: int, accepted: int, url: str) -> tuple[str, int]:
         with self.connection.cursor() as cursor:
             cursor.execute("SELECT id FROM external_problems WHERE code = %s", (code,))
@@ -351,10 +351,10 @@ class Store:
                 return "updated", int(row[0])
             cursor.execute(
                 "INSERT INTO external_problems "
-                "(source_id, code, title, rating, difficulty, `time`, submit_count, accepted_count, url, "
+                "(scope_id, code, title, rating, difficulty, `time`, submit_count, accepted_count, url, "
                 "created_at, updated_at) "
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())",
-                (source_id, code, title, rating, difficulty, event_time, attempts, accepted, url))
+                (scope_id, code, title, rating, difficulty, event_time, attempts, accepted, url))
             return "inserted", int(cursor.lastrowid)
 
     def replace_external_tags(self, external_id: int, names: list[str]) -> None:
@@ -493,11 +493,11 @@ def cmd_sync(args: argparse.Namespace) -> int:
 
     for platform in args.platforms:
         config = PLATFORMS[platform]
-        source_id = store.source_id(str(config["source"])) if store else None
+        scope_id = store.scope_id(str(config["scope"])) if store else None
         stop_below = None if (args.full or args.clear) else (state.get(platform) or {}).get("max_problem_id")
         offset = pages = seen = max_id = 0
-        log.info("开始 %s（来源=%s，增量截止 problem id=%s）",
-                 platform, config["source"], stop_below if stop_below else "无（全量）")
+        log.info("开始 %s（scope=%s，增量截止 problem id=%s）",
+                 platform, config["scope"], stop_below if stop_below else "无（全量）")
 
         while True:
             if args.max_pages and pages >= args.max_pages:
@@ -542,7 +542,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
                     continue
 
                 try:
-                    action, external_id = store.upsert(source_id, code, title, rating, difficulty,
+                    action, external_id = store.upsert(scope_id, code, title, rating, difficulty,
                                                        event_time, attempts, accepted, url)
 
                     tags_to_write: list[str] | None = None

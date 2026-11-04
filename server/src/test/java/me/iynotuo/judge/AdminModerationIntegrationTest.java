@@ -45,7 +45,7 @@ class AdminModerationIntegrationTest extends ApiTestSupport {
 
         assertThat(get("/api/v1/meta/languages", null).path("data").size()).isEqualTo(4);
         assertThat(get("/api/v1/meta/tags", null).path("data").isArray()).isTrue();
-        assertThat(get("/api/v1/meta/sources", null).path("data").isArray()).isTrue();
+        assertThat(get("/api/v1/meta/scopes", null).path("data").isArray()).isTrue();
 
         // Tags come from the admin-managed dictionary: the author picks ids, never names
         long simulationTagId = post("/api/v1/admin/tags", adminToken, Map.of("name", "模拟"))

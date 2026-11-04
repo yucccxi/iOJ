@@ -15,11 +15,11 @@ import me.iynotuo.judge.problem.dto.SampleVO;
 import me.iynotuo.judge.problem.dto.TagVO;
 import me.iynotuo.judge.problem.entity.Problem;
 import me.iynotuo.judge.problem.entity.ProblemSample;
-import me.iynotuo.judge.problem.entity.ProblemSource;
+import me.iynotuo.judge.problem.entity.ProblemScope;
 import me.iynotuo.judge.problem.mapper.ProblemCriteria;
 import me.iynotuo.judge.problem.mapper.ProblemMapper;
 import me.iynotuo.judge.problem.mapper.ProblemSampleMapper;
-import me.iynotuo.judge.problem.mapper.ProblemSourceMapper;
+import me.iynotuo.judge.problem.mapper.ProblemScopeMapper;
 import me.iynotuo.judge.problem.mapper.ProblemSummaryRow;
 import me.iynotuo.judge.problem.mapper.ProblemTagRow;
 import me.iynotuo.judge.problem.mapper.ProblemTestcaseMapper;
@@ -50,7 +50,7 @@ public class ProblemService {
     private final ProblemSampleMapper sampleMapper;
     private final ProblemTestcaseMapper testcaseMapper;
     private final TagMapper tagMapper;
-    private final ProblemSourceMapper problemSourceMapper;
+    private final ProblemScopeMapper problemScopeMapper;
     private final UserMapper userMapper;
     private final SubmissionMapper submissionMapper;
     private final ProblemProperties properties;
@@ -59,7 +59,7 @@ public class ProblemService {
                           ProblemSampleMapper sampleMapper,
                           ProblemTestcaseMapper testcaseMapper,
                           TagMapper tagMapper,
-                          ProblemSourceMapper problemSourceMapper,
+                          ProblemScopeMapper problemScopeMapper,
                           UserMapper userMapper,
                           SubmissionMapper submissionMapper,
                           ProblemProperties properties) {
@@ -67,7 +67,7 @@ public class ProblemService {
         this.sampleMapper = sampleMapper;
         this.testcaseMapper = testcaseMapper;
         this.tagMapper = tagMapper;
-        this.problemSourceMapper = problemSourceMapper;
+        this.problemScopeMapper = problemScopeMapper;
         this.userMapper = userMapper;
         this.submissionMapper = submissionMapper;
         this.properties = properties;
@@ -146,7 +146,7 @@ public class ProblemService {
         boolean solved = current != null && submissionMapper.countAccepted(current.id(), id) > 0;
         return new ProblemDetailVO(problem.getId(), problem.getTitle(), problem.getDifficulty(),
                 problem.getRating(), problem.getDescription(), problem.getInputFormat(), problem.getOutputFormat(),
-                problem.getHint(), problem.getSourceId(), problem.getSourceName(),
+                problem.getHint(), problem.getScopeId(), problem.getScopeName(),
                 problem.getTimeLimitMs(), problem.getMemoryLimitMb(),
                 problem.getStatus(), problem.getAuthorId(), authorNickname, tags, samples,
                 problem.getSubmitCount(), problem.getAcceptedCount(), solved,
@@ -220,9 +220,9 @@ public class ProblemService {
         problem.setInputFormat(request.inputFormat());
         problem.setOutputFormat(request.outputFormat());
         problem.setHint(request.hint());
-        // Local problems do not choose a source: the reserved LOCAL row is assigned automatically
-        // on both create and update, so the client cannot move a problem to an external source.
-        problem.setSourceId(localSourceId());
+        // Local problems do not choose a scope: the reserved LOCAL row is assigned automatically
+        // on both create and update, so the client cannot move a problem to an external scope.
+        problem.setScopeId(localScopeId());
         problem.setTimeLimitMs(request.timeLimitMs() == null ? 1000 : request.timeLimitMs());
         problem.setMemoryLimitMb(request.memoryLimitMb() == null ? 256 : request.memoryLimitMb());
     }
@@ -320,15 +320,15 @@ public class ProblemService {
     }
 
     /**
-     * Resolves the reserved LOCAL source. It is inserted by schema.sql/seed.sql; if it is missing the
+     * Resolves the reserved LOCAL scope. It is inserted by schema.sql/seed.sql; if it is missing the
      * database was initialised with an old script, which is a deployment error rather than a client
      * error.
      */
-    private Long localSourceId() {
-        ProblemSource local = problemSourceMapper.findByName(ProblemSource.LOCAL);
+    private Long localScopeId() {
+        ProblemScope local = problemScopeMapper.findByName(ProblemScope.LOCAL);
         if (local == null) {
             throw BusinessException.of(ErrorCode.INTERNAL_ERROR,
-                    "数据库缺少系统保留来源 LOCAL，请执行 db/seed.sql");
+                    "数据库缺少系统保留 scope LOCAL，请执行 db/seed.sql");
         }
         return local.getId();
     }

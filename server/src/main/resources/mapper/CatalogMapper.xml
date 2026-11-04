@@ -3,7 +3,7 @@
 <mapper namespace="me.iynotuo.judge.problem.mapper.CatalogMapper">
 
     <!--
-      One UNION ALL of the two problem sources. Both branches expose the same columns so the outer
+      One UNION ALL of the two problem scopes. Both branches expose the same columns so the outer
       query can sort/page once:
         kind       LOCAL / EXTERNAL
         ref_id     problems.id or external_problems.id
@@ -23,8 +23,8 @@
                p.difficulty AS difficulty,
                NULL AS time,
                p.rating AS rating,
-               p.source_id AS source_id,
-               s.name AS source_name,
+               p.scope_id AS scope_id,
+               s.name AS scope_name,
                CAST(NULL AS CHAR(512)) AS url,
                p.submit_count AS submit_count,
                p.accepted_count AS accepted_count,
@@ -33,7 +33,7 @@
                p.created_at AS created_at,
                p.updated_at AS sort_time
         FROM problems p
-        LEFT JOIN sources s ON s.id = p.source_id
+        LEFT JOIN scopes s ON s.id = p.scope_id
         JOIN users u ON u.id = p.author_id
         WHERE p.status = 'PUBLISHED'
         <if test="criteria.includeLocal == false">
@@ -41,9 +41,6 @@
         </if>
         <if test="criteria.keyword != null and criteria.keyword != ''">
             AND p.title LIKE CONCAT('%', #{criteria.keyword}, '%')
-        </if>
-        <if test="criteria.sourceId != null">
-            AND p.source_id = #{criteria.sourceId}
         </if>
         <if test="criteria.difficulties != null and criteria.difficulties.size() > 0">
             AND p.difficulty IN
@@ -88,8 +85,8 @@
                e.difficulty AS difficulty,
                e.time AS time,
                e.rating AS rating,
-               e.source_id AS source_id,
-               s.name AS source_name,
+               e.scope_id AS scope_id,
+               s.name AS scope_name,
                e.url AS url,
                e.submit_count AS submit_count,
                e.accepted_count AS accepted_count,
@@ -98,22 +95,19 @@
                e.created_at AS created_at,
                e.time AS sort_time
         FROM external_problems e
-        JOIN sources s ON s.id = e.source_id
+        JOIN scopes s ON s.id = e.scope_id
         WHERE 1 = 1
         <if test="criteria.includeExternal == false">
             AND 1 = 0
         </if>
-        <if test="criteria.includeExternal == true and criteria.externalSources != null and criteria.externalSources.size() > 0">
+        <if test="criteria.includeExternal == true and criteria.externalScopes != null and criteria.externalScopes.size() > 0">
             AND LOWER(s.name) IN
-            <foreach collection="criteria.externalSources" item="source" open="(" separator="," close=")">
-                #{source}
+            <foreach collection="criteria.externalScopes" item="scope" open="(" separator="," close=")">
+                #{scope}
             </foreach>
         </if>
         <if test="criteria.keyword != null and criteria.keyword != ''">
             AND e.title LIKE CONCAT('%', #{criteria.keyword}, '%')
-        </if>
-        <if test="criteria.sourceId != null">
-            AND e.source_id = #{criteria.sourceId}
         </if>
         <if test="criteria.difficulties != null and criteria.difficulties.size() > 0">
             AND e.difficulty IN
@@ -153,7 +147,7 @@
     </sql>
 
     <select id="findPage" resultType="me.iynotuo.judge.problem.mapper.CatalogRow">
-        SELECT c.kind, c.ref_id, c.title, c.code, c.difficulty, c.time, c.rating, c.source_id, c.source_name, c.url,
+        SELECT c.kind, c.ref_id, c.title, c.code, c.difficulty, c.time, c.rating, c.scope_id, c.scope_name, c.url,
                c.submit_count, c.accepted_count, c.author_id, c.author_nickname, c.created_at
         FROM ( <include refid="unionBody"/> ) c
         <choose>

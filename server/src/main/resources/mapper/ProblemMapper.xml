@@ -24,10 +24,10 @@
 
     <insert id="insert" parameterType="me.iynotuo.judge.problem.entity.Problem"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO problems (title, difficulty, rating, description, input_format, output_format, hint, source_id,
+        INSERT INTO problems (title, difficulty, rating, description, input_format, output_format, hint, scope_id,
                               time_limit_ms, memory_limit_mb, author_id, status, submit_count, accepted_count,
                               created_at, updated_at)
-        VALUES (#{title}, #{difficulty}, #{rating}, #{description}, #{inputFormat}, #{outputFormat}, #{hint}, #{sourceId},
+        VALUES (#{title}, #{difficulty}, #{rating}, #{description}, #{inputFormat}, #{outputFormat}, #{hint}, #{scopeId},
                 #{timeLimitMs}, #{memoryLimitMb}, #{authorId}, #{status}, #{submitCount}, #{acceptedCount},
                 #{createdAt}, #{updatedAt})
     </insert>
@@ -41,7 +41,7 @@
             input_format = #{inputFormat},
             output_format = #{outputFormat},
             hint = #{hint},
-            source_id = #{sourceId},
+            scope_id = #{scopeId},
             time_limit_ms = #{timeLimitMs},
             memory_limit_mb = #{memoryLimitMb},
             updated_at = #{updatedAt}
@@ -54,12 +54,12 @@
 
     <select id="findById" resultType="me.iynotuo.judge.problem.entity.Problem">
         SELECT p.id, p.title, p.difficulty, p.rating, p.description, p.input_format, p.output_format, p.hint,
-               p.source_id, s.name AS source_name,
+               p.scope_id, s.name AS scope_name,
                CASE WHEN p.checker_code IS NULL OR TRIM(p.checker_code) = '' THEN 0 ELSE 1 END AS has_checker,
                p.time_limit_ms, p.memory_limit_mb, p.author_id, p.status, p.submit_count, p.accepted_count,
                p.created_at, p.updated_at
         FROM problems p
-        LEFT JOIN sources s ON s.id = p.source_id
+        LEFT JOIN scopes s ON s.id = p.scope_id
         WHERE p.id = #{id}
     </select>
 

@@ -15,9 +15,9 @@
 | `keyword` | string | 按标题模糊搜索 |
 | `page` / `size` | 整数 | 分页 |
 
-> 该接口只支持按标题搜索和分页，不支持 `difficulty` / `rating` / 标签 / 来源筛选。
+> 该接口只支持按标题搜索和分页，不支持 `difficulty` / `rating` / 标签 / scope 筛选。
 
-**响应 `data`**：每题是完整摘要（`id / title / difficulty / rating / status / submitCount / acceptedCount / authorId / authorNickname / tags / createdAt`），与 `/catalog` 的 `LOCAL` 项相比多了 `status`、少了 `kind/url/source*`。`status` 可能是 `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN`：
+**响应 `data`**：每题是完整摘要（`id / title / difficulty / rating / status / submitCount / acceptedCount / authorId / authorNickname / tags / createdAt`），与 `/catalog` 的本地题相比多了 `status`、少了 `url/scope*`。`status` 可能是 `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN`：
 
 ```json
 {
@@ -63,8 +63,8 @@
   "inputFormat": "一行两个整数",
   "outputFormat": "一个整数",
   "hint": "注意使用 64 位整数",
-  "sourceId": 16,
-  "sourceName": "LOCAL",
+  "scopeId": 16,
+  "scopeName": "LOCAL",
   "timeLimitMs": 1000,
   "memoryLimitMb": 256,
   "status": "PUBLISHED",
@@ -90,7 +90,7 @@
 | `description` | 题面正文（Markdown 或纯文本），渲染前请做 XSS 清洗 |
 | `inputFormat` / `outputFormat` | 输入/输出格式说明，可能为 `null` |
 | `hint` | 提示，可能为 `null` |
-| `sourceId` / `sourceName` | 题目来源的 id / 名称。本地题固定为系统保留来源 `LOCAL`（两者都不为 `null`）；**只读**，上传/编辑题目时不能指定来源 |
+| `scopeId` / `scopeName` | 题目 scope 的 id / 名称。本地题固定为系统保留 scope `LOCAL`（两者都不为 `null`）；**只读**，上传/编辑题目时不能指定 scope |
 | `timeLimitMs` | 时间限制（毫秒），用于展示与提交前提示 |
 | `memoryLimitMb` | 内存限制（MB） |
 | `status` | `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN` |
@@ -158,7 +158,7 @@
 }
 ```
 
-> **来源由服务端固定**：本地题一律关联系统保留来源 `LOCAL`，请求里不需要、也不应该传 `sourceId`；即使传了也会被忽略（不会报错，也不会改变来源）。
+> **scope 由服务端固定**：本地题一律关联系统保留 scope `LOCAL`，请求里不需要、也不应该传 `scopeId`；即使传了也会被忽略（不会报错，也不会改变 scope）。
 
 **响应 `data`**：完整题目详情（结构同 4.2），其中 `id` 是新题目 id，`status` 是发布结果。
 

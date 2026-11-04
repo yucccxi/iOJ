@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.iynotuo.judge.problem.mapper.ProblemScopeMapper">
+
+    <select id="findById" resultType="me.iynotuo.judge.problem.entity.ProblemScope">
+        SELECT id, name, created_at FROM scopes WHERE id = #{id}
+    </select>
+
+    <select id="findByName" resultType="me.iynotuo.judge.problem.entity.ProblemScope">
+        SELECT id, name, created_at FROM scopes WHERE name = #{name}
+    </select>
+
+    <select id="findAllWithUsage" resultType="me.iynotuo.judge.problem.mapper.ScopeUsageRow">
+        SELECT s.id AS id,
+               s.name AS name,
+               s.created_at AS created_at,
+               (SELECT COUNT(*) FROM problems p WHERE p.scope_id = s.id) AS local_count,
+               (SELECT COUNT(*) FROM external_problems e WHERE e.scope_id = s.id) AS external_count
+        FROM scopes s
+        ORDER BY s.name
+    </select>
+
+    <insert id="insert" parameterType="me.iynotuo.judge.problem.entity.ProblemScope"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO scopes (name, created_at) VALUES (#{name}, #{createdAt})
+    </insert>
+
+    <update id="updateName">
+        UPDATE scopes SET name = #{name} WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM scopes WHERE id = #{id}
+    </delete>
+
+    <select id="countUsage" resultType="long">
+        SELECT (SELECT COUNT(*) FROM problems p WHERE p.scope_id = #{id})
+             + (SELECT COUNT(*) FROM external_problems e WHERE e.scope_id = #{id})
+    </select>
+
+</mapper>

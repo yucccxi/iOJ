@@ -51,7 +51,7 @@ me.iynotuo.judge
 ├── config/        SecurityConfig、JwtProperties、JudgeProperties、线程池
 ├── security/      JwtTokenProvider、JwtAuthenticationFilter、LoginUser
 ├── user/          entity / mapper / service / controller / dto / mail（邮箱验证码发信）
-├── problem/       entity / mapper / service / controller / dto（含测试点、标签、来源、外部题库元数据与统一搜索）
+├── problem/       entity / mapper / service / controller / dto（含测试点、标签、scope、外部题库元数据与统一搜索）
 ├── submission/    提交记录
 └── judge/         JudgeService、JudgeWorker、JudgeContext、JudgeOutcome、OutputComparator
     ├── sandbox/   Sandbox（接口）、IsolateSandbox、LocalSandbox、SandboxCommand/Result、SandboxFiles

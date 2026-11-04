@@ -5,11 +5,11 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * Source row with usage counts: {@code localCount} comes from {@code problems},
+ * Scope row with usage counts: {@code localCount} comes from {@code problems},
  * {@code externalCount} from {@code external_problems}.
  */
 @Data
-public class SourceUsageRow {
+public class ScopeUsageRow {
 
     private Long id;
 

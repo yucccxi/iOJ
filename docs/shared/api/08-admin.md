@@ -184,19 +184,19 @@
 | `1005` | 重名，或标签仍在使用（且没传 `force=true`） |
 | `1003` | 非管理员 |
 
-## 8.7 来源管理
+## 8.7 Scope 管理
 
-`/admin/sources` ｜ 管理员
+`/admin/scopes` ｜ 管理员
 
-来源同样是共享字典（OJ 平台、比赛等），外部题用它分类；所有本地题固定引用系统保留来源 `LOCAL`。列表（含使用量）走公开的 [`GET /meta/sources`](07-meta.md#73-来源列表)，这里只负责写操作。
+scope 同样是共享字典（OJ 平台、比赛等），外部题用它分类；所有本地题固定引用系统保留 scope `LOCAL`。列表（含使用量）走公开的 [`GET /meta/scopes`](07-meta.md#73-scope-列表)，这里只负责写操作。
 
 | 接口 | 说明 |
 | --- | --- |
-| `POST /admin/sources` | 新建，请求体 `{ "name": "Codeforces" }` |
-| `PUT /admin/sources/{id}` | 改名，请求体同上 |
-| `DELETE /admin/sources/{id}` | 删除；被任何题目引用时拒绝 |
+| `POST /admin/scopes` | 新建，请求体 `{ "name": "Codeforces" }` |
+| `PUT /admin/scopes/{id}` | 改名，请求体同上 |
+| `DELETE /admin/scopes/{id}` | 删除；被任何题目引用时拒绝 |
 
-**响应 `data`（POST / PUT，单个来源）**
+**响应 `data`（POST / PUT，单个 scope）**
 
 ```json
 { "id": 7, "name": "Codeforces", "createdAt": "2026-11-01T09:00:00", "problemCount": 15 }
@@ -204,22 +204,22 @@
 
 | 字段 | 说明 |
 | --- | --- |
-| `id` | 来源 id，用于 `GET /catalog?sourceId=` 筛选 |
-| `name` | 来源名，1-128 字符 |
+| `id` | scope id |
+| `name` | scope 名，1-128 字符 |
 | `createdAt` | 创建时间 |
-| `problemCount` | 引用该来源的题目数（本地题 + 外部 OJ 链接）；新建时为 `0` |
+| `problemCount` | 引用该 scope 的题目数（本地题 + 外部 OJ 链接）；新建时为 `0` |
 
 **规则**
 
-- `LOCAL` 是系统保留来源：已被本地题引用，**不能改名、不能删除**（返回 `1005`）；
-- 重名（大小写不敏感）→ `409`（`1005` "来源已存在"）；
-- 删除仍被引用的来源 → `409`（`1005` "来源仍被 N 道题使用"）；**不支持** `force`，需要先把相关外部题改到别的来源（或删掉）；
-- 改名后所有引用该来源的外部题 `sourceName` 立即变化（题目只存 `source_id`）；本地题仍固定显示 `LOCAL`。
+- `LOCAL` 是系统保留 scope：已被本地题引用，**不能改名、不能删除**（返回 `1005`）；
+- 重名（大小写不敏感）→ `409`（`1005` "scope 已存在"）；
+- 删除仍被引用的 scope → `409`（`1005` "scope 仍被 N 道题使用"）；**不支持** `force`，需要先把相关外部题改到别的 scope（或删掉）；
+- 改名后所有引用该 scope 的外部题 `scopeName` 立即变化（题目只存 `scope_id`）；本地题仍固定显示 `LOCAL`。
 
 | 错误 | 场景 |
 | --- | --- |
 | `1001` | 名称为空 / 超过 128 字符 |
-| `1004` | 来源不存在 |
-| `1005` | 重名、来源仍被使用，或试图改名/删除 `LOCAL` |
+| `1004` | scope 不存在 |
+| `1005` | 重名、scope 仍被使用，或试图改名/删除 `LOCAL` |
 | `1003` | 非管理员 |
 

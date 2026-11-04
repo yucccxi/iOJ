@@ -20,11 +20,11 @@ CREATE TABLE users (
     CONSTRAINT uk_users_email UNIQUE (email)
 );
 
-CREATE TABLE sources (
+CREATE TABLE scopes (
     id         BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name       VARCHAR(128) NOT NULL,
     created_at DATETIME     NOT NULL,
-    CONSTRAINT uk_sources_name UNIQUE (name)
+    CONSTRAINT uk_scopes_name UNIQUE (name)
 );
 
 CREATE TABLE problems (
@@ -37,9 +37,9 @@ CREATE TABLE problems (
     input_format    MEDIUMTEXT   NULL,
     output_format   MEDIUMTEXT   NULL,
     hint            MEDIUMTEXT   NULL,
-    -- Reference to sources. Local problems always point at the reserved LOCAL row; the column stays
+    -- Reference to scopes. Local problems always point at the reserved LOCAL row; the column stays
     -- nullable so schemas created before LOCAL existed can be migrated without a table rebuild.
-    source_id       BIGINT       NULL,
+    scope_id        BIGINT       NULL,
     -- Custom checker (special judge) source code, compiled and run by the judge.
     -- NULL or blank means the built-in OutputComparator is used.
     checker_code    MEDIUMTEXT   NULL,
@@ -52,7 +52,7 @@ CREATE TABLE problems (
     created_at      DATETIME     NOT NULL,
     updated_at      DATETIME     NOT NULL,
     CONSTRAINT fk_problems_author FOREIGN KEY (author_id) REFERENCES users (id),
-    CONSTRAINT fk_problems_source FOREIGN KEY (source_id) REFERENCES sources (id)
+    CONSTRAINT fk_problems_scope FOREIGN KEY (scope_id) REFERENCES scopes (id)
 );
 
 CREATE TABLE problem_samples (
@@ -92,11 +92,11 @@ CREATE TABLE problem_tags (
 );
 
 -- External OJ catalog: metadata only (no statement, no test data, never judged here).
--- source_id points at sources (the same admin-managed table local problems use), so the
+-- scope_id points at scopes (the same admin-managed table local problems use), so the
 -- platform/contest list has a single source of truth. url is unique to stop duplicate imports.
 CREATE TABLE external_problems (
     id             BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    source_id      BIGINT       NOT NULL,
+    scope_id       BIGINT       NOT NULL,
     -- Short identifier used on the original OJ, for example CF_1234E or AT_ABC124F. NULL for rows
     -- imported before this column existed; the unique key still accepts any number of NULLs.
     code           VARCHAR(32)  NULL,
@@ -118,7 +118,7 @@ CREATE TABLE external_problems (
     updated_at     DATETIME     NOT NULL,
     CONSTRAINT uk_external_problems_url UNIQUE (url),
     CONSTRAINT uk_external_problems_code UNIQUE (code),
-    CONSTRAINT fk_external_problems_source FOREIGN KEY (source_id) REFERENCES sources (id)
+    CONSTRAINT fk_external_problems_scope FOREIGN KEY (scope_id) REFERENCES scopes (id)
 );
 
 CREATE TABLE external_problem_tags (
@@ -176,10 +176,10 @@ CREATE TABLE email_verification_codes (
 CREATE INDEX idx_problems_status_id ON problems (status, id);
 CREATE INDEX idx_problems_status_rating ON problems (status, rating);
 CREATE INDEX idx_problems_author ON problems (author_id, id);
-CREATE INDEX idx_problems_source ON problems (source_id, id);
+CREATE INDEX idx_problems_scope ON problems (scope_id, id);
 CREATE INDEX idx_problems_difficulty ON problems (difficulty);
 CREATE INDEX idx_problem_tags_tag ON problem_tags (tag_id);
-CREATE INDEX idx_external_problems_source_rating ON external_problems (source_id, rating);
+CREATE INDEX idx_external_problems_scope_rating ON external_problems (scope_id, rating);
 CREATE INDEX idx_external_problems_rating ON external_problems (rating, id);
 CREATE INDEX idx_external_problems_difficulty ON external_problems (difficulty);
 CREATE INDEX idx_external_problems_time ON external_problems (time);
@@ -190,7 +190,7 @@ CREATE INDEX idx_submissions_status ON submissions (status, id);
 CREATE INDEX idx_email_verification_codes_email ON email_verification_codes (email, purpose, id);
 CREATE INDEX idx_email_verification_codes_expires ON email_verification_codes (expires_at);
 
--- Reserved source for locally authored problems. Every problems.source_id points here; the source
+-- Reserved scope for locally authored problems. Every problems.scope_id points here; the scope
 -- is created with the schema (not only in seed.sql) so a fresh database always has it, including
 -- the H2 databases used by integration tests.
-INSERT INTO sources (name, created_at) VALUES ('LOCAL', CURRENT_TIMESTAMP);
+INSERT INTO scopes (name, created_at) VALUES ('LOCAL', CURRENT_TIMESTAMP);

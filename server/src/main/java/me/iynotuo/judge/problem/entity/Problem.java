@@ -38,14 +38,14 @@ public class Problem {
     private String hint;
 
     /**
-     * Reference to {@code sources}; null when the problem has no recorded source.
+     * Reference to {@code scopes}; local problems always point at the reserved {@code LOCAL} scope.
      */
-    private Long sourceId;
+    private Long scopeId;
 
     /**
-     * Source name joined in for responses (read-only, never written back).
+     * Scope name joined in for responses (read-only, never written back).
      */
-    private String sourceName;
+    private String scopeName;
 
     /**
      * Whether the problem ships a custom checker. This is a computed, read-only flag: the checker

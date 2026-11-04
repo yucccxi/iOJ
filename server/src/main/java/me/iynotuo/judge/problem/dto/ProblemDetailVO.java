@@ -18,7 +18,7 @@ import java.util.List;
  */
 public record ProblemDetailVO(Long id, String title, Difficulty difficulty, Integer rating, String description,
                               String inputFormat, String outputFormat, String hint,
-                              Long sourceId, String sourceName,
+                              Long scopeId, String scopeName,
                               int timeLimitMs, int memoryLimitMb,
                               ProblemStatus status, Long authorId, String authorNickname, List<TagVO> tags,
                               List<SampleVO> samples, long submitCount, long acceptedCount, boolean solved,

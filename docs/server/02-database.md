@@ -5,7 +5,7 @@
 | 文件 | 用途 |
 | --- | --- |
 | `server/src/main/resources/db/schema.sql` | 建表脚本。使用可移植语法，MySQL 8 与 H2(MySQL 模式) 都能直接执行（测试就是这么跑的） |
-| `server/src/main/resources/db/seed.sql` | 初始管理员（admin / admin123456）、常用标签与保留来源 `LOCAL` |
+| `server/src/main/resources/db/seed.sql` | 初始管理员（admin / admin123456）、常用标签与保留 scope `LOCAL` |
 
 ```bash
 mysql -uroot -p -e "CREATE DATABASE ioj DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
@@ -23,8 +23,8 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
 ```mermaid
 erDiagram
     users ||--o{ problems : "author_id"
-    sources ||--o{ problems : "source_id"
-    sources ||--o{ external_problems : "source_id"
+    scopes ||--o{ problems : "scope_id"
+    scopes ||--o{ external_problems : "scope_id"
     users ||--o{ submissions : "user_id"
     problems ||--o{ problem_samples : "problem_id"
     problems ||--o{ problem_testcases : "problem_id"
@@ -79,17 +79,17 @@ erDiagram
 
 索引：`uk_users_username`、`uk_users_email`（唯一索引同时承担"注册去重"和"并发注册兜底"）。
 
-### 4.2 sources —— 题目来源
+### 4.2 scopes —— 题目 scope
 
-外部 OJ 平台/比赛来源由管理员维护；此外有一行系统保留来源 `LOCAL`，所有本地题都引用它，上传/编辑题目时客户端不能指定来源。`LOCAL` 由 `schema.sql`（新库）与 `seed.sql`（旧库补建）写入，不能改名或删除。
+外部 OJ 平台/比赛 scope 由管理员维护；此外有一行系统保留 scope `LOCAL`，所有本地题都引用它，上传/编辑题目时客户端不能指定 scope。`LOCAL` 由 `schema.sql`（新库）与 `seed.sql`（旧库补建）写入，不能改名或删除。
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | BIGINT | PK, AUTO_INCREMENT | |
-| name | VARCHAR(128) | NOT NULL, UNIQUE | 来源名，如 `LOCAL`、`Codeforces`、`AtCoder`；唯一键大小写不敏感 |
+| name | VARCHAR(128) | NOT NULL, UNIQUE | scope 名，如 `LOCAL`、`Codeforces`、`AtCoder`；唯一键大小写不敏感 |
 | created_at | DATETIME | NOT NULL | 创建时间 |
 
-`problems.source_id` 与 `external_problems.source_id` 都是指向本表的外键（`ON DELETE` 无级联，删除在用来源会被数据库拒绝）。本地题的 `source_id` 恒为 `LOCAL` 的 id（服务端在创建/更新时自动写入）；外部题保留各自平台来源，来源改名对外部题自动生效。`LOCAL` 在应用层禁止改名/删除，避免本地题失去来源。
+`problems.scope_id` 与 `external_problems.scope_id` 都是指向本表的外键（`ON DELETE` 无级联，删除在用 scope 会被数据库拒绝）。本地题的 `scope_id` 恒为 `LOCAL` 的 id（服务端在创建/更新时自动写入）；外部题保留各自平台 scope，scope 改名对外部题自动生效。`LOCAL` 在应用层禁止改名/删除，避免本地题失去 scope。
 
 ### 4.3 problems —— 题目
 
@@ -103,7 +103,7 @@ erDiagram
 | input_format | MEDIUMTEXT | NULL | 输入格式说明 |
 | output_format | MEDIUMTEXT | NULL | 输出格式说明 |
 | hint | MEDIUMTEXT | NULL | 提示 |
-| source_id | BIGINT | FK → sources.id | 题目来源；本地题固定为 `LOCAL` 的 id，由服务端在创建/更新时写入（请求体不接收 `sourceId`）。见 4.2 |
+| scope_id | BIGINT | FK → scopes.id | 题目 scope；本地题固定为 `LOCAL` 的 id，由服务端在创建/更新时写入（请求体不接收 `scopeId`）。见 4.2 |
 | checker_code | MEDIUMTEXT | NULL | 自定义判题器（Special Judge）源码，C++（兼容 C 风格）；`NULL` 或空白表示用内置的 `OutputComparator` 逐行比对 |
 | time_limit_ms | INT | NOT NULL DEFAULT 1000 | 时间限制（毫秒，基准值） |
 | memory_limit_mb | INT | NOT NULL DEFAULT 256 | 内存限制 |
@@ -196,13 +196,13 @@ erDiagram
 
 ### 4.9 external_problems —— 外部 OJ 题目（仅元数据）
 
-只存“指路牌”：题名、来源、难度分、链接，以及原站的提交/通过次数。**不存题面、不存测试数据、不参与本机判题**，所以 `submit_count` / `accepted_count` 由导入或管理员维护，
+只存“指路牌”：题名、scope、难度分、链接，以及原站的提交/通过次数。**不存题面、不存测试数据、不参与本机判题**，所以 `submit_count` / `accepted_count` 由导入或管理员维护，
 本站不会因为有人提交而加 1。
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | BIGINT | PK, AUTO_INCREMENT | |
-| source_id | BIGINT | NOT NULL, FK → sources.id | 来源（OJ 平台或比赛），**与本地题共用同一张来源表**；来源名由 `LEFT JOIN sources` 取得 |
+| scope_id | BIGINT | NOT NULL, FK → scopes.id | scope（OJ 平台或比赛），**与本地题共用同一张 scope 表**；scope 名由 `JOIN scopes` 取得 |
 | code | VARCHAR(32) | NULL, UNIQUE | 原站题目的短标识，如 `CF_2278G`、`AT_ABC482_G`；用于导入去重和排查，无法推导题号时可为 `NULL` |
 | title | VARCHAR(200) | NOT NULL | 题目名称（`LIKE` 搜索） |
 | rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比）；为 `NULL` 时接口返回 `0` |
@@ -267,10 +267,10 @@ erDiagram
 | `idx_problems_status_id (status, id)` | 题库列表：`WHERE status='PUBLISHED' ORDER BY id DESC` |
 | `idx_problems_status_rating (status, rating)` | 题库列表按难度分筛选：`WHERE status='PUBLISHED' AND rating BETWEEN ? AND ?` |
 | `idx_problems_author (author_id, id)` | "我上传的题目" |
-| `idx_problems_source (source_id, id)` | 按来源找题、以及删除来源前的占用检查 |
+| `idx_problems_scope (scope_id, id)` | 按 scope 找题、以及删除 scope 前的占用检查 |
 | `idx_problems_difficulty (difficulty)` | 难度筛选 |
 | `idx_problem_tags_tag (tag_id)` | 按标签筛选（`EXISTS` 子查询） |
-| `idx_external_problems_source_rating (source_id, rating)` | 外部题按来源 + 难度筛选 |
+| `idx_external_problems_scope_rating (scope_id, rating)` | 外部题按 scope + 难度筛选 |
 | `idx_external_problems_rating (rating, id)` | 外部题按难度区间筛选 |
 | `idx_external_problems_difficulty (difficulty)` | 外部题按 `EASY` / `MEDIUM` / `HARD` / `UNKNOWN` 筛选 |
 | `idx_external_problems_time (time)` | 外部题按比赛/题目时间排序或筛选 |

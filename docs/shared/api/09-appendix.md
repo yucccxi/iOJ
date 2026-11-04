@@ -29,7 +29,7 @@
 | --- | --- | --- |
 | 题目详情 | `inputFormat`、`outputFormat`、`hint` | 可能未填写 |
 | 题目详情 | `samples[].explanation` | 可能未填写 |
-| 题目详情 / 统一搜索 | `sourceId`、`sourceName` | 本地题固定为 `LOCAL`，外部题一定有来源，因此这两项不再为 `null` |
+| 题目详情 / 统一搜索 | `scopeId`、`scopeName` | 本地题固定为 `LOCAL`，外部题一定有 scope，因此这两项不再为 `null` |
 | 题目详情 | `hasChecker` | 布尔值，不会是 `null` |
 | 题目详情 | `tags`、`samples` | 空数组（`[]`），不会是 `null` |
 | 统一搜索（`/catalog`） | `code` | `LOCAL` 恒为 `null`；`EXTERNAL` 通常有值，无法推导题号时也可能为 `null` |
@@ -81,12 +81,12 @@
 | --- | --- |
 | 登录 / 注册 | `POST /auth/email-codes`（注册页“获取验证码”）、`POST /auth/register`、`POST /auth/login`、`GET /auth/me` |
 | 找回密码 | `POST /auth/password-reset-codes`、`POST /auth/password-resets` |
-| 题库首页 | `GET /catalog?scope=LOCAL`、`GET /meta/tags`、`GET /meta/sources` |
-| 统一搜索（本地 + 外部） | `GET /catalog`、`GET /meta/tags`、`GET /meta/sources` |
+| 题库首页 | `GET /catalog?scope=LOCAL`、`GET /meta/tags`、`GET /meta/scopes` |
+| 统一搜索（本地 + 外部） | `GET /catalog`、`GET /meta/tags`、`GET /meta/scopes` |
 | 题目详情 | `GET /problems/{id}`、`GET /submissions?problemId={id}`、`POST /submissions` |
 | 提交结果 | `GET /submissions/{id}`（轮询）、`GET /submissions?userId={id}` |
 | 我的题目 | `GET /problems/mine`、`PUT /problems/{id}`、`DELETE /problems/{id}` |
-| 上传/编辑题目 | `GET /meta/tags`、`GET /meta/sources`、`GET /meta/languages`、`POST /problems`、`PUT /problems/{id}` |
+| 上传/编辑题目 | `GET /meta/tags`、`GET /meta/languages`、`POST /problems`、`PUT /problems/{id}` |
 | 测试数据管理 | `GET /problems/{problemId}/testcases`、`GET/POST/PUT/DELETE /problems/{problemId}/testcases/**` |
 | 判题器管理 | `GET /problems/{id}/checker`、`PUT /problems/{id}/checker`（作者/管理员） |
 | 个人主页 | `GET /users/{id}`、`GET /submissions?userId={id}` |
@@ -94,4 +94,4 @@
 | 后台 · 审核 | `GET /admin/problems?status=PENDING_REVIEW`、`GET /problems/{id}`、`PATCH /admin/problems/{id}/status` |
 | 后台 · 用户 | `GET /admin/users`、`PATCH /admin/users/{id}/role`、`PATCH /admin/users/{id}/status` |
 | 后台 · 标签 | 列表 `GET /meta/tags`（公开，含使用量）、`POST /admin/tags`、`PUT /admin/tags/{id}`、`DELETE /admin/tags/{id}`（可带 `?force=true`） |
-| 后台 · 来源 | 列表 `GET /meta/sources`（公开，含使用量）、`POST /admin/sources`、`PUT /admin/sources/{id}`、`DELETE /admin/sources/{id}` |
+| 后台 · Scope | 列表 `GET /meta/scopes`（公开，含使用量）、`POST /admin/scopes`、`PUT /admin/scopes/{id}`、`DELETE /admin/scopes/{id}` |

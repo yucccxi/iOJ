@@ -8,18 +8,16 @@ import java.util.List;
 /**
  * Query criteria for the unified catalog (local problems + external OJ links).
  *
- * <p>All filters are optional and combine with AND. {@code sourceId} and {@code rating} apply to
- * both branches. {@code tagIds} resolves through {@code problem_tags} for local rows and through
+ * <p>All filters are optional and combine with AND. {@code rating} applies to both branches.
+ * {@code tagIds} resolves through {@code problem_tags} for local rows and through
  * {@code external_problem_tags} for external rows; {@code matchAllTags} selects AND instead of the
  * default OR. The public {@code scope} filter is translated into
- * {@code includeLocal}/{@code includeExternal}/{@code externalSources}.</p>
+ * {@code includeLocal}/{@code includeExternal}/{@code externalScopes}.</p>
  */
 @Data
 public class CatalogCriteria {
 
     private String keyword;
-
-    private Long sourceId;
 
     /**
      * Tag ids to match; null/empty means no tag filter.
@@ -63,9 +61,9 @@ public class CatalogCriteria {
     private boolean includeExternal = true;
 
     /**
-     * External source names, lower-cased; null/empty means every external source.
+     * External scope names, lower-cased; null/empty means every external scope.
      */
-    private List<String> externalSources;
+    private List<String> externalScopes;
 
     /**
      * Sort key name: {@code DEFAULT}, {@code RATING}, {@code ACCEPTED}, {@code SUBMISSIONS} or

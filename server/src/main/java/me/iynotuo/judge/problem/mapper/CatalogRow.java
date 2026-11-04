@@ -33,9 +33,9 @@ public class CatalogRow {
 
     private Integer rating;
 
-    private Long sourceId;
+    private Long scopeId;
 
-    private String sourceName;
+    private String scopeName;
 
     private String url;
 

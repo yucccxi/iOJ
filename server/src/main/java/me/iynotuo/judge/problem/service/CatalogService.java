@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  * Unified search over local problems and external OJ links.
  *
  * <p>The two kinds live in different tables, so the SQL is a UNION ALL with a shared column set
- * ({@code kind}, {@code ref_id}, {@code title}, {@code rating}, {@code source_id}, {@code url}).
+ * ({@code kind}, {@code ref_id}, {@code title}, {@code rating}, {@code scope_id}, {@code url}).
  * Tags are loaded per kind with at most two queries, so a page of N items never costs N queries.</p>
  */
 @Service
@@ -55,9 +55,8 @@ public class CatalogService {
      * Searches both problem kinds with the given filters.
      *
      * @param keyword    title keyword (both kinds), blank means no filter
-     * @param sourceId   source filter (both kinds), null means no filter
      * @param difficulties coarse difficulty filter; multiple values are OR-ed and apply to both kinds
-     * @param scopes      source scopes: {@code LOCAL} or source names (case-insensitive,
+     * @param scopes      scope filter: {@code LOCAL} or scope names (case-insensitive,
      *                    repeatable, OR-ed); null/empty means both kinds
      * @param tagIds      tag ids to match (both kinds); null/empty means no tag filter
      * @param tagMatch    {@code ANY} (default) or {@code ALL}; only relevant when tagIds is set
@@ -65,12 +64,12 @@ public class CatalogService {
      * @param minRating   inclusive lower bound, optional
      * @param maxRating   inclusive upper bound, optional
      * @param sort        sort key; null means {@code DEFAULT}. {@code RATING} requires exactly one
-     *                    {@code scope} because ratings are not comparable across sources
+     *                    {@code scope} because ratings are not comparable across scopes
      * @param order       sort direction; null means {@code DESC}
      * @param query       pagination
      * @return one page mixing both kinds, sorted by the requested key
      */
-    public PageResult<CatalogItemVO> page(String keyword, Long sourceId, List<Difficulty> difficulties,
+    public PageResult<CatalogItemVO> page(String keyword, List<Difficulty> difficulties,
                                           List<String> scopes, List<Long> tagIds, TagMatchMode tagMatch,
                                           Integer rating, Integer minRating, Integer maxRating,
                                           CatalogSort sort, SortOrder order, PageQuery query) {
@@ -83,7 +82,6 @@ public class CatalogService {
 
         CatalogCriteria criteria = new CatalogCriteria();
         criteria.setKeyword(StringUtils.hasText(keyword) ? keyword.trim() : null);
-        criteria.setSourceId(sourceId);
         criteria.setDifficulties(difficulties == null || difficulties.isEmpty() ? null : difficulties);
         applyScope(criteria, normalizedScopes);
         List<Long> normalizedTagIds = tagIds == null ? null : tagIds.stream()
@@ -115,9 +113,9 @@ public class CatalogService {
         List<CatalogItemVO> items = rows.stream()
                 .map(row -> {
                     boolean local = KIND_LOCAL.equals(row.getKind());
-                    return new CatalogItemVO(row.getKind(), row.getRefId(), row.getTitle(), row.getCode(),
-                            row.getDifficulty(), row.getTime(), row.getRating(), row.getSourceId(),
-                            row.getSourceName(), row.getUrl(), row.getSubmitCount(), row.getAcceptedCount(),
+                    return new CatalogItemVO(row.getRefId(), row.getTitle(), row.getCode(),
+                            row.getDifficulty(), row.getTime(), row.getRating(), row.getScopeId(),
+                            row.getScopeName(), row.getUrl(), row.getSubmitCount(), row.getAcceptedCount(),
                             row.getAuthorId(), row.getAuthorNickname(),
                             (local ? localTags : externalTags).getOrDefault(row.getRefId(), List.of()),
                             row.getCreatedAt());
@@ -129,7 +127,7 @@ public class CatalogService {
     /**
      * Translates the public {@code scope} values into the two UNION-branch flags.
      *
-     * <p>{@code LOCAL} keeps the local branch and any other value is treated as an external source
+     * <p>{@code LOCAL} keeps the local branch and any other value is treated as an external scope
      * name (case-insensitive). Multiple values are OR-ed, so {@code LOCAL&scope=Codeforces} returns
      * local problems plus Codeforces problems.</p>
      */
@@ -145,16 +143,16 @@ public class CatalogService {
         if (normalizedScopes.isEmpty()) {
             criteria.setIncludeLocal(true);
             criteria.setIncludeExternal(true);
-            criteria.setExternalSources(null);
+            criteria.setExternalScopes(null);
             return;
         }
 
-        List<String> namedSources = normalizedScopes.stream()
+        List<String> namedScopes = normalizedScopes.stream()
                 .filter(scope -> !scope.equals("local"))
                 .toList();
         criteria.setIncludeLocal(normalizedScopes.contains("local"));
-        criteria.setIncludeExternal(!namedSources.isEmpty());
-        criteria.setExternalSources(namedSources.isEmpty() ? null : namedSources);
+        criteria.setIncludeExternal(!namedScopes.isEmpty());
+        criteria.setExternalScopes(namedScopes.isEmpty() ? null : namedScopes);
     }
 
     private Map<Long, List<TagVO>> loadLocalTags(List<CatalogRow> rows) {

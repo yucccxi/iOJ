@@ -14,8 +14,8 @@ import java.util.List;
  * Creates or fully replaces a problem.
  *
  * <p>Tags are an administrator-managed dictionary: {@code tagIds} must reference existing rows and
- * are never created implicitly, so a problem editor offers selection only. The source is not part
- * of the request: every locally authored problem is assigned the reserved {@code LOCAL} source.</p>
+ * are never created implicitly, so a problem editor offers selection only. The scope is not part
+ * of the request: every locally authored problem is assigned the reserved {@code LOCAL} scope.</p>
  */
 public record ProblemSaveRequest(
 
