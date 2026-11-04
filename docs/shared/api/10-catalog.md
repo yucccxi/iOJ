@@ -46,7 +46,7 @@
 
 > `time` 已转换为 UTC+8，字符串本身不带时区后缀。
 
-> `rating` 的刻度随 scope 而定（例如 Codeforces 800–3500、校内比赛可能没有评分），**跨 scope 排序不可比**；未设置评分的题目接口返回 `0`，但按 `rating` 筛选时不会命中（数据库里仍是 `NULL`）。
+> `rating` 的刻度随 scope 而定（例如 Codeforces 800–3500、校内比赛可能没有评分），**跨 scope 排序不可比**；未设置评分的题目接口返回 `-1`，但按 `rating` 筛选时不会命中（数据库里仍是 `NULL`）。
 
 > 外部题的 `difficulty` 由 scope 的 rating 推导：Codeforces `<1400` 为 `EASY`、`1400–1999` 为 `MEDIUM`、`≥2000` 为 `HARD`；AtCoder `<800` 为 `EASY`、`800–1599` 为 `MEDIUM`、`≥1600` 为 `HARD`。rating 为空时归为 `UNKNOWN`。
 
@@ -103,7 +103,7 @@
 | `code` | 外部题的原站题号（如 `CF_123D`、`AT_ABC123_D`）；本地题恒为 `null`，外部题无法推导题号时也可能为 `null` |
 | `difficulty` | `EASY` / `MEDIUM` / `HARD`，外部题 Rating 为空时为 `UNKNOWN`；外部题由 scope 的 rating 推导 |
 | `time` | 只有外部题有值，是 clist 的比赛时间，已转换为中国时区（UTC+8），格式 `yyyy-MM-ddTHH:mm:ss`；本地题恒为 `null`，外部题 clist 未提供时间时也可能为 `null` |
-| `rating` | 数值难度分；未设置时返回 `0`（数据库仍存 `NULL`） |
+| `rating` | 数值难度分；未设置时返回 `-1`（数据库仍存 `NULL`） |
 | `scopeId` / `scopeName` | scope id / 名称；本地题恒为 `LOCAL`，外部题为原平台 scope，二者都不为 `null` |
 | `url` | 只有外部题有值（原题链接）；本地题恒为 `null` |
 | `submitCount` / `acceptedCount` | 累计提交次数 / 通过次数；通过率 = `acceptedCount / submitCount`（`submitCount=0` 时不要相除）。本地题由本站评测累加；外部题是原站/导入的数字，本站不维护 |
@@ -118,7 +118,7 @@
 | `sort` | 排序规则 |
 | --- | --- |
 | `DEFAULT` | 本地题按 `updatedAt`，外部题按 `time`；方向由 `order` 决定，默认 `DESC`；时间为空的外部题始终排最后 |
-| `RATING` | 按 `rating`；未评分按 `0` 处理 |
+| `RATING` | 按 `rating`；未评分按 `-1` 处理 |
 | `ACCEPTED` | 按 `acceptedCount` |
 | `SUBMISSIONS` | 按 `submitCount` |
 | `ACCEPTANCE_RATE` | 按 `acceptedCount / submitCount`；`submitCount=0` 的题目始终排在最后 |

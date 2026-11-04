@@ -33,7 +33,8 @@ public interface ProblemScopeMapper {
     int deleteById(@Param("id") Long id);
 
     /**
-     * Total usage of one scope across local problems and external OJ links.
+     * Total usage of one scope across local problems (every status) and external OJ links. Used by
+     * the admin responses and delete protection.
      */
     long countUsage(@Param("id") Long id);
 }

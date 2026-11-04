@@ -5,8 +5,8 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * Scope row with usage counts: {@code localCount} comes from {@code problems},
- * {@code externalCount} from {@code external_problems}.
+ * Scope row with usage counts: {@code localCount} comes from published {@code problems} for the
+ * public reference-data list, {@code externalCount} from {@code external_problems}.
  */
 @Data
 public class ScopeUsageRow {

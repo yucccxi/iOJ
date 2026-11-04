@@ -301,6 +301,7 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(unknownOnly.path("data").path("total").asLong()).isEqualTo(1);
         assertThat(unknownOnly.path("data").path("items").get(0).path("difficulty").asString())
                 .isEqualTo("UNKNOWN");
+        assertThat(unknownOnly.path("data").path("items").get(0).path("rating").asInt()).isEqualTo(-1);
 
         // Repeated difficulty parameters are OR-ed: local EASY, external EASY and external HARD
         String hardUrl = "https://codeforces.com/problemset/problem/3/A";

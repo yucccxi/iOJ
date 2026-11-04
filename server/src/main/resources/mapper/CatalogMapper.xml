@@ -152,7 +152,7 @@
         FROM ( <include refid="unionBody"/> ) c
         <choose>
             <when test="criteria.sort == 'RATING'">
-                ORDER BY COALESCE(c.rating, 0)
+                ORDER BY COALESCE(c.rating, -1)
                 <if test="criteria.sortAscending">ASC</if>
                 <if test="!criteria.sortAscending">DESC</if>,
                 c.kind, c.ref_id DESC

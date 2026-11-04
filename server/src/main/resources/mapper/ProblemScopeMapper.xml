@@ -21,7 +21,8 @@
         SELECT s.id AS id,
                s.name AS name,
                s.created_at AS created_at,
-               (SELECT COUNT(*) FROM problems p WHERE p.scope_id = s.id) AS local_count,
+               (SELECT COUNT(*) FROM problems p
+                 WHERE p.scope_id = s.id AND p.status = 'PUBLISHED') AS local_count,
                (SELECT COUNT(*) FROM external_problems e WHERE e.scope_id = s.id) AS external_count
         FROM scopes s
         ORDER BY s.name

@@ -100,12 +100,12 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(created.path("data").path("scopeId").asLong()).isEqualTo(localScopeId);
         assertThat(created.path("data").path("scopeName").asString()).isEqualTo("LOCAL");
         assertThat(created.path("data").path("tags").size()).isEqualTo(1);
-        // Unrated problems expose rating 0 instead of null in every response
-        assertThat(created.path("data").path("rating").asInt()).isZero();
+        // Unrated problems expose rating -1 instead of null in every response
+        assertThat(created.path("data").path("rating").asInt()).isEqualTo(-1);
         assertThat(get("/api/v1/problems/mine", adminToken)
-                .path("data").path("items").get(0).path("rating").asInt()).isZero();
+                .path("data").path("items").get(0).path("rating").asInt()).isEqualTo(-1);
         assertThat(get("/api/v1/catalog?scopeId=" + localScopeId, null)
-                .path("data").path("items").get(0).path("rating").asInt()).isZero();
+                .path("data").path("items").get(0).path("rating").asInt()).isEqualTo(-1);
 
         // An unknown tag id is rejected instead of being created implicitly
         HttpResponse<String> unknownTag = exchange(request("/api/v1/problems").POST(body(Map.of(
@@ -124,6 +124,30 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(findScopeByName(get("/api/v1/meta/scopes", null).path("data"), "LOCAL")
                 .path("problemCount").asLong()).isEqualTo(1);
 
+        // Drafts are not part of the public counts, but admin responses and delete protection include them
+        jdbcTemplate.update("INSERT INTO problems "
+                        + "(title, difficulty, description, author_id, status, scope_id, time_limit_ms, "
+                        + "memory_limit_mb, submit_count, accepted_count, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "Draft Problem", "EASY", "草稿题不计入公开 problemCount", admin.getId(), "DRAFT",
+                localScopeId, 1000, 256, 0, 0, LocalDateTime.now(), LocalDateTime.now());
+        Long draftProblemId = jdbcTemplate.queryForObject(
+                "SELECT id FROM problems WHERE title = ?", Long.class, "Draft Problem");
+        jdbcTemplate.update("INSERT INTO problem_tags (problem_id, tag_id) VALUES (?, ?)",
+                draftProblemId, tagId);
+        assertThat(findScopeByName(get("/api/v1/meta/scopes", null).path("data"), "LOCAL")
+                .path("problemCount").asLong()).isEqualTo(1);
+        assertThat(get("/api/v1/meta/tags", null).path("data").get(0).path("problemCount").asLong())
+                .isEqualTo(1);
+
+        // A draft under 洛谷 verifies that admin responses count every status while /meta does not
+        jdbcTemplate.update("INSERT INTO problems "
+                        + "(title, difficulty, description, author_id, status, scope_id, time_limit_ms, "
+                        + "memory_limit_mb, submit_count, accepted_count, created_at, updated_at) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "Draft Scope Problem", "EASY", "草稿题也不计入公开 problemCount", admin.getId(), "DRAFT",
+                scopeId, 1000, 256, 0, 0, LocalDateTime.now(), LocalDateTime.now());
+
         // Scopes are still used by external OJ links; add one so rename/delete behaviour can be tested
         String externalUrl = "https://example.com/scope-rename";
         jdbcTemplate.update("INSERT INTO external_problems "
@@ -131,6 +155,9 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
                         + "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 scopeId, "TEST_1", "Scope Rename", 800, "EASY", 0, 0, externalUrl,
                 LocalDateTime.now(), LocalDateTime.now());
+        // The public count sees the external link only; the draft under 洛谷 is still hidden
+        assertThat(findScopeByName(get("/api/v1/meta/scopes", null).path("data"), "洛谷")
+                .path("problemCount").asLong()).isEqualTo(1);
 
         // In-use entries cannot be deleted without an explicit force
         assertThat(exchange(request("/api/v1/admin/tags/" + tagId).DELETE(), adminToken).statusCode())
@@ -140,8 +167,12 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(JSON.readTree(scopeInUse.body()).path("message").asString()).contains("仍被");
 
         // Renames are reflected in problem details and external catalog rows immediately
-        put("/api/v1/admin/tags/" + tagId, adminToken, Map.of("name", "图论"));
-        put("/api/v1/admin/scopes/" + scopeId, adminToken, Map.of("name", "Codeforces"));
+        JsonNode renamedTag = put("/api/v1/admin/tags/" + tagId, adminToken, Map.of("name", "图论"));
+        // Admin responses count every local status: one published + one draft problem
+        assertThat(renamedTag.path("data").path("problemCount").asLong()).isEqualTo(2);
+        JsonNode renamedScope = put("/api/v1/admin/scopes/" + scopeId, adminToken, Map.of("name", "Codeforces"));
+        // Admin response counts one draft local problem + one external link
+        assertThat(renamedScope.path("data").path("problemCount").asLong()).isEqualTo(2);
         JsonNode detail = get("/api/v1/problems/" + problemId, null);
         assertThat(detail.path("data").path("tags").get(0).path("name").asString()).isEqualTo("图论");
         // The local problem keeps LOCAL; only external rows use the renamed scope
@@ -158,6 +189,7 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         // The scope is still used by the external row, so it stays protected until that row is gone
         assertThat(exchange(request("/api/v1/admin/scopes/" + scopeId).DELETE(), adminToken)
                 .statusCode()).isEqualTo(409);
+        jdbcTemplate.update("DELETE FROM problems WHERE title = ?", "Draft Scope Problem");
         jdbcTemplate.update("DELETE FROM external_problems WHERE url = ?", externalUrl);
         assertThat(exchange(request("/api/v1/admin/scopes/" + scopeId).DELETE(), adminToken)
                 .statusCode()).isEqualTo(200);

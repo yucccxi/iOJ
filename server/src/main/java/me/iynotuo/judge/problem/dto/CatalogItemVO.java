@@ -21,7 +21,7 @@ import java.util.List;
  *
  * <p>Both shapes share {@code title}, {@code difficulty}, {@code rating},
  * {@code scopeId}/{@code scopeName} and {@code tags}, which is what makes a single filtered list
- * possible. An unrated item exposes {@code rating} as {@code 0} instead of {@code null}.</p>
+ * possible. An unrated item exposes {@code rating} as {@code -1} instead of {@code null}.</p>
  */
 public record CatalogItemVO(Long id, String title, String code, Difficulty difficulty,
                             LocalDateTime time, Integer rating, Long scopeId, String scopeName, String url,
@@ -29,6 +29,6 @@ public record CatalogItemVO(Long id, String title, String code, Difficulty diffi
                             List<TagVO> tags, LocalDateTime createdAt) {
 
     public CatalogItemVO {
-        rating = rating == null ? 0 : rating;
+        rating = rating == null ? -1 : rating;
     }
 }

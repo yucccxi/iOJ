@@ -32,7 +32,9 @@
     <select id="findAllWithUsage" resultType="me.iynotuo.judge.problem.mapper.TagUsageRow">
         SELECT t.id AS id,
                t.name AS name,
-               (SELECT COUNT(*) FROM problem_tags pt WHERE pt.tag_id = t.id) AS local_count,
+               (SELECT COUNT(*) FROM problem_tags pt
+                 JOIN problems p ON p.id = pt.problem_id
+                 WHERE pt.tag_id = t.id AND p.status = 'PUBLISHED') AS local_count,
                (SELECT COUNT(*) FROM external_problem_tags et WHERE et.tag_id = t.id) AS external_count
         FROM tags t
         ORDER BY t.name

@@ -9,7 +9,7 @@
 | 用户角色 | `USER` / `ADMIN` | `user.role`、用户列表、权限判断 |
 | 用户状态 | `ACTIVE` / `BANNED` | 管理后台封禁/解封 |
 | 难度 | `EASY` / `MEDIUM` / `HARD` / `UNKNOWN` | 本地题只能创建 `EASY` / `MEDIUM` / `HARD`；`UNKNOWN` 只出现在外部题的 `/catalog` 结果里（rating 为空） |
-| 难度分 | 整数 `0`–`5000`（非枚举） | 题目列表/统一搜索的 `rating` / `minRating` / `maxRating` 筛选；与“难度”档位相互独立 |
+| 难度分 | 整数 `0`–`5000`，未评分为 `-1`（非枚举） | 题目列表/统一搜索的 `rating` / `minRating` / `maxRating` 筛选；与“难度”档位相互独立 |
 | 题目状态 | `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN` | 我的题目、审核列表、题目详情 |
 | 语言 | `JAVA` / `CPP` / `C` / `PYTHON3` | 提交、语言下拉框 |
 | 评测状态 | 见 [6.4 评测状态](06-submissions.md#64-评测状态) | 提交列表、提交详情 |
@@ -46,7 +46,7 @@
 | 提交详情 | `cases[].message` | 通过/答案错误时一般为 `null` |
 | 列表 | `items` | 无数据或超出页码时为 `[]`，此时 `total` 可能不为 0 |
 
-> `rating` 不在上表：数据库里未评分存的是 `NULL`，但接口统一返回 `0`，前端可以直接展示，不需要按 `null` 处理。
+> `rating` 不在上表：数据库里未评分存的是 `NULL`，但接口统一返回 `-1`，前端可以直接展示，不需要按 `null` 处理。
 
 > 数值字段（`timeUsedMs`、`memoryUsedKb`）为 `null` 时，建议统一显示为 `-`，不要直接渲染 `null`。
 

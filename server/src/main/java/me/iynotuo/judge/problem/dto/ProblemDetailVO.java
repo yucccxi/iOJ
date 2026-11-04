@@ -13,7 +13,7 @@ import java.util.List;
  * part of this response.</p>
  *
  * <p>rating is the numeric difficulty (0-5000) used for filtering; an unrated problem is
- * exposed as {@code 0} rather than {@code null}. difficulty remains the coarse label and is not
+ * exposed as {@code -1} rather than {@code null}. difficulty remains the coarse label and is not
  * derived from rating.</p>
  */
 public record ProblemDetailVO(Long id, String title, Difficulty difficulty, Integer rating, String description,
@@ -25,6 +25,6 @@ public record ProblemDetailVO(Long id, String title, Difficulty difficulty, Inte
                               LocalDateTime createdAt, LocalDateTime updatedAt, boolean hasChecker) {
 
     public ProblemDetailVO {
-        rating = rating == null ? 0 : rating;
+        rating = rating == null ? -1 : rating;
     }
 }

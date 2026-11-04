@@ -98,7 +98,7 @@ erDiagram
 | id | BIGINT | PK | |
 | title | VARCHAR(128) | NOT NULL | 标题 |
 | difficulty | VARCHAR(16) | NOT NULL DEFAULT 'EASY' | 难度档位（`EASY`/`MEDIUM`/`HARD`），与 `rating` 相互独立 |
-| rating | INT | NULL | 数值难度分（0-5000），用于列表筛选/排序；未评分为 `NULL`（接口统一返回 `0`），服务端**不会**由 `difficulty` 推算 |
+| rating | INT | NULL | 数值难度分（0-5000），用于列表筛选/排序；未评分为 `NULL`（接口统一返回 `-1`），服务端**不会**由 `difficulty` 推算 |
 | description | MEDIUMTEXT | NOT NULL | 题面（纯文本/Markdown） |
 | input_format | MEDIUMTEXT | NULL | 输入格式说明 |
 | output_format | MEDIUMTEXT | NULL | 输出格式说明 |
@@ -205,7 +205,7 @@ erDiagram
 | scope_id | BIGINT | NOT NULL, FK → scopes.id | scope（OJ 平台或比赛），**与本地题共用同一张 scope 表**；scope 名由 `JOIN scopes` 取得 |
 | code | VARCHAR(32) | NULL, UNIQUE | 原站题目的短标识，如 `CF_2278G`、`AT_ABC482_G`；用于导入去重和排查，无法推导题号时可为 `NULL` |
 | title | VARCHAR(200) | NOT NULL | 题目名称（`LIKE` 搜索） |
-| rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比）；为 `NULL` 时接口返回 `0` |
+| rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比）；为 `NULL` 时接口返回 `-1` |
 | difficulty | VARCHAR(16) | NOT NULL DEFAULT 'UNKNOWN' | 由 rating 推导的档位：Codeforces `<1400` / `1400–1999` / `≥2000`，AtCoder `<800` / `800–1599` / `≥1600`；rating 为空归为 `UNKNOWN` |
 | time | DATETIME | NULL | clist 返回的 `time`，已从 UTC 转换为中国时区（UTC+8）；通常是题目所属比赛开始时间，AtCoder 镜像题可能是训练赛时间。通过 `GET /catalog` 的 `time` 返回，本地题为 `null` |
 | submit_count | INT | NOT NULL DEFAULT 0 | 提交次数（**来自原站/人工导入，本站不累加**） |
