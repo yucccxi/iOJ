@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Search } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 import { tagsQuery, type TagMatch } from "@/api/catalog";
 import Button from "@/components/ui/Button";
 import { FilterHeader } from "@/components/ui/FilterPanel";
@@ -69,7 +69,7 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3">
-      <FilterHeader title="标签" onClear={() => setSelected([])} />
+      <FilterHeader title="标签" />
 
       <label className="flex h-8.5 items-center gap-2 rounded-control border border-line bg-layer-inner px-2.5 focus-within:border-accent focus-within:ring-3 focus-within:ring-accent-ring">
         <Search size={14} className="text-fg-subtle" />
@@ -119,10 +119,22 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
 
       <div className="flex items-center justify-between">
         <span className="text-caption text-fg-subtle">已选 {selected.length} 个标签</span>
-        <Button onClick={() => onApply(selected, match)}>
-          <Check />
-          应用
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setSelected(tagId);
+              setMatch(tagMatch);
+            }}
+          >
+            <X />
+            重置
+          </Button>
+          <Button onClick={() => onApply(selected, match)}>
+            <Check />
+            应用
+          </Button>
+        </div>
       </div>
     </div>
   );

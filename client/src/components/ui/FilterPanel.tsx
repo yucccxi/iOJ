@@ -2,20 +2,27 @@ import type { ReactNode } from "react";
 import Checkbox from "@/components/ui/Checkbox";
 import { formatCount } from "@/lib/format";
 
-type FilterHeaderProps = { title: string; onClear: () => void; className?: string };
+type FilterHeaderProps = {
+  title: string;
+  /** Shows a 清除 action on the right. */
+  onClear?: () => void;
+  className?: string;
+};
 
-/** Panel title with a clear action on the right. */
+/** Panel title, with an optional clear action on the right. */
 export function FilterHeader({ title, onClear, className = "" }: FilterHeaderProps) {
   return (
     <div className={`flex items-center justify-between ${className}`}>
       <span className="text-field font-bold text-fg">{title}</span>
-      <button
-        type="button"
-        onClick={onClear}
-        className="text-caption text-accent-strong hover:underline"
-      >
-        清除
-      </button>
+      {onClear && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-caption text-accent-strong hover:underline"
+        >
+          清除
+        </button>
+      )}
     </div>
   );
 }
