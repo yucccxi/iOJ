@@ -26,7 +26,9 @@ export default function RateBar({ accepted, submitted }: RateBarProps) {
           />
         </span>
       </Tooltip>
-      <span className="w-11 text-right font-mono text-mono-label text-fg-muted">
+      <span
+        className={`w-11 font-mono text-mono-label text-fg-muted ${rate === null ? "text-center" : "text-right"}`}
+      >
         {rate === null ? "—" : `${(rate * 100).toFixed(1)}%`}
       </span>
     </div>
