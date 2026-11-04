@@ -30,7 +30,7 @@ export default function DifficultyFilter({ value, onChange }: DifficultyFilterPr
   return (
     <Popover
       label="按难度筛选"
-      className="flex w-55 flex-col gap-2.5 p-2"
+      className="flex w-55 flex-col gap-2.5 p-2 -translate-x-1"
       trigger={(props) => (
         <SelectButton
           {...props}

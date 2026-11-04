@@ -59,7 +59,7 @@ export default function SectionSwitcher() {
     <Popover
       label="切换栏目"
       role="menu"
-      className="flex w-50 flex-col gap-0.5 p-1.5"
+      className="flex w-50 flex-col gap-0.5 p-1.5 -translate-x-2"
       trigger={(props) => (
         <button
           {...props}
