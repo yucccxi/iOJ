@@ -4,8 +4,10 @@ type TriggerProps = {
   ref: Ref<HTMLButtonElement>;
   onClick: () => void;
   "aria-expanded": boolean;
-  "aria-haspopup": "dialog";
+  "aria-haspopup": PopoverRole;
 };
+
+type PopoverRole = "dialog" | "menu";
 
 type PopoverProps = {
   /** Spread the props onto the button that opens the panel. */
@@ -14,6 +16,8 @@ type PopoverProps = {
   children: ReactNode | ((close: () => void) => ReactNode);
   /** Accessible name of the panel. */
   label: string;
+  /** `menu` for a list of links or commands; the trigger announces the same. */
+  role?: PopoverRole;
   /**
    * `start` aligns with the trigger's left edge. `end` aligns with the right edge of the
    * nearest positioned ancestor instead, so a wide panel stays inside its container.
@@ -28,6 +32,7 @@ export default function Popover({
   trigger,
   children,
   label,
+  role = "dialog",
   align = "start",
   className = "",
 }: PopoverProps) {
@@ -64,11 +69,11 @@ export default function Popover({
         ref: triggerRef,
         onClick: () => setOpen((value) => !value),
         "aria-expanded": open,
-        "aria-haspopup": "dialog",
+        "aria-haspopup": role,
       })}
       {open && (
         <div
-          role="dialog"
+          role={role}
           aria-label={label}
           className={`absolute top-full z-20 mt-1.5 rounded-popover border border-line-popover bg-popover shadow-popover glass:backdrop-blur-layer ${align === "start" ? "left-0" : "right-0"} ${className}`}
         >

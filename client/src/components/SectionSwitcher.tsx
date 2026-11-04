@@ -1,5 +1,4 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -9,6 +8,7 @@ import {
   Library,
   MessageSquare,
 } from "lucide-react";
+import Popover from "@/components/ui/Popover";
 
 const mainSections = [
   { to: "/", label: "首页", icon: House },
@@ -34,32 +34,7 @@ function findSection(pathname: string): Section {
 export default function SectionSwitcher() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const current = findSection(pathname);
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function handlePointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
-  function renderItem(section: Section) {
+  function renderItem(section: Section, close: () => void) {
     const isCurrent = section === current;
     const SectionIcon = section.icon;
     return (
@@ -68,7 +43,7 @@ export default function SectionSwitcher() {
         to={section.to}
         role="menuitem"
         activeOptions={{ exact: section.to === "/" }}
-        onClick={() => setOpen(false)}
+        onClick={close}
         className={`flex items-center gap-2.5 rounded-control px-2.5 py-2 text-label hover:bg-hover ${
           isCurrent ? "text-accent-strong" : "text-fg"
         }`}
@@ -81,32 +56,31 @@ export default function SectionSwitcher() {
   }
 
   return (
-    <div ref={rootRef} className="relative">
-      <button
-        ref={buttonRef}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className="flex items-center gap-1.5 rounded-control bg-selected px-2.5 py-1.5 text-field text-accent-strong"
-      >
-        <current.icon />
-        {current.label}
-        <ChevronDown size={14} />
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          className="absolute top-full left-0 z-20 mt-2 flex w-50 flex-col gap-0.5 rounded-popover border border-line-popover bg-popover p-1.5 shadow-popover glass:backdrop-blur-layer"
+    <Popover
+      label="切换栏目"
+      role="menu"
+      className="flex w-50 flex-col gap-0.5 p-1.5"
+      trigger={(props) => (
+        <button
+          {...props}
+          type="button"
+          className="flex items-center gap-1.5 rounded-control bg-selected px-2.5 py-1.5 text-field text-accent-strong"
         >
-          {mainSections.map(renderItem)}
+          <current.icon />
+          {current.label}
+          <ChevronDown size={14} />
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          {mainSections.map((section) => renderItem(section, close))}
           <div className="p-1">
             <div className="h-px bg-line" />
           </div>
-          {renderItem(aboutSection)}
-        </div>
+          {renderItem(aboutSection, close)}
+        </>
       )}
-    </div>
+    </Popover>
   );
 }
