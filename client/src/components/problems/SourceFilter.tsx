@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { catalogTotalQuery, LOCAL_SCOPE, sourcesQuery } from "@/api/catalog";
+import { LOCAL_SCOPE, scopesQuery } from "@/api/catalog";
 import PlatformMark from "@/components/problems/PlatformMark";
 import {
   FilterGroupLabel,
@@ -11,25 +11,27 @@ import Popover from "@/components/ui/Popover";
 import SelectButton from "@/components/ui/SelectButton";
 
 type SourceFilterProps = {
-  /** Selected `scope` values. */
-  value: string[];
-  onChange: (value: string[]) => void;
+  /** Selected scope ids. */
+  value: number[];
+  onChange: (value: number[]) => void;
 };
 
-/** Problems uploaded here, then one option per source from `/meta/sources`. */
+/** The local scope first, then one option per external platform from `/meta/scopes`. */
 export default function SourceFilter({ value, onChange }: SourceFilterProps) {
-  const { data: sources } = useQuery(sourcesQuery);
-  const { data: localTotal } = useQuery(catalogTotalQuery({ scope: [LOCAL_SCOPE] }));
+  const { data: scopes = [] } = useQuery(scopesQuery);
+  const local = scopes.find((scope) => scope.name === LOCAL_SCOPE);
+  const external = scopes.filter((scope) => scope !== local);
 
-  const counts = new Map<string, number>([
-    [LOCAL_SCOPE, localTotal ?? 0],
-    ...(sources ?? []).map((source) => [source.name, source.problemCount] as const),
-  ]);
-  const counted = value.length > 0 ? value : [...counts.keys()];
-  const total = counted.reduce((sum, scope) => sum + (counts.get(scope) ?? 0), 0);
+  const counted =
+    value.length > 0
+      ? scopes.filter((scope) => value.includes(scope.id))
+      : scopes;
+  const total = counted.reduce((sum, scope) => sum + scope.problemCount, 0);
 
-  function toggle(scope: string) {
-    onChange(value.includes(scope) ? value.filter((v) => v !== scope) : [...value, scope]);
+  function toggle(id: number) {
+    onChange(
+      value.includes(id) ? value.filter((v) => v !== id) : [...value, id],
+    );
   }
 
   return (
@@ -44,30 +46,38 @@ export default function SourceFilter({ value, onChange }: SourceFilterProps) {
         />
       )}
     >
-      <FilterHeader title="来源" onClear={() => onChange([])} className="px-2 pt-1 pb-1.5" />
+      <FilterHeader
+        title="来源"
+        onClear={() => onChange([])}
+        className="px-2 pt-1 pb-1.5"
+      />
 
-      <FilterGroupLabel>本站</FilterGroupLabel>
-      <FilterOption
-        checked={value.includes(LOCAL_SCOPE)}
-        onChange={() => toggle(LOCAL_SCOPE)}
-        count={localTotal}
-      >
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-accent text-tag text-accent-on">
-          站
-        </span>
-        <span className="truncate text-label text-fg">用户上传</span>
-      </FilterOption>
+      {local && (
+        <>
+          <FilterGroupLabel>本站</FilterGroupLabel>
+          <FilterOption
+            checked={value.includes(local.id)}
+            onChange={() => toggle(local.id)}
+            count={local.problemCount}
+          >
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-accent text-tag text-accent-on">
+              站
+            </span>
+            <span className="truncate text-label text-fg">用户上传</span>
+          </FilterOption>
+        </>
+      )}
 
       <FilterGroupLabel>外部平台</FilterGroupLabel>
-      {sources?.map((source) => (
+      {external.map((scope) => (
         <FilterOption
-          key={source.id}
-          checked={value.includes(source.name)}
-          onChange={() => toggle(source.name)}
-          count={source.problemCount}
+          key={scope.id}
+          checked={value.includes(scope.id)}
+          onChange={() => toggle(scope.id)}
+          count={scope.problemCount}
         >
-          <PlatformMark sourceName={source.name} className="size-5" />
-          <span className="truncate text-label text-fg">{source.name}</span>
+          <PlatformMark scopeName={scope.name} className="size-5" />
+          <span className="truncate text-label text-fg">{scope.name}</span>
         </FilterOption>
       ))}
 

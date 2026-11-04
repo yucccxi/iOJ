@@ -29,7 +29,7 @@ const SEARCH_DELAY_MS = 300;
 const searchDefaults = {
   page: 1,
   keyword: "",
-  scope: [] as string[],
+  scopeId: [] as number[],
   difficulty: [] as Difficulty[],
   tagId: [] as number[],
   tagMatch: "ANY" as TagMatch,
@@ -47,10 +47,10 @@ const searchSchema = z.object({
     .string()
     .default(searchDefaults.keyword)
     .catch(searchDefaults.keyword),
-  scope: z
-    .array(z.string())
-    .default(searchDefaults.scope)
-    .catch(searchDefaults.scope),
+  scopeId: z
+    .array(z.number().int())
+    .default(searchDefaults.scopeId)
+    .catch(searchDefaults.scopeId),
   difficulty: z
     .array(z.enum(difficulties))
     .default(searchDefaults.difficulty)
@@ -83,7 +83,7 @@ export const Route = createFileRoute("/problems/")({
 });
 
 function ProblemsPage() {
-  const { page, keyword, scope, difficulty, tagId, tagMatch, sort, order } =
+  const { page, keyword, scopeId, difficulty, tagId, tagMatch, sort, order } =
     Route.useSearch();
   const navigate = Route.useNavigate();
   const [draft, setDraft] = useState(keyword);
@@ -110,7 +110,7 @@ function ProblemsPage() {
   const { data, error, isFetching, isPlaceholderData, refetch } = useQuery({
     ...catalogQuery({
       keyword,
-      scope,
+      scopeId,
       difficulty,
       tagId,
       // Defaults are left out so the request matches what the URL shows.
@@ -124,7 +124,7 @@ function ProblemsPage() {
     placeholderData: keepPreviousData,
   });
 
-  const filtered = scope.length + difficulty.length + tagId.length > 0;
+  const filtered = scopeId.length + difficulty.length + tagId.length > 0;
 
   const message = error ? (
     <>
@@ -169,10 +169,10 @@ function ProblemsPage() {
             className="min-w-0 flex-1"
           />
           <SourceFilter
-            value={scope}
+            value={scopeId}
             onChange={(next) =>
               setFilters({
-                scope: next,
+                scopeId: next,
                 // The API rejects RATING unless exactly one scope is selected.
                 ...(sort === "RATING" &&
                   next.length !== 1 && { sort: "DEFAULT" }),
@@ -193,7 +193,7 @@ function ProblemsPage() {
           <SortMenu
             sort={sort}
             order={order}
-            ratingAllowed={scope.length === 1}
+            ratingAllowed={scopeId.length === 1}
             onChange={(change) => setFilters(change)}
           />
         </div>

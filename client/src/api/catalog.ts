@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { get } from "@/api/client";
-import type { CatalogItem, Difficulty, Page, Source, Tag } from "@/api/types";
+import type { CatalogItem, Difficulty, Page, Scope, Tag } from "@/api/types";
 
 export const catalogSorts = [
   "DEFAULT",
@@ -13,13 +13,12 @@ export type CatalogSort = (typeof catalogSorts)[number];
 export type TagMatch = "ANY" | "ALL";
 export type SortOrder = "ASC" | "DESC";
 
-/** The `scope` value for problems uploaded here; other scopes are source names. */
+/** Name of the reserved scope that every problem uploaded here belongs to. */
 export const LOCAL_SCOPE = "LOCAL";
 
 /** Array values are sent as repeated params and match any of them. */
 export type CatalogParams = {
   keyword?: string;
-  sourceId?: number;
   difficulty?: Difficulty[];
   tagId?: number[];
   /** Whether several `tagId`s match ANY (the default) or ALL. */
@@ -27,9 +26,9 @@ export type CatalogParams = {
   rating?: number;
   minRating?: number;
   maxRating?: number;
-  /** `LOCAL` or a source name from `/meta/sources`, case-insensitive. */
-  scope?: string[];
-  /** RATING needs exactly one `scope`; ratings from different sources aren't comparable. */
+  /** Ids from `/meta/scopes`; an unknown id is a 400, not an empty page. */
+  scopeId?: number[];
+  /** RATING needs exactly one `scopeId`; ratings from different scopes aren't comparable. */
   sort?: CatalogSort;
   order?: SortOrder;
   page?: number;
@@ -62,8 +61,14 @@ export const tagsQuery = queryOptions({
   staleTime: 5 * 60_000,
 });
 
-export const sourcesQuery = queryOptions({
-  queryKey: ["meta", "sources"],
-  queryFn: ({ signal }) => get<Source[]>("/meta/sources", {}, signal),
+export const scopesQuery = queryOptions({
+  queryKey: ["meta", "scopes"],
+  queryFn: ({ signal }) => get<Scope[]>("/meta/scopes", {}, signal),
   staleTime: 5 * 60_000,
+});
+
+/** The local scope, found by name because its id differs between databases. */
+export const localScopeQuery = queryOptions({
+  ...scopesQuery,
+  select: (scopes) => scopes.find((scope) => scope.name === LOCAL_SCOPE),
 });

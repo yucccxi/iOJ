@@ -24,7 +24,7 @@ const stretchedLink =
   "truncate text-field text-fg group-hover/row:text-accent-strong after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded-control focus-visible:after:ring-2 focus-visible:after:ring-accent-ring";
 
 function TitleCell({ item }: { item: CatalogItem }) {
-  if (item.kind === "EXTERNAL" && item.url) {
+  if (item.url) {
     return (
       <div className="flex min-w-0 items-center gap-1.5">
         <a
@@ -100,7 +100,7 @@ export default function ProblemTable({
         ) : items ? (
           items.map((item) => (
             <tr
-              key={`${item.kind}-${item.id}`}
+              key={`${item.scopeId}-${item.id}`}
               className="group/row relative hover:bg-hover"
             >
               <td

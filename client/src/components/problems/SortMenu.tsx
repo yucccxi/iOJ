@@ -20,7 +20,7 @@ type SortMenuProps = {
   sort: CatalogSort;
   order: SortOrder;
   onChange: (change: { sort?: CatalogSort; order?: SortOrder }) => void;
-  /** Ratings are only comparable within one source, so RATING needs exactly one selected. */
+  /** Ratings are only comparable within one scope, so RATING needs exactly one selected. */
   ratingAllowed: boolean;
 };
 

@@ -11,7 +11,7 @@ type DifficultyFilterProps = {
   onChange: (value: Difficulty[]) => void;
 };
 
-/** Counts are across all sources and ignore the other filters. */
+/** Counts are across all scopes and ignore the other filters. */
 export default function DifficultyFilter({ value, onChange }: DifficultyFilterProps) {
   const totals = useQueries({
     queries: difficulties.map((level) => catalogTotalQuery({ difficulty: [level] })),

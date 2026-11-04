@@ -4,7 +4,7 @@ import codeforcesMark from "@/assets/platforms/codeforces.png";
 import leetcodeMark from "@/assets/platforms/leetcode.png";
 import luoguMark from "@/assets/platforms/luogu.png";
 
-// Keyed by lower-cased source name, as admins may type either spelling.
+// Keyed by lower-cased scope name, as admins may type either spelling.
 const platformMarks: Record<string, string> = {
   洛谷: luoguMark,
   luogu: luoguMark,
@@ -15,15 +15,15 @@ const platformMarks: Record<string, string> = {
 };
 
 type PlatformMarkProps = {
-  sourceName: string;
+  scopeName: string;
   className: string;
-  /** Shown for sources without a known logo. */
+  /** Shown for scopes without a known logo. */
   fallback?: ReactNode;
 };
 
 /** Logo of a known external platform. */
-export default function PlatformMark({ sourceName, className, fallback = null }: PlatformMarkProps) {
-  const mark = platformMarks[sourceName.toLowerCase()];
+export default function PlatformMark({ scopeName, className, fallback = null }: PlatformMarkProps) {
+  const mark = platformMarks[scopeName.toLowerCase()];
   if (!mark) return fallback;
   return (
     // Luogu's mark has a white background. Multiply hides it on light pages only;

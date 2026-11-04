@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { catalogQuery } from "@/api/catalog";
+import { catalogQuery, localScopeQuery } from "@/api/catalog";
 import type { CatalogItem } from "@/api/types";
 import Card from "@/components/ui/Card";
 import UserChip from "@/components/ui/UserChip";
@@ -25,7 +25,11 @@ function topAuthors(items: CatalogItem[]) {
 
 /** Problems uploaded here and who uploaded the most. */
 export default function ContributorsCard() {
-  const { data } = useQuery(catalogQuery({ scope: ["LOCAL"] }));
+  const { data: local } = useQuery(localScopeQuery);
+  const { data } = useQuery({
+    ...catalogQuery({ scopeId: local ? [local.id] : [] }),
+    enabled: local !== undefined,
+  });
   // Without a stats endpoint the ranking is exact only while everything fits in one page.
   const authors =
     data && data.total <= data.items.length ? topAuthors(data.items) : [];
