@@ -146,7 +146,7 @@ cd server
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、匿名与越权拒绝、题目详情只暴露 `hasChecker`、local 引擎返回 `CHECKER_ERROR` |
 | `ProgramAnswerCheckerTest` | 判题器退出码 0/1/2/其他、超时、崩溃、内存超限、编译失败、缺少二进制（假 Sandbox，无需 isolate） |
 | `IsolateSandboxCommandTest` | isolate 命令行（顺序与两位小数格式）与宿主机到 `/box` 的路径翻译 |
-| `AdminMetaIntegrationTest` | 标签/来源字典的增删改、重复处理、使用量统计、重命名传播、删除保护与 `force=true` |
+| `AdminMetaIntegrationTest` | 标签/来源字典的增删改、重复处理、使用量统计、外部题来源重命名传播、保留来源 `LOCAL` 保护、删除保护与 `force=true` |
 | `LimitConfigIntegrationTest` | `max-testcase-bytes` / `max-code-length` 来自配置：边界值通过、超一字节/一字符拒绝 |
 | `EmailVerificationIntegrationTest` | 发码接口返回有效期/冷却、冷却内重发、每小时上限、无码/错码/正码注册、一次性消费、输错上限作废、过期拒绝、已注册邮箱拒绝；用假 `EmailCodeSender` 捕获验证码，不连 SMTP |
 | `PasswordResetIntegrationTest` | 找回密码全链路：发码、未注册邮箱 `2001`、被封账号 `2004`、码与用途隔离、一次性消费、输错上限作废、新密码规则；直接插入带已知 BCrypt 的账号，验证"旧密码 401 / 新密码 200" |

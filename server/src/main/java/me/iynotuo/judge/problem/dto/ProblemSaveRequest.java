@@ -13,9 +13,9 @@ import java.util.List;
 /**
  * Creates or fully replaces a problem.
  *
- * <p>Tags and sources are administrator-managed dictionaries: {@code tagIds} and {@code sourceId}
- * must reference existing rows and are never created implicitly, so a problem editor offers
- * selection only.</p>
+ * <p>Tags are an administrator-managed dictionary: {@code tagIds} must reference existing rows and
+ * are never created implicitly, so a problem editor offers selection only. The source is not part
+ * of the request: every locally authored problem is assigned the reserved {@code LOCAL} source.</p>
  */
 public record ProblemSaveRequest(
 
@@ -42,9 +42,6 @@ public record ProblemSaveRequest(
 
         @Size(max = 20_000, message = "提示过长")
         String hint,
-
-        @Min(value = 1, message = "来源 id 必须为正整数")
-        Long sourceId,
 
         @Min(value = 100, message = "时间限制至少 100ms")
         @Max(value = 30_000, message = "时间限制最大 30000ms")

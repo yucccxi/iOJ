@@ -15,6 +15,7 @@ import me.iynotuo.judge.problem.dto.SampleVO;
 import me.iynotuo.judge.problem.dto.TagVO;
 import me.iynotuo.judge.problem.entity.Problem;
 import me.iynotuo.judge.problem.entity.ProblemSample;
+import me.iynotuo.judge.problem.entity.ProblemSource;
 import me.iynotuo.judge.problem.mapper.ProblemCriteria;
 import me.iynotuo.judge.problem.mapper.ProblemMapper;
 import me.iynotuo.judge.problem.mapper.ProblemSampleMapper;
@@ -219,12 +220,9 @@ public class ProblemService {
         problem.setInputFormat(request.inputFormat());
         problem.setOutputFormat(request.outputFormat());
         problem.setHint(request.hint());
-        // Sources live in their own admin-managed table, so an unknown id must be rejected here
-        // instead of surfacing as a foreign-key error.
-        if (request.sourceId() != null && problemSourceMapper.findById(request.sourceId()) == null) {
-            throw BusinessException.of(ErrorCode.BAD_REQUEST, "题目来源不存在");
-        }
-        problem.setSourceId(request.sourceId());
+        // Local problems do not choose a source: the reserved LOCAL row is assigned automatically
+        // on both create and update, so the client cannot move a problem to an external source.
+        problem.setSourceId(localSourceId());
         problem.setTimeLimitMs(request.timeLimitMs() == null ? 1000 : request.timeLimitMs());
         problem.setMemoryLimitMb(request.memoryLimitMb() == null ? 256 : request.memoryLimitMb());
     }
@@ -319,5 +317,19 @@ public class ProblemService {
 
     private String normalizeKeyword(String keyword) {
         return StringUtils.hasText(keyword) ? keyword.trim() : null;
+    }
+
+    /**
+     * Resolves the reserved LOCAL source. It is inserted by schema.sql/seed.sql; if it is missing the
+     * database was initialised with an old script, which is a deployment error rather than a client
+     * error.
+     */
+    private Long localSourceId() {
+        ProblemSource local = problemSourceMapper.findByName(ProblemSource.LOCAL);
+        if (local == null) {
+            throw BusinessException.of(ErrorCode.INTERNAL_ERROR,
+                    "数据库缺少系统保留来源 LOCAL，请执行 db/seed.sql");
+        }
+        return local.getId();
     }
 }

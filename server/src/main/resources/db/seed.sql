@@ -11,3 +11,6 @@ VALUES ('admin', 'admin@example.com',
 INSERT IGNORE INTO tags (name) VALUES
     ('入门'), ('模拟'), ('数学'), ('贪心'), ('二分'),
     ('动态规划'), ('图论'), ('数据结构'), ('字符串'), ('搜索');
+
+-- Reserved source referenced by every locally authored problem. Problems never choose a source.
+INSERT IGNORE INTO sources (name, created_at) VALUES ('LOCAL', CURRENT_TIMESTAMP);

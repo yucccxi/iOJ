@@ -80,7 +80,7 @@ mysql -uioj -pchange-me ioj < src/main/resources/db/schema.sql
 mysql -uioj -pchange-me ioj < src/main/resources/db/seed.sql
 ```
 
-`seed.sql` 会创建默认管理员 **admin / admin123456** 和 10 个常用标签，**首次登录后请立即修改密码**。
+`seed.sql` 会创建默认管理员 **admin / admin123456**、10 个常用标签和保留来源 `LOCAL`，**首次登录后请立即修改密码**。
 
 ### 3. 配置环境变量
 
@@ -153,7 +153,7 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、越权访问、`hasChecker` 暴露面、`CHECKER_ERROR` 判定 |
 | `ProgramAnswerCheckerTest` | 判题器结果 → 提交状态的映射（假 Sandbox，覆盖 AC/WA/PE/超时/崩溃/编译失败） |
 | `IsolateSandboxCommandTest` | isolate 命令行与 `/box` 路径翻译，锁住重构不能悄悄改动 |
-| `AdminMetaIntegrationTest` | 标签/来源字典的增删改、重复处理、使用量、重命名传播、删除保护 |
+| `AdminMetaIntegrationTest` | 标签/来源字典的增删改、重复处理、使用量、外部题来源重命名传播、`LOCAL` 保留来源保护、删除保护 |
 | `LimitConfigIntegrationTest` | 测试点字节上限与代码长度上限确实来自配置，而不是 DTO 硬编码 |
 | `EmailVerificationIntegrationTest` | 发码冷却/每小时上限、无码/错码/正码注册、一次性消费、输错上限作废、过期拒绝 |
 | `PasswordResetIntegrationTest` | 找回密码全链路、用途隔离、一次性消费、输错上限、旧密码失效/新密码生效 |
@@ -219,7 +219,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 初始化脚本：
 
 - `src/main/resources/db/schema.sql`：12 张表（`users`、`sources`、`problems`、`problem_samples`、`problem_testcases`、`tags`、`problem_tags`、`external_problems`、`external_problem_tags`、`submissions`、`submission_cases`、`email_verification_codes`）及外键、索引。
-- `src/main/resources/db/seed.sql`：默认管理员与常用标签，可重复执行。
+- `src/main/resources/db/seed.sql`：默认管理员、常用标签与保留来源 `LOCAL`，可重复执行。
 
 注意：
 

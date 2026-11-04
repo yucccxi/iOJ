@@ -5,11 +5,17 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * Problem source (contest, textbook, platform, ...). Maintained by administrators; problem editors
- * may only pick an existing row, never create one on the fly.
+ * Problem source (contest, textbook, platform, ...). External OJ sources are maintained by
+ * administrators. {@link #LOCAL} is a reserved system row referenced by every locally authored
+ * problem; it cannot be renamed or deleted.
  */
 @Data
 public class ProblemSource {
+
+    /**
+     * Name of the reserved source assigned to local problems automatically.
+     */
+    public static final String LOCAL = "LOCAL";
 
     private Long id;
 

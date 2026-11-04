@@ -56,6 +56,7 @@
 {
   "code": 0, "message": "ok",
   "data": [
+    { "id": 16, "name": "LOCAL", "createdAt": "2026-11-04T20:00:00", "problemCount": 42 },
     { "id": 2, "name": "AtCoder", "createdAt": "2026-10-01T09:00:00", "problemCount": 8 },
     { "id": 7, "name": "Codeforces", "createdAt": "2026-11-01T09:00:00", "problemCount": 15 }
   ]
@@ -64,11 +65,13 @@
 
 | 字段 | 说明 |
 | --- | --- |
-| `id` | 来源 id，用于出题的 `sourceId`，以及 `GET /catalog?sourceId=` 筛选 |
-| `name` | 来源名（校内比赛、教材、OJ 平台都在这张表里） |
+| `id` | 来源 id，用于 `GET /catalog?sourceId=` 筛选 |
+| `name` | 来源名。`LOCAL` 是系统保留来源，所有本地题都引用它；其余为外部 OJ 平台/比赛 |
 | `createdAt` | 创建时间 |
 | `problemCount` | 引用该来源的题目数（本地题 + 外部 OJ 链接）；`0` 表示可安全删除 |
 
 > 列表公开可读（含使用量），**新增/改名/删除只有管理员能做**，见 [8.7 来源管理](08-admin.md#87-来源管理)。
+>
+> `LOCAL` 由数据库初始化脚本创建，**不能重命名或删除**；本地题上传/编辑时也不再让客户端选择来源。
 
 > 三个参考数据接口都是公开的，前端启动时拉一次即可；标签与来源的管理接口见 [8.6 标签管理](08-admin.md#86-标签管理) / [8.7 来源管理](08-admin.md#87-来源管理)。

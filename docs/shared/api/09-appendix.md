@@ -29,7 +29,7 @@
 | --- | --- | --- |
 | 题目详情 | `inputFormat`、`outputFormat`、`hint` | 可能未填写 |
 | 题目详情 | `samples[].explanation` | 可能未填写 |
-| 题目详情 / 统一搜索 | `sourceId`、`sourceName` | 未设置来源时为 `null`（统一搜索里 `EXTERNAL` 一定有来源） |
+| 题目详情 / 统一搜索 | `sourceId`、`sourceName` | 本地题固定为 `LOCAL`，外部题一定有来源，因此这两项不再为 `null` |
 | 题目详情 | `hasChecker` | 布尔值，不会是 `null` |
 | 题目详情 | `tags`、`samples` | 空数组（`[]`），不会是 `null` |
 | 统一搜索（`/catalog`） | `code` | `LOCAL` 恒为 `null`；`EXTERNAL` 通常有值，无法推导题号时也可能为 `null` |

@@ -6,6 +6,7 @@ import me.iynotuo.judge.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.JsonNode;
 
@@ -29,6 +30,9 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     /**
      * Exercises the tag/source admin endpoints end to end and verifies the effects on a problem.
      */
@@ -44,9 +48,12 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         String adminToken = login("metaadmin");
         String userToken = login("metauser");
 
-        // Public dropdowns are readable by anyone and start empty
+        // Public dropdowns are readable by anyone. The source list starts with the reserved LOCAL row.
         assertThat(get("/api/v1/meta/tags", null).path("data").size()).isZero();
-        assertThat(get("/api/v1/meta/sources", null).path("data").size()).isZero();
+        JsonNode initialSources = get("/api/v1/meta/sources", null).path("data");
+        assertThat(initialSources.size()).isEqualTo(1);
+        assertThat(initialSources.get(0).path("name").asString()).isEqualTo("LOCAL");
+        long localSourceId = initialSources.get(0).path("id").asLong();
 
         // Only administrators may write the dictionaries
         HttpResponse<String> forbiddenTags = exchange(request("/api/v1/admin/tags")
@@ -73,18 +80,25 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(exchange(request("/api/v1/admin/sources").POST(body(Map.of("name", "洛谷"))), adminToken)
                 .statusCode()).isEqualTo(409);
         assertThat(get("/api/v1/meta/tags", null).path("data").get(0).path("id").asLong()).isEqualTo(tagId);
-        assertThat(get("/api/v1/meta/sources", null).path("data").get(0).path("id").asLong())
-                .isEqualTo(sourceId);
+        assertThat(findSourceByName(get("/api/v1/meta/sources", null).path("data"), "洛谷")
+                .path("id").asLong()).isEqualTo(sourceId);
 
-        // A problem references them by id only
+        // LOCAL is reserved: it cannot be renamed or deleted
+        assertThat(exchange(request("/api/v1/admin/sources/" + localSourceId)
+                .PUT(body(Map.of("name", "Renamed Local"))), adminToken).statusCode()).isEqualTo(409);
+        assertThat(exchange(request("/api/v1/admin/sources/" + localSourceId).DELETE(), adminToken)
+                .statusCode()).isEqualTo(409);
+
+        // A problem references tags by id; the source field is gone and LOCAL is assigned automatically
         JsonNode created = post("/api/v1/problems", adminToken, Map.of(
                 "title", "Meta Problem",
                 "difficulty", "EASY",
-                "description", "标签与来源来自字典",
+                "description", "标签来自字典，来源固定为 LOCAL",
                 "tagIds", List.of(tagId),
                 "sourceId", sourceId));
         long problemId = created.path("data").path("id").asLong();
-        assertThat(created.path("data").path("sourceName").asString()).isEqualTo("洛谷");
+        assertThat(created.path("data").path("sourceId").asLong()).isEqualTo(localSourceId);
+        assertThat(created.path("data").path("sourceName").asString()).isEqualTo("LOCAL");
         assertThat(created.path("data").path("tags").size()).isEqualTo(1);
         // Unrated problems expose rating 0 instead of null in every response
         assertThat(created.path("data").path("rating").asInt()).isZero();
@@ -102,11 +116,21 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(unknownTag.statusCode()).isEqualTo(400);
         assertThat(JSON.readTree(unknownTag.body()).path("message").asString()).contains("标签");
 
-        // Usage counts are public now: the meta endpoints expose them
+        // Usage counts are public now: the meta endpoints expose them. The problem uses LOCAL, not 洛谷.
         assertThat(get("/api/v1/meta/tags", null).path("data").get(0).path("problemCount").asLong())
                 .isEqualTo(1);
-        assertThat(get("/api/v1/meta/sources", null).path("data").get(0).path("problemCount").asLong())
-                .isEqualTo(1);
+        assertThat(findSourceByName(get("/api/v1/meta/sources", null).path("data"), "洛谷")
+                .path("problemCount").asLong()).isZero();
+        assertThat(findSourceByName(get("/api/v1/meta/sources", null).path("data"), "LOCAL")
+                .path("problemCount").asLong()).isEqualTo(1);
+
+        // Sources are still used by external OJ links; add one so rename/delete behaviour can be tested
+        String externalUrl = "https://example.com/source-rename";
+        jdbcTemplate.update("INSERT INTO external_problems "
+                        + "(source_id, code, title, rating, difficulty, submit_count, accepted_count, url, "
+                        + "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                sourceId, "TEST_1", "Source Rename", 800, "EASY", 0, 0, externalUrl,
+                LocalDateTime.now(), LocalDateTime.now());
 
         // In-use entries cannot be deleted without an explicit force
         assertThat(exchange(request("/api/v1/admin/tags/" + tagId).DELETE(), adminToken).statusCode())
@@ -115,12 +139,15 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(sourceInUse.statusCode()).isEqualTo(409);
         assertThat(JSON.readTree(sourceInUse.body()).path("message").asString()).contains("仍被");
 
-        // Renames are reflected in the problem detail immediately
+        // Renames are reflected in problem details and external catalog rows immediately
         put("/api/v1/admin/tags/" + tagId, adminToken, Map.of("name", "图论"));
         put("/api/v1/admin/sources/" + sourceId, adminToken, Map.of("name", "Codeforces"));
         JsonNode detail = get("/api/v1/problems/" + problemId, null);
         assertThat(detail.path("data").path("tags").get(0).path("name").asString()).isEqualTo("图论");
-        assertThat(detail.path("data").path("sourceName").asString()).isEqualTo("Codeforces");
+        // The local problem keeps LOCAL; only external rows use the renamed source
+        assertThat(detail.path("data").path("sourceName").asString()).isEqualTo("LOCAL");
+        assertThat(get("/api/v1/catalog?sourceId=" + sourceId, null)
+                .path("data").path("items").get(0).path("sourceName").asString()).isEqualTo("Codeforces");
 
         // force=true detaches the tag from every problem and then deletes it
         assertThat(exchange(request("/api/v1/admin/tags/" + tagId + "?force=true").DELETE(), adminToken)
@@ -128,9 +155,24 @@ class AdminMetaIntegrationTest extends ApiTestSupport {
         assertThat(get("/api/v1/problems/" + problemId, null).path("data").path("tags").size()).isZero();
         assertThat(get("/api/v1/meta/tags", null).path("data").size()).isZero();
 
-        // The source is still used by the (renamed) problem, so it stays protected
+        // The source is still used by the external row, so it stays protected until that row is gone
         assertThat(exchange(request("/api/v1/admin/sources/" + sourceId).DELETE(), adminToken)
                 .statusCode()).isEqualTo(409);
+        jdbcTemplate.update("DELETE FROM external_problems WHERE url = ?", externalUrl);
+        assertThat(exchange(request("/api/v1/admin/sources/" + sourceId).DELETE(), adminToken)
+                .statusCode()).isEqualTo(200);
+    }
+
+    /**
+     * Finds a source entry by name in a {@code GET /meta/sources} payload.
+     */
+    private JsonNode findSourceByName(JsonNode sources, String name) {
+        for (JsonNode source : sources) {
+            if (name.equals(source.path("name").asString())) {
+                return source;
+            }
+        }
+        throw new AssertionError("source not found: " + name);
     }
 
     /**

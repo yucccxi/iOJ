@@ -5,7 +5,7 @@
 | 文件 | 用途 |
 | --- | --- |
 | `server/src/main/resources/db/schema.sql` | 建表脚本。使用可移植语法，MySQL 8 与 H2(MySQL 模式) 都能直接执行（测试就是这么跑的） |
-| `server/src/main/resources/db/seed.sql` | 初始管理员（admin / admin123456）与常用标签 |
+| `server/src/main/resources/db/seed.sql` | 初始管理员（admin / admin123456）、常用标签与保留来源 `LOCAL` |
 
 ```bash
 mysql -uroot -p -e "CREATE DATABASE ioj DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
@@ -81,15 +81,15 @@ erDiagram
 
 ### 4.2 sources —— 题目来源
 
-由管理员维护，出题/改题时只能从已有来源中选择（客户端传 `sourceId`）。
+外部 OJ 平台/比赛来源由管理员维护；此外有一行系统保留来源 `LOCAL`，所有本地题都引用它，上传/编辑题目时客户端不能指定来源。`LOCAL` 由 `schema.sql`（新库）与 `seed.sql`（旧库补建）写入，不能改名或删除。
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | BIGINT | PK, AUTO_INCREMENT | |
-| name | VARCHAR(128) | NOT NULL, UNIQUE | 来源名，如“2026 新生赛”“洛谷”；唯一键大小写不敏感 |
+| name | VARCHAR(128) | NOT NULL, UNIQUE | 来源名，如 `LOCAL`、`Codeforces`、`AtCoder`；唯一键大小写不敏感 |
 | created_at | DATETIME | NOT NULL | 创建时间 |
 
-`problems.source_id` 与 `external_problems.source_id` 都是指向本表的外键（`ON DELETE` 无级联，删除在用来源会被数据库拒绝），因此来源改名对两类题目自动生效，也不会出现拼写不一致的“野生来源”。
+`problems.source_id` 与 `external_problems.source_id` 都是指向本表的外键（`ON DELETE` 无级联，删除在用来源会被数据库拒绝）。本地题的 `source_id` 恒为 `LOCAL` 的 id（服务端在创建/更新时自动写入）；外部题保留各自平台来源，来源改名对外部题自动生效。`LOCAL` 在应用层禁止改名/删除，避免本地题失去来源。
 
 ### 4.3 problems —— 题目
 
@@ -103,7 +103,7 @@ erDiagram
 | input_format | MEDIUMTEXT | NULL | 输入格式说明 |
 | output_format | MEDIUMTEXT | NULL | 输出格式说明 |
 | hint | MEDIUMTEXT | NULL | 提示 |
-| source_id | BIGINT | FK → sources.id | 题目来源；`NULL` 表示未记录来源。只能引用管理员维护的来源（见 4.2） |
+| source_id | BIGINT | FK → sources.id | 题目来源；本地题固定为 `LOCAL` 的 id，由服务端在创建/更新时写入（请求体不接收 `sourceId`）。见 4.2 |
 | checker_code | MEDIUMTEXT | NULL | 自定义判题器（Special Judge）源码，C++（兼容 C 风格）；`NULL` 或空白表示用内置的 `OutputComparator` 逐行比对 |
 | time_limit_ms | INT | NOT NULL DEFAULT 1000 | 时间限制（毫秒，基准值） |
 | memory_limit_mb | INT | NOT NULL DEFAULT 256 | 内存限制 |

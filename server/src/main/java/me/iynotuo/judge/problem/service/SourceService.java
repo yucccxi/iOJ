@@ -46,6 +46,7 @@ public class SourceService {
     @Transactional
     public SourceMetaVO rename(Long id, SourceSaveRequest request) {
         ProblemSource existing = requireSource(id);
+        assertNotReserved(existing);
         String name = request.name().trim();
         ProblemSource sameName = problemSourceMapper.findByName(name);
         if (sameName != null && !sameName.getId().equals(id)) {
@@ -65,7 +66,7 @@ public class SourceService {
      */
     @Transactional
     public void delete(Long id) {
-        requireSource(id);
+        assertNotReserved(requireSource(id));
         long usage = problemSourceMapper.countUsage(id);
         if (usage > 0) {
             throw BusinessException.of(ErrorCode.CONFLICT, "来源仍被 " + usage + " 道题使用");
@@ -79,5 +80,15 @@ public class SourceService {
             throw BusinessException.of(ErrorCode.NOT_FOUND, "来源不存在");
         }
         return source;
+    }
+
+    /**
+     * LOCAL is referenced by every local problem and is resolved by name on upload, so renaming or
+     * deleting it would break future problem creation.
+     */
+    private void assertNotReserved(ProblemSource source) {
+        if (ProblemSource.LOCAL.equalsIgnoreCase(source.getName())) {
+            throw BusinessException.of(ErrorCode.CONFLICT, "LOCAL 是系统保留来源，不能重命名或删除");
+        }
     }
 }

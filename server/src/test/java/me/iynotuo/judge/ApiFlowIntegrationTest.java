@@ -78,6 +78,10 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(created.path("data").path("status").asString()).isEqualTo("PUBLISHED");
         assertThat(created.path("data").path("authorNickname").asString()).isEqualTo("Alice");
         assertThat(created.path("data").path("rating").asInt()).isEqualTo(800);
+        // Local problems always get the reserved LOCAL source; uploads cannot choose one.
+        assertThat(created.path("data").path("sourceName").asString()).isEqualTo("LOCAL");
+        long localSourceId = created.path("data").path("sourceId").asLong();
+        assertThat(localSourceId).isPositive();
 
         // Publishing one problem shows up as one contribution, visible to anonymous visitors too
         JsonNode profile = get("/api/v1/users/" + authorId, null);
@@ -122,14 +126,18 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(get("/api/v1/catalog?scope=LOCAL&difficulty=HARD", null)
                 .path("data").path("total").asLong()).isZero();
 
-        // Sources are admin-managed: an unknown sourceId is rejected before hitting the foreign key
-        HttpResponse<String> badSource = exchange(request("/api/v1/problems").POST(body(Map.of(
-                "title", "Bad Source",
+        // A sourceId in the payload is ignored (the field no longer exists): local problems keep LOCAL
+        JsonNode ignoredSource = post("/api/v1/problems", token, Map.of(
+                "title", "Ignored Source",
                 "difficulty", "EASY",
-                "description", "来源不存在时应当报错",
-                "sourceId", 999_999L))), token);
-        assertThat(badSource.statusCode()).isEqualTo(400);
-        assertThat(JSON.readTree(badSource.body()).path("message").asString()).contains("来源");
+                "description", "sourceId 字段会被忽略",
+                "sourceId", 999_999L));
+        long ignoredSourceProblemId = ignoredSource.path("data").path("id").asLong();
+        assertThat(ignoredSource.path("data").path("sourceName").asString()).isEqualTo("LOCAL");
+        assertThat(ignoredSource.path("data").path("sourceId").asLong()).isEqualTo(localSourceId);
+        // Remove it again so the catalog totals below stay deterministic
+        assertThat(exchange(request("/api/v1/problems/" + ignoredSourceProblemId).DELETE(), token)
+                .statusCode()).isEqualTo(200);
 
         // UNKNOWN is reserved for external problems; locally authored problems reject it
         HttpResponse<String> badDifficulty = exchange(request("/api/v1/problems").POST(body(Map.of(
@@ -201,11 +209,13 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(get("/api/v1/catalog?keyword=Sum", null).path("data").path("total").asLong()).isEqualTo(1);
         assertThat(get("/api/v1/catalog?keyword=Problem", null).path("data").path("total").asLong()).isEqualTo(1);
 
-        // Source filter only matches the external row: the local problem has no source
+        // Source filtering: Codeforces matches only the external row, LOCAL only the local one
         assertThat(get("/api/v1/catalog?sourceId=" + sourceId, null)
                 .path("data").path("total").asLong()).isEqualTo(1);
         assertThat(get("/api/v1/catalog?scope=LOCAL&sourceId=" + sourceId, null)
                 .path("data").path("total").asLong()).isZero();
+        assertThat(get("/api/v1/catalog?sourceId=" + localSourceId, null)
+                .path("data").path("total").asLong()).isEqualTo(1);
 
         // The "math" tag is on both rows, so the tag filter keeps both kinds
         assertThat(get("/api/v1/catalog?tagId=" + mathTagId, null)

@@ -63,8 +63,8 @@
   "inputFormat": "一行两个整数",
   "outputFormat": "一个整数",
   "hint": "注意使用 64 位整数",
-  "sourceId": 5,
-  "sourceName": "2026 新生赛",
+  "sourceId": 16,
+  "sourceName": "LOCAL",
   "timeLimitMs": 1000,
   "memoryLimitMb": 256,
   "status": "PUBLISHED",
@@ -90,7 +90,7 @@
 | `description` | 题面正文（Markdown 或纯文本），渲染前请做 XSS 清洗 |
 | `inputFormat` / `outputFormat` | 输入/输出格式说明，可能为 `null` |
 | `hint` | 提示，可能为 `null` |
-| `sourceId` / `sourceName` | 题目来源的 id / 名称，由管理员维护；未设置来源时两者都为 `null`。**只读**：写入请用 `sourceId` |
+| `sourceId` / `sourceName` | 题目来源的 id / 名称。本地题固定为系统保留来源 `LOCAL`（两者都不为 `null`）；**只读**，上传/编辑题目时不能指定来源 |
 | `timeLimitMs` | 时间限制（毫秒），用于展示与提交前提示 |
 | `memoryLimitMb` | 内存限制（MB） |
 | `status` | `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN` |
@@ -130,7 +130,6 @@
 | `inputFormat` | string | 否 | 输入格式说明，≤20000 字 |
 | `outputFormat` | string | 否 | 输出格式说明，≤20000 字 |
 | `hint` | string | 否 | 提示，≤20000 字 |
-| `sourceId` | 整数 | 否 | 题目来源 id，**必须已存在**（由管理员维护，前端从来源列表里选）；不存在返回 `1001`。不传表示无来源 |
 | `timeLimitMs` | 整数 | 否 | 时间限制，100-30000 毫秒，默认 1000 |
 | `memoryLimitMb` | 整数 | 否 | 内存限制，16-1024 MB，默认 256 |
 | `tagIds` | 整数数组 | 否 | 最多 10 个**已存在**的标签 id（标签由管理员在 [8.6 标签管理](08-admin.md#86-标签管理) 维护，前端从标签列表接口选）；含不存在的 id 返回 `1001`；重复 id 自动去重 |
@@ -155,10 +154,11 @@
   "timeLimitMs": 1000,
   "memoryLimitMb": 256,
   "tagIds": [1, 3],
-  "sourceId": 5,
   "samples": [{ "input": "1 2\n", "output": "3\n", "explanation": "1+2=3" }]
 }
 ```
+
+> **来源由服务端固定**：本地题一律关联系统保留来源 `LOCAL`，请求里不需要、也不应该传 `sourceId`；即使传了也会被忽略（不会报错，也不会改变来源）。
 
 **响应 `data`**：完整题目详情（结构同 4.2），其中 `id` 是新题目 id，`status` 是发布结果。
 
@@ -176,7 +176,6 @@
 | --- | --- |
 | `title` / `difficulty` / `description` | 必填，缺失会返回 `1001` |
 | `rating` | 不传会被清空为 `NULL`（接口返回 `0`；整体替换，服务端不会用 `difficulty` 反推） |
-| `sourceId` | 不传会被清空为 `null`（整体替换） |
 | `inputFormat` / `outputFormat` / `hint` | 被清空为 `null` |
 | `timeLimitMs` / `memoryLimitMb` | 恢复默认值 1000 / 256 |
 | `tagIds` | 传 `[]` 或不传会**清空标签** |

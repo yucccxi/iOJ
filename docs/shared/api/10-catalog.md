@@ -2,7 +2,7 @@
 
 > 返回目录：[iOJ 前端接口文档（v1）](README.md)
 
-把**本地题目**（`problems`）和**外部 OJ 题目**（`external_problems`，只存链接元数据）放进同一个列表里筛选与分页。两类题目共有的字段是 `title`、`difficulty`、`rating`、`sourceId/sourceName`、`tags`，这也是能合并搜索的原因。外部题额外返回 `code`（原站题号，如 `CF_123D`），本地题的 `code` 恒为 `null`。
+把**本地题目**（`problems`）和**外部 OJ 题目**（`external_problems`，只存链接元数据）放进同一个列表里筛选与分页。两类题目共有的字段是 `title`、`difficulty`、`rating`、`sourceId/sourceName`、`tags`，这也是能合并搜索的原因。本地题的来源固定为系统保留来源 `LOCAL`；外部题额外返回 `code`（原站题号，如 `CF_123D`），本地题的 `code` 恒为 `null`。
 
 本地题只返回**已发布（`PUBLISHED`）**的题目；外部题没有发布状态，全部参与。草稿/待审核/已下架的本地题请走 `GET /problems/mine` 或管理员审核接口。
 
@@ -17,7 +17,7 @@
 | 参数 | 类型 | 说明 |
 | --- | --- | --- |
 | `keyword` | string | 按**标题**模糊搜索，本地题和外部题都会匹配；空字符串等于不筛选 |
-| `sourceId` | 整数 | 按来源筛选，**对两类题目都生效**（本地题与外部题共用同一张来源表）；没有该来源时返回空列表，不报错 |
+| `sourceId` | 整数 | 按来源筛选，**对两类题目都生效**（本地题与外部题共用同一张来源表）；本地题都关联 `LOCAL` 来源；没有该来源时返回空列表，不报错 |
 | `difficulty` | string | 档位难度 `EASY` / `MEDIUM` / `HARD` / `UNKNOWN`（`UNKNOWN` 只用于外部题），**对本地题和外部题都生效**；可重复传多个，多个值之间是 OR，例如 `difficulty=EASY&difficulty=HARD`；传其他值返回 `400`（`1000`） |
 | `tagId` | 整数 | 按标签筛选，**对两类题目都生效**（本地题查 `problem_tags`，外部题查 `external_problem_tags`）；可重复传多个，标签 id 从标签列表接口获取 |
 | `tagMatch` | string | 多标签匹配模式：`ANY`（默认，满足任一标签）或 `ALL`（满足全部标签）；只传一个 `tagId` 时两种模式等价；传其他值返回 `400`（`1000`） |
@@ -62,8 +62,8 @@
       "difficulty": "EASY",
       "time": null,
       "rating": 800,
-      "sourceId": 2,
-      "sourceName": "2026 新生赛",
+      "sourceId": 16,
+      "sourceName": "LOCAL",
       "url": null,
       "submitCount": 30,
       "acceptedCount": 18,
@@ -106,7 +106,7 @@
 | `difficulty` | `EASY` / `MEDIUM` / `HARD`，外部题 Rating 为空时为 `UNKNOWN`；外部题由来源 rating 推导 |
 | `time` | 只有 `EXTERNAL` 有值，是 clist 的比赛时间，已转换为中国时区（UTC+8），格式 `yyyy-MM-ddTHH:mm:ss`；`LOCAL` 恒为 `null`，外部题 clist 未提供时间时也可能为 `null` |
 | `rating` | 数值难度分；未设置时返回 `0`（数据库仍存 `NULL`） |
-| `sourceId` / `sourceName` | 来源 id / 名称；未设置来源时都为 `null`（`EXTERNAL` 一定有值） |
+| `sourceId` / `sourceName` | 来源 id / 名称；`LOCAL` 恒为系统保留来源 `LOCAL`，`EXTERNAL` 为原平台来源，二者都不为 `null` |
 | `url` | 只有 `EXTERNAL` 有值（原题链接）；`LOCAL` 恒为 `null` |
 | `submitCount` / `acceptedCount` | 累计提交次数 / 通过次数；通过率 = `acceptedCount / submitCount`（`submitCount=0` 时不要相除）。`LOCAL` 由本站评测累加；`EXTERNAL` 是原站/导入的数字，本站不维护 |
 | `authorId` / `authorNickname` | 只有 `LOCAL` 有值：出题人 id / 当前昵称；`EXTERNAL` 恒为 `null` |
@@ -135,5 +135,5 @@
   > 本接口**不返回** `status`：本地题在列表里恒为已发布。
 - 点击 `LOCAL` → `GET /problems/{id}`；点击 `EXTERNAL` → `window.open(url)`（不带 `target="_blank"` 之外的额外跳转逻辑）；
 - 筛选栏：来源范围下拉（`scope=LOCAL` / `scope=Codeforces` / `scope=AtCoder`，可多选）、标签下拉（按 `tagId`）、难度区间（`minRating`/`maxRating`）、搜索框（`keyword`）；
-- `scope` 的来源选项建议从 `GET /meta/sources` 动态生成，本地题库固定加一个 `LOCAL`；
+- `scope` 的来源选项可直接使用 `GET /meta/sources` 返回的名称（其中包含保留来源 `LOCAL`）；`scope` 大小写不敏感；
 - 选来源或标签后本地题也会参与结果（两者共用来源表、标签表），不需要前端做特殊分支。

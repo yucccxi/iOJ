@@ -37,8 +37,8 @@ CREATE TABLE problems (
     input_format    MEDIUMTEXT   NULL,
     output_format   MEDIUMTEXT   NULL,
     hint            MEDIUMTEXT   NULL,
-    -- Reference to sources; NULL means no source recorded. Kept as a foreign key so a
-    -- rename is reflected everywhere and a source in use cannot be deleted by accident.
+    -- Reference to sources. Local problems always point at the reserved LOCAL row; the column stays
+    -- nullable so schemas created before LOCAL existed can be migrated without a table rebuild.
     source_id       BIGINT       NULL,
     -- Custom checker (special judge) source code, compiled and run by the judge.
     -- NULL or blank means the built-in OutputComparator is used.
@@ -189,3 +189,8 @@ CREATE INDEX idx_submissions_user ON submissions (user_id, id);
 CREATE INDEX idx_submissions_status ON submissions (status, id);
 CREATE INDEX idx_email_verification_codes_email ON email_verification_codes (email, purpose, id);
 CREATE INDEX idx_email_verification_codes_expires ON email_verification_codes (expires_at);
+
+-- Reserved source for locally authored problems. Every problems.source_id points here; the source
+-- is created with the schema (not only in seed.sql) so a fresh database always has it, including
+-- the H2 databases used by integration tests.
+INSERT INTO sources (name, created_at) VALUES ('LOCAL', CURRENT_TIMESTAMP);
