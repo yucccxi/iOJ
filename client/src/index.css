@@ -62,6 +62,19 @@
   --color-difficulty-unknown: var(--color-fg-subtle);
   --color-difficulty-unknown-bg: var(--color-tag-bg);
 
+  /* Platform rating colors, shown on the tooltip bubble (bg-fg), so they are the light
+     variants here and the dark ones in the dark theme. Hues follow Codeforces and AtCoder;
+     lightness is shifted until each passes 4.5:1. */
+  --color-rating-gray: #8d8d8d;
+  --color-rating-brown: #ba8148;
+  --color-rating-green: #00a400;
+  --color-rating-cyan: #00c0c0;
+  --color-rating-blue: #7d7dff;
+  --color-rating-violet: #e04be0;
+  --color-rating-yellow: #c0c000;
+  --color-rating-orange: #ff8000;
+  --color-rating-red: #ff4a4a;
+
   --color-code-keyword: #4a5fc1;
   --color-code-number: #c0662b;
   --color-code-string: #2e8b57;
@@ -198,6 +211,16 @@
   --color-difficulty-easy-bg: #00af9b2e;
   --color-difficulty-medium-bg: #ffb8002e;
   --color-difficulty-hard-bg: #ff375f2e;
+
+  --color-rating-gray: #666666;
+  --color-rating-brown: #804000;
+  --color-rating-green: #007800;
+  --color-rating-cyan: #007373;
+  --color-rating-blue: #0000ff;
+  --color-rating-violet: #aa00aa;
+  --color-rating-yellow: #696900;
+  --color-rating-orange: #a15100;
+  --color-rating-red: #d10000;
 
   --color-code-keyword: #8fa0f0;
   --color-code-number: #e59866;

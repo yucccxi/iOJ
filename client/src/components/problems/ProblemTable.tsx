@@ -6,7 +6,9 @@ import SourceCell from "@/components/problems/SourceCell";
 import DifficultyBadge from "@/components/ui/DifficultyBadge";
 import RateBar from "@/components/ui/RateBar";
 import Tag from "@/components/ui/Tag";
+import Tooltip from "@/components/ui/Tooltip";
 import { problemCode } from "@/lib/problem";
+import { ratingColor } from "@/lib/rating";
 
 // Widths include the 16px column gap (12px row inset on the outer edges).
 const columns = [
@@ -51,6 +53,26 @@ function TitleCell({ item }: { item: CatalogItem }) {
     >
       {item.title}
     </Link>
+  );
+}
+
+function DifficultyCell({ item }: { item: CatalogItem }) {
+  const badge = <DifficultyBadge level={item.difficulty} />;
+  if (item.difficulty === "UNKNOWN" || item.rating < 0) return badge;
+  return (
+    // Above the row's stretched link, so hovering shows the rating.
+    <Tooltip
+      label={
+        <span
+          className={`font-mono ${ratingColor(item.scopeName, item.rating)}`}
+        >
+          {item.rating}
+        </span>
+      }
+      className="z-10 cursor-default"
+    >
+      {badge}
+    </Tooltip>
   );
 }
 
@@ -121,7 +143,7 @@ export default function ProblemTable({
                 </div>
               </td>
               <td className={`border-b border-line py-2.5 ${cell}`}>
-                <DifficultyBadge level={item.difficulty} />
+                <DifficultyCell item={item} />
               </td>
               <td className={`border-b border-line py-2.5 ${cell}`}>
                 <RateBar
