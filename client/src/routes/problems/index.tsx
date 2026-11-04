@@ -1,23 +1,41 @@
 import { useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
-import { ArrowUpDown } from "lucide-react";
 import { z } from "zod";
-import { catalogQuery } from "@/api/catalog";
+import {
+  catalogQuery,
+  catalogSorts,
+  type CatalogSort,
+  type SortOrder,
+  type TagMatch,
+} from "@/api/catalog";
+import { difficulties, type Difficulty } from "@/api/types";
 import ContributorsCard from "@/components/problems/ContributorsCard";
 import DifficultyCard from "@/components/problems/DifficultyCard";
+import DifficultyFilter from "@/components/problems/DifficultyFilter";
 import PopularTagsCard from "@/components/problems/PopularTagsCard";
 import ProblemTable from "@/components/problems/ProblemTable";
+import SortMenu from "@/components/problems/SortMenu";
+import SourceFilter from "@/components/problems/SourceFilter";
+import TagFilter from "@/components/problems/TagFilter";
 import Card from "@/components/ui/Card";
 import Pagination from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
-import SelectButton from "@/components/ui/SelectButton";
 import { formatCount } from "@/lib/format";
 
 const PAGE_SIZE = 20;
 const SEARCH_DELAY_MS = 300;
 
-const searchDefaults = { page: 1, keyword: "" };
+const searchDefaults = {
+  page: 1,
+  keyword: "",
+  scope: [] as string[],
+  difficulty: [] as Difficulty[],
+  tagId: [] as number[],
+  tagMatch: "ANY" as TagMatch,
+  sort: "DEFAULT" as CatalogSort,
+  order: "DESC" as SortOrder,
+};
 const searchSchema = z.object({
   page: z
     .number()
@@ -29,7 +47,33 @@ const searchSchema = z.object({
     .string()
     .default(searchDefaults.keyword)
     .catch(searchDefaults.keyword),
+  scope: z
+    .array(z.string())
+    .default(searchDefaults.scope)
+    .catch(searchDefaults.scope),
+  difficulty: z
+    .array(z.enum(difficulties))
+    .default(searchDefaults.difficulty)
+    .catch(searchDefaults.difficulty),
+  tagId: z
+    .array(z.number().int())
+    .default(searchDefaults.tagId)
+    .catch(searchDefaults.tagId),
+  tagMatch: z
+    .enum(["ANY", "ALL"])
+    .default(searchDefaults.tagMatch)
+    .catch(searchDefaults.tagMatch),
+  sort: z
+    .enum(catalogSorts)
+    .default(searchDefaults.sort)
+    .catch(searchDefaults.sort),
+  order: z
+    .enum(["ASC", "DESC"])
+    .default(searchDefaults.order)
+    .catch(searchDefaults.order),
 });
+
+type ProblemsSearch = z.infer<typeof searchSchema>;
 
 export const Route = createFileRoute("/problems/")({
   validateSearch: searchSchema,
@@ -38,30 +82,49 @@ export const Route = createFileRoute("/problems/")({
   component: ProblemsPage,
 });
 
-// The catalog takes one value per filter and has no sort; the buttons stay inert
-// until it supports multi-select.
-const filters = ["来源", "难度", "标签"];
-
 function ProblemsPage() {
-  const { page, keyword } = Route.useSearch();
+  const { page, keyword, scope, difficulty, tagId, tagMatch, sort, order } =
+    Route.useSearch();
   const navigate = Route.useNavigate();
   const [draft, setDraft] = useState(keyword);
+
+  // Any change to what is listed starts again from the first page.
+  function setFilters(change: Partial<ProblemsSearch>, replace = false) {
+    navigate({ search: (prev) => ({ ...prev, ...change, page: 1 }), replace });
+  }
 
   useEffect(() => {
     const next = draft.trim();
     if (next === keyword) return;
     const timer = setTimeout(
-      () => navigate({ search: { page: 1, keyword: next }, replace: true }),
+      () =>
+        navigate({
+          search: (prev) => ({ ...prev, keyword: next, page: 1 }),
+          replace: true,
+        }),
       SEARCH_DELAY_MS,
     );
     return () => clearTimeout(timer);
   }, [draft, keyword, navigate]);
 
   const { data, error, isFetching, isPlaceholderData, refetch } = useQuery({
-    ...catalogQuery({ keyword, page, size: PAGE_SIZE }),
+    ...catalogQuery({
+      keyword,
+      scope,
+      difficulty,
+      tagId,
+      // Defaults are left out so the request matches what the URL shows.
+      tagMatch: tagId.length > 1 && tagMatch !== "ANY" ? tagMatch : undefined,
+      sort: sort === "DEFAULT" ? undefined : sort,
+      order: order === "DESC" ? undefined : order,
+      page,
+      size: PAGE_SIZE,
+    }),
     // Keep the previous page on screen while the next one loads.
     placeholderData: keepPreviousData,
   });
+
+  const filtered = scope.length + difficulty.length + tagId.length > 0;
 
   const message = error ? (
     <>
@@ -75,7 +138,9 @@ function ProblemsPage() {
       </button>
     </>
   ) : data && data.items.length === 0 ? (
-    keyword ? (
+    filtered ? (
+      "没有符合当前筛选条件的题目"
+    ) : keyword ? (
       `没有标题包含「${keyword}」的题目`
     ) : (
       "题库里还没有题目"
@@ -95,34 +160,46 @@ function ProblemsPage() {
         }
         className="min-w-0 flex-1 max-lg:w-full"
       >
-        <div className="flex items-center gap-2">
+        {/* Positioned so the wide panels can align to the toolbar's right edge. */}
+        <div className="relative flex items-center gap-2">
           <SearchInput
             value={draft}
             onChange={setDraft}
             placeholder="搜索题目名称..."
             className="min-w-0 flex-1"
           />
-          {filters.map((label) => (
-            <SelectButton
-              key={label}
-              label={label}
-              disabled
-              title="筛选功能即将开放"
-            />
-          ))}
-          <button
-            type="button"
-            disabled
-            aria-label="排序"
-            title="排序功能即将开放"
-            className="flex size-9 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-fg-muted disabled:cursor-not-allowed"
-          >
-            <ArrowUpDown />
-          </button>
+          <SourceFilter
+            value={scope}
+            onChange={(next) =>
+              setFilters({
+                scope: next,
+                // The API rejects RATING unless exactly one scope is selected.
+                ...(sort === "RATING" &&
+                  next.length !== 1 && { sort: "DEFAULT" }),
+              })
+            }
+          />
+          <DifficultyFilter
+            value={difficulty}
+            onChange={(next) => setFilters({ difficulty: next })}
+          />
+          <TagFilter
+            tagId={tagId}
+            tagMatch={tagMatch}
+            onApply={(nextTagId, nextMatch) =>
+              setFilters({ tagId: nextTagId, tagMatch: nextMatch })
+            }
+          />
+          <SortMenu
+            sort={sort}
+            order={order}
+            ratingAllowed={scope.length === 1}
+            onChange={(change) => setFilters(change)}
+          />
         </div>
 
         <div
-          className={`transition-opacity overflow-hidden ${isFetching && isPlaceholderData ? "opacity-60" : ""}`}
+          className={`transition-opacity ${isFetching && isPlaceholderData ? "opacity-60" : ""}`}
         >
           <ProblemTable
             items={data?.items}
