@@ -55,6 +55,6 @@ jobs:
         # rrsync on the server roots this key at /var/www/oj, so the target path is empty.
         # -rlt with --chmod instead of -a keeps files group-writable for the ioj-web group.
         run: |
-          rsync -rlt --delete --chmod=D2775,F664 \
+          rsync -rlt --checksum --delay-updates --delete-delay --chmod=D2775,F664 \
             -e "ssh -p $DEPLOY_PORT -i ~/.ssh/deploy_key -o BatchMode=yes" \
             dist/ "deploy@$DEPLOY_HOST:"
