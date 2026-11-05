@@ -102,6 +102,10 @@ mysql -uioj -pchange-me ioj < src/main/resources/db/seed.sql
 | `IOJ_EMAIL_CODE_RESEND_INTERVAL_SECONDS` | 否 | 同一邮箱的重发冷却，默认 `60` 秒 |
 | `IOJ_EMAIL_CODE_MAX_PER_HOUR` | 否 | 同一邮箱每小时最多发几次，默认 `5` |
 | `IOJ_EMAIL_CODE_MAX_ATTEMPTS` | 否 | 单个验证码最多输错几次，默认 `5`；达到上限立即作废 |
+| `IOJ_CAPTCHA_ENABLED` | 否 | 是否要求登录/发邮箱验证码时提交图形验证码，默认 `true` |
+| `IOJ_CAPTCHA_TTL_SECONDS` | 否 | 图形验证码有效期，默认 `120` 秒 |
+| `IOJ_CAPTCHA_MAX_ATTEMPTS` | 否 | 单张图形验证码最多输错次数，默认 `3` |
+| `IOJ_CAPTCHA_ISSUE_PER_MINUTE_PER_IP` / `IOJ_CAPTCHA_ISSUE_PER_HOUR_PER_IP` | 否 | 单 IP 申请图形验证码的频率上限，默认 `60/分钟`、`600/小时` |
 
 启动时服务会先做一次数据库连通性检查，成功会打印：
 
@@ -154,6 +158,8 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `ProgramAnswerCheckerTest` | 判题器结果 → 提交状态的映射（假 Sandbox，覆盖 AC/WA/PE/超时/崩溃/编译失败） |
 | `IsolateSandboxCommandTest` | isolate 命令行与 `/box` 路径翻译，锁住重构不能悄悄改动 |
 | `AdminMetaIntegrationTest` | 标签/scope 字典的增删改、重复处理、使用量、外部题 scope 重命名传播、`LOCAL` 保留 scope 保护、删除保护 |
+| `CaptchaIntegrationTest` | 图形验证码签发、登录/发码接入、purpose 绑定、一次性消费 |
+| `CaptchaRateLimitIntegrationTest` | 单 IP 申请图形验证码的分钟窗口限流 |
 | `LimitConfigIntegrationTest` | 测试点字节上限与代码长度上限确实来自配置，而不是 DTO 硬编码 |
 | `EmailVerificationIntegrationTest` | 发码冷却/每小时上限、无码/错码/正码注册、一次性消费、输错上限作废、过期拒绝 |
 | `PasswordResetIntegrationTest` | 找回密码全链路、用途隔离、一次性消费、输错上限、旧密码失效/新密码生效、旧 token 失效 |
@@ -176,6 +182,12 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `ioj.problem.max-testcases` | `IOJ_PROBLEM_MAX_TESTCASES` | `100` | 单题测试数据条数上限 |
 | `ioj.problem.max-testcase-bytes` | `IOJ_PROBLEM_MAX_TESTCASE_BYTES` | `4194304` | 单条测试点 `input`/`output` 各自的上限（UTF-8 字节，默认 4 MiB）；请求 DTO 不再硬编码，**只认这个配置** |
 | `ioj.submission.max-code-length` | `IOJ_SUBMISSION_MAX_CODE_LENGTH` | `65536` | 单次提交代码字符数上限；超限返回 `4003` |
+| `ioj.captcha.enabled` | `IOJ_CAPTCHA_ENABLED` | `true` | 是否启用图形验证码；关闭后登录/发码不再要求验证码 |
+| `ioj.captcha.ttl-seconds` | `IOJ_CAPTCHA_TTL_SECONDS` | `120` | 图形验证码有效期 |
+| `ioj.captcha.max-attempts` | `IOJ_CAPTCHA_MAX_ATTEMPTS` | `3` | 单张图形验证码最大输错次数 |
+| `ioj.captcha.code-length` | `IOJ_CAPTCHA_CODE_LENGTH` | `5` | 图片字符数 |
+| `ioj.captcha.issue-per-minute-per-ip` / `issue-per-hour-per-ip` | `IOJ_CAPTCHA_ISSUE_PER_MINUTE_PER_IP` / `IOJ_CAPTCHA_ISSUE_PER_HOUR_PER_IP` | `60` / `600` | 单 IP 申请频率上限 |
+| `ioj.captcha.cleanup-retention-hours` | `IOJ_CAPTCHA_CLEANUP_RETENTION_HOURS` | `24` | 过期图形验证码保留时间 |
 | `ioj.judge.enabled` | `IOJ_JUDGE_ENABLED` | `true` | 是否启用评测；关闭后提交停留在排队状态 |
 | `ioj.judge.engine` | `IOJ_JUDGE_ENGINE` | `isolate` | 评测引擎：`isolate`（默认）/ `local`（本机进程回退）/ `docker`（未实现） |
 | `ioj.judge.isolate.*` | — | 见下 | Isolate 路径、box 编号、编译限制、额外目录等 |
@@ -219,7 +231,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 
 初始化脚本：
 
-- `src/main/resources/db/schema.sql`：12 张表（`users`、`scopes`、`problems`、`problem_samples`、`problem_testcases`、`tags`、`problem_tags`、`external_problems`、`external_problem_tags`、`submissions`、`submission_cases`、`email_verification_codes`）及外键、索引。
+- `src/main/resources/db/schema.sql`：13 张表（`users`、`scopes`、`problems`、`problem_samples`、`problem_testcases`、`tags`、`problem_tags`、`external_problems`、`external_problem_tags`、`submissions`、`submission_cases`、`email_verification_codes`、`captcha_challenges`）及外键、索引。
 - `src/main/resources/db/seed.sql`：默认管理员、常用标签与保留 scope `LOCAL`，可重复执行。
 
 注意：
@@ -291,6 +303,9 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | 注册时提示 `2009` / 收不到验证码邮件 | 看日志里的 `验证码邮件发送失败`：多半是 `IOJ_MAIL_HOST` 没覆盖（默认 `smtp.localhost.invalid` 不可解析）、端口/加密方式不匹配（465 要 `IOJ_MAIL_SSL=true`，587 要 `IOJ_MAIL_STARTTLS=true`）、或 `IOJ_MAIL_FROM` 与 SMTP 账号不同域被拒收；也检查垃圾箱 |
 | 注册提示 `2008` 验证码太频繁 | 同邮箱 60 秒冷却 / 每小时上限默认 5 次；调试时可用 `IOJ_EMAIL_CODE_RESEND_INTERVAL_SECONDS` / `IOJ_EMAIL_CODE_MAX_PER_HOUR` 放宽 |
 | 本地开发不想配 SMTP | 设 `IOJ_EMAIL_CODE_ENABLED=false`，注册不再校验验证码 |
+| 登录/发码返回 `2010` | 图形验证码错误、过期、已使用或 purpose 不匹配；重新获取验证码 |
+| 获取图形验证码返回 `1006` | 单 IP 申请过于频繁；可调大 `IOJ_CAPTCHA_ISSUE_PER_MINUTE_PER_IP` / `IOJ_CAPTCHA_ISSUE_PER_HOUR_PER_IP` |
+| 本地开发不想输入图形验证码 | 设 `IOJ_CAPTCHA_ENABLED=false` |
 | 启动报 `isolate binary is not executable` | 运行用户没有执行权限：`sudo usermod -aG isolate <user>` 后重新登录，确认 `isolate --version` 可用 |
 | `isolate --init` 报 `This box belongs to a different user` | box 编号被其他用户（常见 root）占用：换 `box-id-start`，或让原用户 `isolate --box-id=N --cleanup` |
 | 编译报 `javac: No such file or directory` | 沙箱内无法跟随 `/etc/alternatives`：保持 `resolve-executables: true`，或改用绝对路径 |

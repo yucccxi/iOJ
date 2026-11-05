@@ -26,6 +26,9 @@ ioj:
 # Most integration tests only need an account, so registration does not ask for a code here.
 # EmailVerificationIntegrationTest switches it back on for its own Spring context.
     enabled: false
+  captcha:
+# Existing flow tests do not need to solve images; CaptchaIntegrationTest turns this back on.
+    enabled: false
   judge:
 # Integration tests call JudgeService directly instead of relying on the scheduled worker.
     enabled: false

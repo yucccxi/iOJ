@@ -41,7 +41,8 @@ docs/
 │   │   ├── 07-meta.md        # 参考数据
 │   │   ├── 08-admin.md       # 管理后台
 │   │   ├── 09-appendix.md    # 附录
-│   │   └── 10-catalog.md     # 统一搜索（本地题库 + 外部 OJ）
+│   │   ├── 10-catalog.md     # 统一搜索（本地题库 + 外部 OJ）
+│   │   └── 11-captcha.md     # 图形验证码
 │   └── special-judge.md      # 出题者：自定义判题器（Special Judge）指南
 └── server/
     ├── README.md             # 后端总览（启动/配置/测试/排错）

@@ -24,6 +24,7 @@ public enum ErrorCode {
     EMAIL_CODE_INVALID(2007, "邮箱验证码错误或已过期", HttpStatus.BAD_REQUEST),
     EMAIL_CODE_TOO_FREQUENT(2008, "验证码发送过于频繁，请稍后再试", HttpStatus.TOO_MANY_REQUESTS),
     EMAIL_SEND_FAILED(2009, "邮件发送失败，请稍后重试", HttpStatus.SERVICE_UNAVAILABLE),
+    CAPTCHA_INVALID(2010, "图形验证码错误或已失效", HttpStatus.BAD_REQUEST),
 
     PROBLEM_NOT_FOUND(3001, "题目不存在", HttpStatus.NOT_FOUND),
     PROBLEM_NOT_PUBLISHED(3002, "题目尚未发布", HttpStatus.FORBIDDEN),

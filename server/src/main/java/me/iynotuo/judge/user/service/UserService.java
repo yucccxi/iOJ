@@ -1,7 +1,9 @@
 package me.iynotuo.judge.user.service;
 
+import me.iynotuo.judge.captcha.CaptchaService;
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
+import me.iynotuo.judge.common.enums.CaptchaPurpose;
 import me.iynotuo.judge.common.enums.EmailCodePurpose;
 import me.iynotuo.judge.common.enums.UserRole;
 import me.iynotuo.judge.common.enums.UserStatus;
@@ -39,13 +41,15 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final EmailCodeService emailCodeService;
+    private final CaptchaService captchaService;
 
     public UserService(UserMapper userMapper, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider,
-                       EmailCodeService emailCodeService) {
+                       EmailCodeService emailCodeService, CaptchaService captchaService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
         this.emailCodeService = emailCodeService;
+        this.captchaService = captchaService;
     }
 
     @Transactional
@@ -87,6 +91,9 @@ public class UserService {
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
+        // Validate before looking up the account: a caller without a solved challenge must not be
+        // able to probe usernames/emails through this endpoint.
+        captchaService.verifyAndConsume(request.captchaId(), request.captchaCode(), CaptchaPurpose.LOGIN);
         User user = userMapper.findByAccount(request.account());
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw BusinessException.of(ErrorCode.BAD_CREDENTIALS);

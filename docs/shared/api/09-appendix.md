@@ -12,6 +12,7 @@
 | 难度分 | 整数 `0`–`5000`，未评分为 `-1`（非枚举） | 题目列表/统一搜索的 `rating` / `minRating` / `maxRating` 筛选；与“难度”档位相互独立 |
 | 题目状态 | `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN` | 我的题目、审核列表、题目详情 |
 | 语言 | `JAVA` / `CPP` / `C` / `PYTHON3` | 提交、语言下拉框 |
+| 图形验证码用途 | `LOGIN` / `EMAIL_SENDING` | `POST /captcha` 的 `purpose` |
 | 评测状态 | 见 [6.4 评测状态](06-submissions.md#64-评测状态) | 提交列表、提交详情 |
 
 题目状态的含义：
@@ -73,14 +74,16 @@
 | 点“获取验证码”返回 `503` + `2009` | 邮件服务器发送失败（部署侧 SMTP 配置问题） | 提示稍后重试并通知维护者，不要提示“邮箱错误” |
 | 找回密码点“发送验证码”返回 `404` + `2001` | 该邮箱没有对应账号 | 提示“该邮箱尚未注册”，给一个去注册的入口 |
 | 重置密码返回 `400` + `2007` | 验证码错误/过期/已使用/输错超限，或用了注册验证码 | 提示 `message`，并让用户重新获取“找回密码验证码” |
+| 登录/发码返回 `400` + `2010` | 图形验证码错误、过期、已使用、次数超限或 purpose 不匹配 | 重新获取图形验证码，按 `message` 提示 |
+| 获取图形验证码返回 `429` + `1006` | 同一 IP 获取过于频繁 | 稍后重试，不要持续请求 |
 | 重置成功后刷新页面还是登录状态 | 浏览器还带着旧 token；改密码/重置密码后旧 token 已失效（见 [2.6](02-accounts.md#26-通过验证码重置密码)） | 清除本地 token 并用新密码重新登录 |
 
 ## 9.4 页面与接口对照
 
 | 页面 | 需要的接口 |
 | --- | --- |
-| 登录 / 注册 | `POST /auth/email-codes`（注册页“获取验证码”）、`POST /auth/register`、`POST /auth/login`、`GET /auth/me` |
-| 找回密码 | `POST /auth/password-reset-codes`、`POST /auth/password-resets` |
+| 登录 / 注册 | `POST /captcha`（登录、注册页获取验证码）、`POST /auth/email-codes`（注册页“获取验证码”）、`POST /auth/register`、`POST /auth/login`、`GET /auth/me` |
+| 找回密码 | `POST /captcha`、`POST /auth/password-reset-codes`、`POST /auth/password-resets` |
 | 题库首页 | `GET /catalog?scopeId={LOCAL id}`、`GET /meta/tags`、`GET /meta/scopes` |
 | 统一搜索（本地 + 外部） | `GET /catalog`、`GET /meta/tags`、`GET /meta/scopes` |
 | 题目详情 | `GET /problems/{id}`、`GET /submissions?problemId={id}`、`POST /submissions` |

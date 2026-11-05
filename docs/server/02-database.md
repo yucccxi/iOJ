@@ -55,6 +55,7 @@ erDiagram
 | `submissions.status` | `PENDING` / `JUDGING` / `ACCEPTED` / `WRONG_ANSWER` / `TIME_LIMIT_EXCEEDED` / `MEMORY_LIMIT_EXCEEDED` / `OUTPUT_LIMIT_EXCEEDED` / `RUNTIME_ERROR` / `COMPILATION_ERROR` / `CHECKER_ERROR` / `SYSTEM_ERROR` | 提交总状态 |
 | `submission_cases.status` | 同上（不含 `PENDING`/`JUDGING`） | 单测试点状态 |
 | `email_verification_codes.purpose` | `REGISTER` / `RESET_PASSWORD` | 发码用途：注册 / 找回密码。**码与用途绑定**，注册码不能用于重置，反之亦然 |
+| `captcha_challenges.purpose` | `LOGIN` / `EMAIL_SENDING` | 图形验证码用途：登录 / 发送邮箱验证码 |
 
 枚举都用字符串而不是 TINYINT：可读性高、排查问题时不用查字典、加值时不用改表。代价是多占几个字节，俱乐部规模完全无感。
 
@@ -261,6 +262,26 @@ erDiagram
 - “作废”复用 `expires_at`（置为当前时间），不额外加 `invalidated_at` 列；查询只认 `expires_at > now` 的行。
 - 清理：`@Scheduled` 每小时删除 `expires_at < now - cleanup-retention-hours` 的行，保留最近一天便于排查误报。该 DELETE 幂等，多实例重复执行无害。
 
+### 4.12 captcha_challenges —— 图形验证码
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| id | VARCHAR(32) | PK | 128 位随机值，作为对外 `captchaId` |
+| purpose | VARCHAR(16) | NOT NULL | `LOGIN` / `EMAIL_SENDING` |
+| code_hash | VARCHAR(64) | NOT NULL | 验证码答案的 SHA-256/HMAC，不存明文 |
+| attempts | INT | NOT NULL DEFAULT 0 | 已输错次数；达到 `ioj.captcha.max-attempts` 后作废 |
+| expires_at | DATETIME | NOT NULL | 过期时间 |
+| consumed_at | DATETIME | NULL | 成功使用或达到错误上限后写入，非空即不可用 |
+| client_ip | VARCHAR(45) | NOT NULL | 客户端 IP，用于按 IP 限制申请频率 |
+| created_at | DATETIME | NOT NULL | 签发时间，同时用于分钟/小时限流窗口 |
+
+要点：
+
+- **不做外键**：验证码发生在登录之前，没有稳定的用户身份。
+- 每次申请插一行；这张表同时是 IP 限流台账，按 `client_ip + created_at` 统计最近一分钟/一小时的数量。
+- `@Scheduled` 每小时清理 `expires_at < now - cleanup-retention-hours` 的行，保留 24 小时便于排查。
+- 验证码答案只存 hash；`max-attempts` 在配置文件中，不重复入库。
+
 ## 5. 索引设计与关键 SQL
 
 | 索引 | 服务的查询 |
@@ -283,6 +304,8 @@ erDiagram
 | `idx_submissions_status (status, id)` | 判题 worker 抢占 `WHERE status='PENDING' ORDER BY id LIMIT 1` |
 | `idx_email_verification_codes_email (email, purpose, id)` | 取该邮箱最新的验证码、统计最近一小时发码数 |
 | `idx_email_verification_codes_expires (expires_at)` | 定时清理过期行 |
+| `idx_captcha_ip_created (client_ip, created_at)` | 按 IP 统计最近一分钟/一小时的图形验证码申请量 |
+| `idx_captcha_expires (expires_at)` | 定时清理过期图形验证码 |
 
 判题抢占 SQL（MySQL 8）：
 

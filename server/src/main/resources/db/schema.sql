@@ -175,6 +175,19 @@ CREATE TABLE email_verification_codes (
     created_at  DATETIME     NOT NULL
 );
 
+-- Image CAPTCHA challenges: purpose-bound, single-use, short-lived and also the ledger for the
+-- per-IP issuance limit. client_ip is filled from the real client address (see forward headers).
+CREATE TABLE captcha_challenges (
+    id          VARCHAR(32)  NOT NULL PRIMARY KEY,
+    purpose     VARCHAR(16)  NOT NULL,
+    code_hash   VARCHAR(64)  NOT NULL,
+    attempts    INT          NOT NULL DEFAULT 0,
+    expires_at  DATETIME     NOT NULL,
+    consumed_at DATETIME     NULL,
+    client_ip   VARCHAR(45)  NOT NULL,
+    created_at  DATETIME     NOT NULL
+);
+
 CREATE INDEX idx_problems_status_id ON problems (status, id);
 CREATE INDEX idx_problems_status_rating ON problems (status, rating);
 CREATE INDEX idx_problems_author ON problems (author_id, id);
@@ -191,6 +204,8 @@ CREATE INDEX idx_submissions_user ON submissions (user_id, id);
 CREATE INDEX idx_submissions_status ON submissions (status, id);
 CREATE INDEX idx_email_verification_codes_email ON email_verification_codes (email, purpose, id);
 CREATE INDEX idx_email_verification_codes_expires ON email_verification_codes (expires_at);
+CREATE INDEX idx_captcha_expires ON captcha_challenges (expires_at);
+CREATE INDEX idx_captcha_ip_created ON captcha_challenges (client_ip, created_at);
 
 -- Reserved scope for locally authored problems. Every problems.scope_id points here; the scope
 -- is created with the schema (not only in seed.sql) so a fresh database always has it, including

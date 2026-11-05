@@ -52,7 +52,8 @@ public class AuthController {
      */
     @PostMapping("/email-codes")
     public ApiResponse<SendEmailCodeVO> sendEmailCode(@Valid @RequestBody SendEmailCodeRequest request) {
-        return ApiResponse.ok(emailCodeService.send(request.email(), EmailCodePurpose.REGISTER));
+        return ApiResponse.ok(emailCodeService.send(request.email(), EmailCodePurpose.REGISTER,
+                request.captchaId(), request.captchaCode()));
     }
 
     /**
@@ -67,7 +68,8 @@ public class AuthController {
      */
     @PostMapping("/password-reset-codes")
     public ApiResponse<SendEmailCodeVO> sendPasswordResetCode(@Valid @RequestBody SendEmailCodeRequest request) {
-        return ApiResponse.ok(emailCodeService.send(request.email(), EmailCodePurpose.RESET_PASSWORD));
+        return ApiResponse.ok(emailCodeService.send(request.email(), EmailCodePurpose.RESET_PASSWORD,
+                request.captchaId(), request.captchaCode()));
     }
 
     /**

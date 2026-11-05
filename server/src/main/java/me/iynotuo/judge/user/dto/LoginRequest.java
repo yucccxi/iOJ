@@ -11,6 +11,14 @@ public record LoginRequest(
 
         @NotBlank(message = "密码不能为空")
         @Size(max = 64, message = "密码长度不能超过 64")
-        String password
+        String password,
+
+        // Optional in the DTO because CAPTCHA can be disabled per deployment; the service returns
+        // 2010 when it is enabled and these fields are missing or invalid.
+        @Size(max = 64, message = "图形验证码 id 过长")
+        String captchaId,
+
+        @Size(max = 16, message = "图形验证码过长")
+        String captchaCode
 ) {
 }

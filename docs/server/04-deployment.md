@@ -181,6 +181,7 @@ server {
 注意：
 
 - 前后端同域部署时 CORS 基本不会触发；分域部署时需要把前端域名加到 `IOJ_CORS_ORIGINS`。
+- `X-Forwarded-For` 必须由可信 Nginx 设置；后端已开启 `server.forward-headers-strategy=framework`，图形验证码的按 IP 限流依赖这里拿到真实客户端 IP。不要把 8080 直接暴露到公网。
 - 前端图片/题面里的 Markdown 由前端渲染，后端不做 HTML 转义，注意前端的 XSS 处理（推荐 DOMPurify）。
 
 ## 6. 判题机部署建议

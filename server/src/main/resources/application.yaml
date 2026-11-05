@@ -1,6 +1,9 @@
 server:
   port: 8080
   shutdown: graceful
+# Trust X-Forwarded-* only when the app sits behind the project's reverse proxy. Used by the
+# per-IP CAPTCHA issuance limit; do not expose the app directly to the internet with this on.
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -57,6 +60,16 @@ ioj:
   submission:
 # Maximum source length per submission, in characters.
     max-code-length: ${IOJ_SUBMISSION_MAX_CODE_LENGTH:65536}
+  captcha:
+# Image CAPTCHA required by login and the two verification-code mail endpoints.
+    enabled: ${IOJ_CAPTCHA_ENABLED:true}
+    ttl-seconds: ${IOJ_CAPTCHA_TTL_SECONDS:120}
+    max-attempts: ${IOJ_CAPTCHA_MAX_ATTEMPTS:3}
+    code-length: ${IOJ_CAPTCHA_CODE_LENGTH:5}
+# Per-IP issuance limits; raise these if many users share one campus NAT address.
+    issue-per-minute-per-ip: ${IOJ_CAPTCHA_ISSUE_PER_MINUTE_PER_IP:60}
+    issue-per-hour-per-ip: ${IOJ_CAPTCHA_ISSUE_PER_HOUR_PER_IP:600}
+    cleanup-retention-hours: ${IOJ_CAPTCHA_CLEANUP_RETENTION_HOURS:24}
   email-code:
 # Registration requires a code mailed to the address. Set to false to allow registration without one;
 # the send endpoint then reports that the feature is off.

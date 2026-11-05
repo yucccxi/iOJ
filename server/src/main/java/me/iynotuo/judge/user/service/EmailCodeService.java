@@ -1,5 +1,7 @@
 package me.iynotuo.judge.user.service;
 
+import me.iynotuo.judge.captcha.CaptchaService;
+import me.iynotuo.judge.common.enums.CaptchaPurpose;
 import me.iynotuo.judge.common.enums.EmailCodePurpose;
 import me.iynotuo.judge.common.enums.UserStatus;
 import me.iynotuo.judge.common.exception.BusinessException;
@@ -41,17 +43,20 @@ public class EmailCodeService {
     private final EmailCodeSender sender;
     private final EmailCodeProperties properties;
     private final EmailCodeAttemptRecorder attemptRecorder;
+    private final CaptchaService captchaService;
 
     public EmailCodeService(EmailVerificationCodeMapper codeMapper,
                             UserMapper userMapper,
                             EmailCodeSender sender,
                             EmailCodeProperties properties,
-                            EmailCodeAttemptRecorder attemptRecorder) {
+                            EmailCodeAttemptRecorder attemptRecorder,
+                            CaptchaService captchaService) {
         this.codeMapper = codeMapper;
         this.userMapper = userMapper;
         this.sender = sender;
         this.properties = properties;
         this.attemptRecorder = attemptRecorder;
+        this.captchaService = captchaService;
     }
 
     /**
@@ -68,15 +73,21 @@ public class EmailCodeService {
      * call in a database transaction would only hold a connection for the duration of an SMTP
      * round trip. A failed send deletes the row it just wrote.</p>
      *
-     * @param rawEmail the address typed by the visitor
-     * @param purpose  {@code REGISTER} needs an unused address, {@code RESET_PASSWORD} needs an
-     *                 existing active account
+     * @param rawEmail    the address typed by the visitor
+     * @param purpose     {@code REGISTER} needs an unused address, {@code RESET_PASSWORD} needs an
+     *                    existing active account
+     * @param captchaId   CAPTCHA challenge id, when CAPTCHA is enabled
+     * @param captchaCode CAPTCHA answer, when CAPTCHA is enabled
      * @return how long the code is valid and when another one may be requested
      */
-    public SendEmailCodeVO send(String rawEmail, EmailCodePurpose purpose) {
+    public SendEmailCodeVO send(String rawEmail, EmailCodePurpose purpose,
+                                String captchaId, String captchaCode) {
         if (!properties.isEnabled()) {
             throw BusinessException.of(ErrorCode.BAD_REQUEST, "邮箱验证功能未启用");
         }
+        // Check the human challenge before looking at the mailbox, so this endpoint cannot be used
+        // to probe which addresses are registered without solving a CAPTCHA first.
+        captchaService.verifyAndConsume(captchaId, captchaCode, CaptchaPurpose.EMAIL_SENDING);
         String email = normalize(rawEmail);
         requireEligibleRecipient(email, purpose);
 
