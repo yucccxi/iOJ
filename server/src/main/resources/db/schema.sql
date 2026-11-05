@@ -10,6 +10,8 @@ CREATE TABLE users (
     username      VARCHAR(32)  NOT NULL,
     email         VARCHAR(128) NOT NULL,
     password_hash VARCHAR(100) NOT NULL,
+    -- Incremented on password change/reset and "logout all devices"; JWT claims must match this value.
+    token_version INT          NOT NULL DEFAULT 0,
     nickname      VARCHAR(32)  NOT NULL,
     role          VARCHAR(16)  NOT NULL DEFAULT 'USER',
     status        VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',

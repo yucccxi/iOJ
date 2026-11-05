@@ -90,7 +90,7 @@ sequenceDiagram
 
 关键点：
 
-- **每次请求都查一次 users 表**（`JwtAuthenticationFilter`）。代价是一次主键查询，收益是封禁、改角色立即生效，不需要 token 黑名单。
+- **每次请求都查一次 users 表**（`JwtAuthenticationFilter`）。代价是一次主键查询，收益是封禁、改角色、改密/登出所有设备立即生效；旧 token 通过 `users.token_version` 比对失效，不需要额外黑名单表。
 - JWT 中仍然带 `username`/`role` 便于日志排查，但**权限判定以数据库为准**。
 - 请求线程永远不执行用户代码。
 

@@ -86,7 +86,9 @@ class PasswordResetIntegrationTest extends ApiTestSupport {
     void resetCodeChangesThePassword() throws Exception {
         String email = "reset-a@example.com";
         createUser("reseta", email, UserStatus.ACTIVE);
-        assertThat(login("reseta", OLD_PASSWORD).statusCode()).isEqualTo(200);
+        HttpResponse<String> initialLogin = login("reseta", OLD_PASSWORD);
+        assertThat(initialLogin.statusCode()).isEqualTo(200);
+        String oldToken = JSON.readTree(initialLogin.body()).path("data").path("token").asString();
 
         JsonNode sent = sendResetCode(email);
         assertThat(sent.path("code").asInt()).isZero();
@@ -102,6 +104,10 @@ class PasswordResetIntegrationTest extends ApiTestSupport {
         HttpResponse<String> oldPassword = login("reseta", OLD_PASSWORD);
         assertThat(oldPassword.statusCode()).isEqualTo(401);
         assertThat(JSON.readTree(oldPassword.body()).path("code").asInt()).isEqualTo(2005);
+        // The reset invalidates every token issued before it.
+        HttpResponse<String> oldTokenRequest = exchange(request("/api/v1/auth/me").GET(), oldToken);
+        assertThat(oldTokenRequest.statusCode()).isEqualTo(401);
+        assertThat(JSON.readTree(oldTokenRequest.body()).path("code").asInt()).isEqualTo(1002);
         assertThat(login("reseta", "newpassword456").statusCode()).isEqualTo(200);
     }
 

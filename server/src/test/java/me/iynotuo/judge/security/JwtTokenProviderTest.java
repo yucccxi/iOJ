@@ -24,6 +24,7 @@ class JwtTokenProviderTest {
         user.setNickname("Alice");
         user.setRole(UserRole.ADMIN);
         user.setStatus(UserStatus.ACTIVE);
+        user.setTokenVersion(7);
         return user;
     }
 
@@ -46,6 +47,7 @@ class JwtTokenProviderTest {
 
         assertThat(token).isNotBlank();
         assertThat(provider.parseUserId(token)).isEqualTo(42L);
+        assertThat(provider.parseToken(token).tokenVersion()).isEqualTo(7);
         assertThat(provider.expirationSeconds()).isEqualTo(3600);
     }
 

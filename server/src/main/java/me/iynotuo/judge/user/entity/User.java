@@ -23,6 +23,11 @@ public class User {
      */
     private String passwordHash;
 
+    /**
+     * Incremented whenever all existing JWTs must be invalidated (password change/reset, logout all).
+     */
+    private Integer tokenVersion;
+
     private String nickname;
 
     private UserRole role;

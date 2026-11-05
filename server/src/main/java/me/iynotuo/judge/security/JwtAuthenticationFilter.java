@@ -19,7 +19,8 @@ import java.util.List;
 
 /**
  * Parses Authorization: Bearer <token> and, once validated, puts a LoginUser into the SecurityContext.
- * Reads the user row on every request so bans and role changes take effect immediately, which is cheap at club scale.
+ * Reads the user row on every request so bans, role changes and token invalidation take effect
+ * immediately, which is cheap at club scale.
  *
  * <p>This class deliberately has no @Component annotation; me.iynotuo.judge.config.SecurityConfig
  * declares it as a bean so it only runs in the security filter chain and is not registered twice by the servlet container.</p>
@@ -43,10 +44,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader(HEADER);
         if (header != null && header.startsWith(PREFIX)
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
-            Long userId = tokenProvider.parseUserId(header.substring(PREFIX.length()).trim());
-            if (userId != null) {
-                User user = userMapper.findById(userId);
-                if (user != null && user.getStatus() == UserStatus.ACTIVE) {
+            JwtTokenProvider.TokenClaims claims = tokenProvider.parseToken(header.substring(PREFIX.length()).trim());
+            if (claims != null && claims.userId() != null && claims.tokenVersion() != null) {
+                User user = userMapper.findById(claims.userId());
+                if (user != null && user.getStatus() == UserStatus.ACTIVE
+                        && claims.tokenVersion().equals(user.getTokenVersion())) {
                     LoginUser principal = new LoginUser(user.getId(), user.getUsername(),
                             user.getNickname(), user.getRole());
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(

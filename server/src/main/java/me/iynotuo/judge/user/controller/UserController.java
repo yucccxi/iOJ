@@ -73,8 +73,8 @@ public class UserController {
      * Changes the password of the current user.
      *
      * <p>The old password must be supplied and match, so a stolen token alone is not
-     * enough to take over the account. Tokens issued before the change stay valid until
-     * they expire, because the API keeps no token blacklist.</p>
+     * enough to take over the account. A successful change increments the user's token version,
+     * so every JWT issued before the change (including the caller's current one) becomes invalid.</p>
      *
      * @param current the authenticated user
      * @param request the old and the new password

@@ -139,7 +139,7 @@ cd server
 | 测试 | 覆盖内容 |
 | --- | --- |
 | `ServerApplicationTests` | Spring 上下文可启动（含所有 Mapper XML 解析） |
-| `JwtTokenProviderTest` | 签发/解析、篡改、换密钥、过期、弱密钥拒绝 |
+| `JwtTokenProviderTest` | 签发/解析、token 版本、篡改、换密钥、过期、弱密钥拒绝 |
 | `OutputComparatorTest` | 行尾空白、CRLF、文末空行、空输出、行首空格 |
 | `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→匿名列表→提交 Java 代码→worker 抢占→真实 javac 编译+运行→AC/WA→权限裁剪 |
 | `AdminModerationIntegrationTest` | 测试点单个/批量增删查、题目审核上下架、后台用户搜索、封禁后旧 token 立即失效 |
@@ -149,7 +149,8 @@ cd server
 | `AdminMetaIntegrationTest` | 标签/scope 字典的增删改、重复处理、使用量统计、外部题 scope 重命名传播、保留 scope `LOCAL` 保护、删除保护与 `force=true` |
 | `LimitConfigIntegrationTest` | `max-testcase-bytes` / `max-code-length` 来自配置：边界值通过、超一字节/一字符拒绝 |
 | `EmailVerificationIntegrationTest` | 发码接口返回有效期/冷却、冷却内重发、每小时上限、无码/错码/正码注册、一次性消费、输错上限作废、过期拒绝、已注册邮箱拒绝；用假 `EmailCodeSender` 捕获验证码，不连 SMTP |
-| `PasswordResetIntegrationTest` | 找回密码全链路：发码、未注册邮箱 `2001`、被封账号 `2004`、码与用途隔离、一次性消费、输错上限作废、新密码规则；直接插入带已知 BCrypt 的账号，验证"旧密码 401 / 新密码 200" |
+| `PasswordResetIntegrationTest` | 找回密码全链路：发码、未注册邮箱 `2001`、被封账号 `2004`、码与用途隔离、一次性消费、输错上限作废、新密码规则；直接插入带已知 BCrypt 的账号，验证"旧密码 401 / 新密码 200 / 旧 token 失效" |
+| `TokenVersionIntegrationTest` | 修改密码使所有旧 token 失效；`POST /auth/logout-all` 使旧 token 失效并返回当前设备的新 token |
 
 集成测试的关键配置（`src/test/resources/application-test.yaml`）：
 

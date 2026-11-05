@@ -70,6 +70,7 @@ erDiagram
 | username | VARCHAR(32) | NOT NULL, UNIQUE | 登录名，3-32 位字母数字下划线 |
 | email | VARCHAR(128) | NOT NULL, UNIQUE | 可用于登录 |
 | password_hash | VARCHAR(100) | NOT NULL | BCrypt，**任何接口都不返回** |
+| token_version | INT | NOT NULL DEFAULT 0 | JWT 版本；修改/重置密码或登出所有设备时 +1，旧 token 立即失效 |
 | nickname | VARCHAR(32) | NOT NULL | 展示名 |
 | role | VARCHAR(16) | NOT NULL DEFAULT 'USER' | `USER` / `ADMIN` |
 | status | VARCHAR(16) | NOT NULL DEFAULT 'ACTIVE' | `ACTIVE` / `BANNED` |

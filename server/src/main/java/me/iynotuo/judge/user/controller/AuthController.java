@@ -114,6 +114,20 @@ public class AuthController {
     }
 
     /**
+     * Invalidates every JWT for the current account and returns a fresh token for this device.
+     *
+     * <p>The token version is incremented in the database, so all other devices are logged out
+     * immediately; the returned token carries the new version.</p>
+     *
+     * @param current the authenticated user
+     * @return a new access token and the current user
+     */
+    @PostMapping("/logout-all")
+    public ApiResponse<LoginResponse> logoutAll(@AuthenticationPrincipal LoginUser current) {
+        return ApiResponse.ok(userService.logoutAll(current));
+    }
+
+    /**
      * Returns the account information of the currently authenticated user.
      *
      * @param current the authenticated user

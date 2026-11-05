@@ -36,6 +36,11 @@ public interface UserMapper {
                        @Param("passwordHash") String passwordHash,
                        @Param("updatedAt") LocalDateTime updatedAt);
 
+    /**
+     * Invalidates every JWT issued for this user while keeping the password unchanged.
+     */
+    int incrementTokenVersion(@Param("id") Long id, @Param("updatedAt") LocalDateTime updatedAt);
+
     int updateLastLogin(@Param("id") Long id, @Param("lastLoginAt") LocalDateTime lastLoginAt);
 
     int updateRole(@Param("id") Long id,

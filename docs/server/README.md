@@ -145,7 +145,7 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | 测试 | 内容 |
 | --- | --- |
 | `ServerApplicationTests` | Spring 上下文可启动、全部 Mapper 可加载 |
-| `JwtTokenProviderTest` | 令牌签发/解析、篡改、过期、弱密钥拒绝 |
+| `JwtTokenProviderTest` | 令牌签发/解析、token 版本 claim、篡改、过期、弱密钥拒绝 |
 | `OutputComparatorTest` | 输出比对规则（行尾空白、换行、空输出等） |
 | `IsolateMetaTest` | Isolate meta 解析（时间/内存/退出码/信号/OOM/缺省值） |
 | `ApiFlowIntegrationTest` | 注册→登录→建题→传测试数据→提交→评测→AC/WA→字段裁剪 |
@@ -156,7 +156,8 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `AdminMetaIntegrationTest` | 标签/scope 字典的增删改、重复处理、使用量、外部题 scope 重命名传播、`LOCAL` 保留 scope 保护、删除保护 |
 | `LimitConfigIntegrationTest` | 测试点字节上限与代码长度上限确实来自配置，而不是 DTO 硬编码 |
 | `EmailVerificationIntegrationTest` | 发码冷却/每小时上限、无码/错码/正码注册、一次性消费、输错上限作废、过期拒绝 |
-| `PasswordResetIntegrationTest` | 找回密码全链路、用途隔离、一次性消费、输错上限、旧密码失效/新密码生效 |
+| `PasswordResetIntegrationTest` | 找回密码全链路、用途隔离、一次性消费、输错上限、旧密码失效/新密码生效、旧 token 失效 |
+| `TokenVersionIntegrationTest` | 修改密码/登出所有设备使旧 token 失效，logout-all 返回的新 token 可继续使用 |
 
 ## 配置项
 

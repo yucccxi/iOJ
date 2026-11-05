@@ -76,8 +76,10 @@
 
 **响应**：`{ "code": 0, "message": "ok", "data": null }`
 
-> 修改成功后建议前端清除本地登录态并要求用户用新密码重新登录（当前登录凭证不会立即失效）。
+> 修改成功后**当前 token 和该账号之前签发的所有 token 立即失效**，前端必须清除本地登录态并用新密码重新登录。
 >
-> 忘记旧密码时走另一条路：`POST /auth/password-reset-codes` + `POST /auth/password-resets`（见 [2.5](02-accounts.md#25-发送找回密码验证码) / [2.6](02-accounts.md#26-通过验证码重置密码)）。两个入口最终都只改 `users.password_hash`，所以"改完密码旧令牌仍有效"的行为是一致的。
+> 忘记旧密码时走另一条路：`POST /auth/password-reset-codes` + `POST /auth/password-resets`（见 [2.5](02-accounts.md#25-发送找回密码验证码) / [2.6](02-accounts.md#26-通过验证码重置密码)）。两条路径都会让旧 token 失效。
+>
+> 如果只想退出其他设备、保留当前设备登录，使用 `POST /auth/logout-all`（见 [2.7](02-accounts.md#27-登出所有设备)）。
 
 **常见错误**：`2006`（原密码不正确）、`1001`（新密码长度不符合要求）。

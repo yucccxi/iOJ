@@ -3,7 +3,7 @@
 <mapper namespace="me.iynotuo.judge.user.mapper.UserMapper">
 
     <sql id="columns">
-        id, username, email, password_hash, nickname, role, status, created_at, updated_at, last_login_at
+        id, username, email, password_hash, token_version, nickname, role, status, created_at, updated_at, last_login_at
     </sql>
 
     <select id="findById" resultType="me.iynotuo.judge.user.entity.User">
@@ -36,7 +36,18 @@
     </update>
 
     <update id="updatePassword">
-        UPDATE users SET password_hash = #{passwordHash}, updated_at = #{updatedAt} WHERE id = #{id}
+        UPDATE users
+        SET password_hash = #{passwordHash},
+            token_version = token_version + 1,
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementTokenVersion">
+        UPDATE users
+        SET token_version = token_version + 1,
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
     </update>
 
     <update id="updateLastLogin">

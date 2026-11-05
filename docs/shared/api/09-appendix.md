@@ -73,7 +73,7 @@
 | 点“获取验证码”返回 `503` + `2009` | 邮件服务器发送失败（部署侧 SMTP 配置问题） | 提示稍后重试并通知维护者，不要提示“邮箱错误” |
 | 找回密码点“发送验证码”返回 `404` + `2001` | 该邮箱没有对应账号 | 提示“该邮箱尚未注册”，给一个去注册的入口 |
 | 重置密码返回 `400` + `2007` | 验证码错误/过期/已使用/输错超限，或用了注册验证码 | 提示 `message`，并让用户重新获取“找回密码验证码” |
-| 重置成功后刷新页面还是登录状态 | 改密码不会让已发出的 JWT 失效（见 [2.6](02-accounts.md#26-通过验证码重置密码)） | 属预期行为；引导用户主动退出重新登录 |
+| 重置成功后刷新页面还是登录状态 | 浏览器还带着旧 token；改密码/重置密码后旧 token 已失效（见 [2.6](02-accounts.md#26-通过验证码重置密码)） | 清除本地 token 并用新密码重新登录 |
 
 ## 9.4 页面与接口对照
 
@@ -90,7 +90,7 @@
 | 测试数据管理 | `GET /problems/{problemId}/testcases`、`GET/POST/PUT/DELETE /problems/{problemId}/testcases/**` |
 | 判题器管理 | `GET /problems/{id}/checker`、`PUT /problems/{id}/checker`（作者/管理员） |
 | 个人主页 | `GET /users/{id}`、`GET /submissions?userId={id}` |
-| 账号设置 | `PATCH /users/me`、`PUT /users/me/password` |
+| 账号设置 | `PATCH /users/me`、`PUT /users/me/password`、`POST /auth/logout-all` |
 | 后台 · 审核 | `GET /admin/problems?status=PENDING_REVIEW`、`GET /problems/{id}`、`PATCH /admin/problems/{id}/status` |
 | 后台 · 用户 | `GET /admin/users`、`PATCH /admin/users/{id}/role`、`PATCH /admin/users/{id}/status` |
 | 后台 · 标签 | 列表 `GET /meta/tags`（公开，含使用量）、`POST /admin/tags`、`PUT /admin/tags/{id}`、`DELETE /admin/tags/{id}`（可带 `?force=true`） |

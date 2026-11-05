@@ -16,12 +16,19 @@ import java.time.Instant;
 import java.util.Date;
 
 /**
- * Issues and verifies JWTs (HS256). The payload only carries id, username and role; authorities always come from the database.
+ * Issues and verifies JWTs (HS256). The payload carries id, username, role and the user's token
+ * version; authorities always come from the database.
+ *
+ * <p>The token version is deliberately part of the signed payload. The authentication filter
+ * compares it with {@code users.token_version}, so changing the password or logging out all devices
+ * invalidates every JWT issued before that event.</p>
  */
 @Component
 public class JwtTokenProvider {
 
     private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
+
+    private static final String CLAIM_TOKEN_VERSION = "tv";
 
     private final JwtProperties properties;
     private final SecretKey key;
@@ -40,11 +47,13 @@ public class JwtTokenProvider {
 
     public String createToken(User user) {
         Instant now = Instant.now();
+        int tokenVersion = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
         return Jwts.builder()
                 .issuer(properties.getIssuer())
                 .subject(String.valueOf(user.getId()))
                 .claim("username", user.getUsername())
                 .claim("role", user.getRole().name())
+                .claim(CLAIM_TOKEN_VERSION, tokenVersion)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(properties.getExpiration())))
                 .signWith(key)
@@ -52,9 +61,11 @@ public class JwtTokenProvider {
     }
 
     /**
-     * @return the user id, or null when the token is invalid, expired or signed with another key
+     * Parses and validates a token.
+     *
+     * @return the user id and token version, or null when the token is invalid or expired
      */
-    public Long parseUserId(String token) {
+    public TokenClaims parseToken(String token) {
         try {
             Claims claims = Jwts.parser()
                     .verifyWith(key)
@@ -62,14 +73,40 @@ public class JwtTokenProvider {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-            return Long.valueOf(claims.getSubject());
+            return new TokenClaims(Long.valueOf(claims.getSubject()), tokenVersion(claims));
         } catch (JwtException | IllegalArgumentException ex) {
             log.debug("Invalid JWT: {}", ex.getMessage());
             return null;
         }
     }
 
+    /**
+     * Compatibility helper for callers that only need the user id.
+     */
+    public Long parseUserId(String token) {
+        TokenClaims claims = parseToken(token);
+        return claims == null ? null : claims.userId();
+    }
+
     public long expirationSeconds() {
         return properties.getExpiration().toSeconds();
+    }
+
+    /**
+     * Reads the expected token version from the already-verified claims. A missing version means
+     * the token was issued before token versioning existed and must be rejected.
+     */
+    private Integer tokenVersion(Claims claims) {
+        Object value = claims.get(CLAIM_TOKEN_VERSION);
+        if (!(value instanceof Number number)) {
+            return null;
+        }
+        return number.intValue();
+    }
+
+    /**
+     * Minimum claims needed by {@link JwtAuthenticationFilter}.
+     */
+    public record TokenClaims(Long userId, Integer tokenVersion) {
     }
 }

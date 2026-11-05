@@ -115,6 +115,10 @@ public class UserService {
         return getById(current.id());
     }
 
+    /**
+     * Changes the password and invalidates every JWT issued before this call. The caller's current
+     * token stops working too, so the client must log in again.
+     */
     @Transactional
     public void changePassword(LoginUser current, ChangePasswordRequest request) {
         User user = requireUser(current.id());
@@ -125,12 +129,24 @@ public class UserService {
     }
 
     /**
+     * Invalidates every JWT for the current account and returns a new token for this device.
+     */
+    @Transactional
+    public LoginResponse logoutAll(LoginUser current) {
+        userMapper.incrementTokenVersion(current.id(), LocalDateTime.now());
+        User user = requireUser(current.id());
+        String token = tokenProvider.createToken(user);
+        return LoginResponse.of(token, tokenProvider.expirationSeconds(), UserVO.from(user));
+    }
+
+    /**
      * Resets a forgotten password with a code mailed to the account address.
      *
      * <p>No login is required, so the code is the only credential. It is checked with
      * {@code RESET_PASSWORD}, which keeps a registration code from working here, and consumed in the
      * same transaction that writes the new password: a failed update keeps the code usable, a
-     * successful one can never be replayed.</p>
+     * successful one can never be replayed. Updating the password also increments the token version,
+     * so every existing JWT for this account becomes invalid.</p>
      *
      * @param request address, mailed code and the new password
      */
