@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { copy } from "@/i18n";
 
 export const Route = createFileRoute("/problems/$problemId")({
-  component: () => <h1 className="text-xl font-semibold">题目详情</h1>,
+  component: () => (
+    <h1 className="text-xl font-semibold">{copy.page.problemDetail}</h1>
+  ),
 });

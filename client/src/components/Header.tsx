@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, SquarePlus, User } from "lucide-react";
 import SectionSwitcher from "@/components/SectionSwitcher";
+import { copy } from "@/i18n";
 import logoUrl from "@/assets/logo.svg";
 
 export default function Header() {
@@ -27,11 +28,11 @@ export default function Header() {
             py-1.5 text-label text-fg"
         >
           <SquarePlus />
-          贡献题目
+          {copy.nav.contribute}
         </Link>
         <Link
           to="/login"
-          aria-label="登录"
+          aria-label={copy.nav.login}
           className="flex items-center gap-2 rounded-full p-1"
         >
           <span

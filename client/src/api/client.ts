@@ -1,3 +1,5 @@
+import { copy } from "@/i18n";
+
 type Envelope<T> = { code: number; message: string; data: T };
 type QueryValue = string | number;
 type Query = Record<string, QueryValue | readonly QueryValue[] | undefined>;
@@ -33,7 +35,7 @@ export async function get<T>(
 
   // A proxy or gateway error returns HTML, not the envelope.
   if (!response.headers.get("content-type")?.includes("application/json")) {
-    throw new ApiError(-1, `服务暂时不可用（HTTP ${response.status}）`);
+    throw new ApiError(-1, copy.errors.serviceUnavailable(response.status));
   }
   const body = (await response.json()) as Envelope<T>;
   // Only code 0 means success; the same business error can come with 400, 405 or 415.

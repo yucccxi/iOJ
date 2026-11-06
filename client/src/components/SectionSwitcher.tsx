@@ -9,15 +9,20 @@ import {
   MessageSquare,
 } from "lucide-react";
 import Popover from "@/components/ui/Popover";
+import { copy } from "@/i18n";
 
 const mainSections = [
-  { to: "/", label: "首页", icon: House },
-  { to: "/problems", label: "题库", icon: Library },
-  { to: "/discuss", label: "讨论", icon: MessageSquare },
-  { to: "/submissions", label: "提交记录", icon: History },
+  { to: "/", label: copy.nav.home, icon: House },
+  { to: "/problems", label: copy.nav.problems, icon: Library },
+  { to: "/discuss", label: copy.nav.discuss, icon: MessageSquare },
+  { to: "/submissions", label: copy.nav.submissions, icon: History },
 ] as const;
 
-const aboutSection = { to: "/about", label: "关于", icon: Info } as const;
+const aboutSection = {
+  to: "/about",
+  label: copy.nav.about,
+  icon: Info,
+} as const;
 
 type Section = (typeof mainSections)[number] | typeof aboutSection;
 
@@ -58,7 +63,7 @@ export default function SectionSwitcher() {
 
   return (
     <Popover
-      label="切换栏目"
+      label={copy.nav.switchSection}
       role="menu"
       className="flex w-50 -translate-x-2 flex-col gap-0.5 p-1.5"
       trigger={(props) => (
