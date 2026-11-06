@@ -7,10 +7,11 @@ import { FilterHeader } from "@/components/ui/FilterPanel";
 import Popover from "@/components/ui/Popover";
 import Segmented from "@/components/ui/Segmented";
 import SelectButton from "@/components/ui/SelectButton";
+import { copy } from "@/i18n";
 
 const matchOptions: { value: TagMatch; label: string }[] = [
-  { value: "ANY", label: "满足任一" },
-  { value: "ALL", label: "满足全部" },
+  { value: "ANY", label: copy.tagFilter.any },
+  { value: "ALL", label: copy.tagFilter.all },
 ];
 
 type TagFilterProps = {
@@ -19,18 +20,18 @@ type TagFilterProps = {
   onApply: (tagId: number[], tagMatch: TagMatch) => void;
 };
 
-/** Edits a draft and only filters on 应用; closing the panel discards the draft. */
+/** Edits a draft and only filters on Apply; closing the panel discards the draft. */
 export default function TagFilter(props: TagFilterProps) {
   const count = props.tagId.length;
   return (
     <Popover
-      label="按标签筛选"
+      label={copy.tagFilter.label}
       align="end"
       className="w-95"
       trigger={(trigger) => (
         <SelectButton
           {...trigger}
-          label={count > 0 ? `标签 · ${count}` : "标签"}
+          label={copy.tagFilter.trigger(count)}
           active={count > 0}
         />
       )}
@@ -71,7 +72,7 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3">
-      <FilterHeader title="标签" />
+      <FilterHeader title={copy.tagFilter.title} />
 
       <label
         className="flex h-8.5 items-center gap-2 rounded-control border
@@ -83,8 +84,8 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="搜索标签…"
-          aria-label="搜索标签"
+          placeholder={copy.tagFilter.searchPlaceholder}
+          aria-label={copy.tagFilter.searchLabel}
           autoFocus
           className="min-w-0 flex-1 bg-transparent text-meta text-fg
             outline-none placeholder:text-fg-subtle
@@ -98,7 +99,7 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
           overflow-y-auto"
       >
         {shown?.length === 0 && (
-          <p className="text-caption text-fg-subtle">没有匹配的标签</p>
+          <p className="text-caption text-fg-subtle">{copy.tagFilter.empty}</p>
         )}
         {shown?.map((tag) => {
           const on = selected.includes(tag.id);
@@ -125,18 +126,20 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
       <div className="h-px bg-line" />
 
       <div className="flex items-center gap-2">
-        <span className="text-caption text-fg-muted">匹配方式</span>
+        <span className="text-caption text-fg-muted">
+          {copy.tagFilter.matchMode}
+        </span>
         <Segmented
           options={matchOptions}
           value={match}
           onChange={setMatch}
-          label="匹配方式"
+          label={copy.tagFilter.matchMode}
         />
       </div>
 
       <div className="flex items-center justify-between">
         <span className="text-caption text-fg-subtle">
-          已选 {selected.length} 个标签
+          {copy.tagFilter.selected(selected.length)}
         </span>
         <div className="flex gap-2">
           <Button
@@ -147,11 +150,11 @@ function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
             }}
           >
             <X />
-            重置
+            {copy.tagFilter.reset}
           </Button>
           <Button onClick={() => onApply(selected, match)}>
             <Check />
-            应用
+            {copy.tagFilter.apply}
           </Button>
         </div>
       </div>
