@@ -1,5 +1,7 @@
 package me.iynotuo.judge.config;
 
+import me.iynotuo.judge.judge.service.JudgeKeyService;
+import me.iynotuo.judge.security.JudgeKeyAuthenticationFilter;
 import me.iynotuo.judge.security.JwtAuthenticationFilter;
 import me.iynotuo.judge.security.JwtTokenProvider;
 import me.iynotuo.judge.security.RestAccessDeniedHandler;
@@ -47,9 +49,18 @@ public class SecurityConfig {
         return new JwtAuthenticationFilter(tokenProvider, userMapper);
     }
 
+    /**
+     * Declared as a bean so the filter only runs inside the security filter chain.
+     */
+    @Bean
+    public JudgeKeyAuthenticationFilter judgeKeyAuthenticationFilter(JudgeKeyService judgeKeyService) {
+        return new JudgeKeyAuthenticationFilter(judgeKeyService);
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtAuthenticationFilter jwtAuthenticationFilter,
+                                                   JudgeKeyAuthenticationFilter judgeKeyAuthenticationFilter,
                                                    RestAuthenticationEntryPoint authenticationEntryPoint,
                                                    RestAccessDeniedHandler accessDeniedHandler) {
         http
@@ -60,6 +71,7 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(registry -> registry
+                        .requestMatchers("/internal/judge/**").hasRole("JUDGE")
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login",
                                 "/api/v1/auth/email-codes", "/api/v1/auth/password-reset-codes",
                                 "/api/v1/auth/password-resets", "/api/v1/captcha").permitAll()
@@ -79,7 +91,8 @@ public class SecurityConfig {
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(judgeKeyAuthenticationFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 

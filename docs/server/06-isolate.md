@@ -1,6 +1,6 @@
 # Isolate 沙箱运维
 
-本文只讲**机器侧**的事：Isolate 怎么装、权限怎么给、后端传了哪些参数、怎么手工复现一次评测、出问题怎么查。
+本文只讲**机器侧**的事：Isolate 怎么装、权限怎么给、判题 Agent 传了哪些参数、怎么手工复现一次评测、出问题怎么查。
 
 - 判题状态机、引擎选择、meta → 状态的映射：见 [03-judge.md](03-judge.md)
 - 整机部署、systemd、Nginx：见 [04-deployment.md](04-deployment.md)
@@ -11,7 +11,7 @@
 
 ## 1. 本项目如何调用 Isolate
 
-后端**不链接任何 Isolate 库**，只通过命令行调用 `/usr/bin/isolate`。一次评测的生命周期：
+判题 Agent **不链接任何 Isolate 库**，只通过命令行调用 `/usr/bin/isolate`。一次评测的生命周期：
 
 ```
 从 box id 池取一个编号（默认 1..8）
@@ -34,13 +34,13 @@
 
 | 组件 | 职责 |
 | --- | --- |
-| `JudgeWorker` | 轮询待评测提交，用信号量限制并发，交给判题线程池 |
-| `JudgeService` | 读提交 / 题目 / 测试点，调用引擎，落库 |
+| `AgentRunner` | 向主服务器领取任务，用信号量限制并发，交给判题线程池 |
+| `AgentTaskMapper` | 把协议任务转成 `JudgeContext`，把结果转成 `JudgeResult` |
 | `IsolateJudgeEngine` | 取 box、建工作目录、拼 `isolate` 命令行、解析 meta、判定状态 |
 | `isolate` | 建命名空间、cgroup 限额、降权执行、输出 meta |
 
-- 代码：`server/src/main/java/me/iynotuo/judge/judge/engine/IsolateJudgeEngine.java`
-- 开关：`ioj.judge.engine=isolate`（默认，环境变量 `IOJ_JUDGE_ENGINE`）
+- 代码：`judge-core/src/main/java/me/iynotuo/judge/core/engine/IsolateJudgeEngine.java`
+- 开关：Agent 的 `ioj.judge.engine=isolate`（环境变量 `IOJ_JUDGE_ENGINE`）；主服务器默认 `none`，不执行判题。
 - 创建引擎 Bean 时会做一次可执行性自检（见 §4.3）
 
 ## 2. 环境要求
@@ -51,7 +51,7 @@
 | cgroup | v2：`stat -fc %T /sys/fs/cgroup` 输出 `cgroup2fs` | `cgroup2fs` |
 | 内核 | ≥ 5.19（`--cg-mem` 的内存统计依赖它） | `6.12.94+deb13-amd64` |
 | Isolate | 2.7 | 2.7 |
-| JDK | 21（判 Java 题，同时用于运行后端） | OpenJDK 21.0.11 |
+| JDK | 21（判 Java 题，同时用于运行 Agent） | OpenJDK 21.0.11 |
 | 工具链 | `g++`（C++17）、`gcc`（C11）、`python3` | 已安装 |
 | 资源 | 至少能给编译器留出 1 核 + 512MB | 20 核 / 16GB |
 
@@ -124,7 +124,7 @@ $ ls -l /usr/bin/isolate
 | --- | --- |
 | `4755 root:isolate`（官方包，setuid） | 不需要 |
 | `4750` / `0750`（去掉 setuid，靠组授权） | 需要：`sudo usermod -aG isolate <user>`，**重新登录**后生效 |
-| `/etc/isolate` 中 `restricted_init = 1` | 只有 root 能建 box，普通用户无法运行后端 |
+| `/etc/isolate` 中 `restricted_init = 1` | 只有 root 能建 box，普通用户无法运行 Agent |
 
 统一把用户加进组是安全的兼容做法，对 setuid 包无副作用。
 
@@ -171,21 +171,22 @@ Add the service user to the 'isolate' group and log in again: sudo usermod -aG i
 - 测试点之间**复制**编译产物，前一个测试点无法污染后一个；
 - `finally` 中删除整个目录并归还 box id，异常路径也不会泄漏。
 
-## 5. 后端配置
+## 5. Agent 配置
 
 `application.yaml` 中与沙箱相关的默认值（带 `${}` 的项可用环境变量覆盖）：
 
 ```yaml
 ioj:
+  agent:
+    concurrency: ${IOJ_JUDGE_CONCURRENCY:1}   # 本机并发，建议 ≤ 核数 - 1
   judge:
-    enabled: ${IOJ_JUDGE_ENABLED:true}
-    engine: ${IOJ_JUDGE_ENGINE:isolate}
-    concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
-    max-output-bytes: 16777216        # 16MB，同时决定 --fsize
+    mode: agent
+    engine: isolate                          # Agent 固定使用 isolate
+    max-output-bytes: 16777216               # 16MB，同时决定 --fsize
     compile-timeout-ms: 30000
-    checker:                          # 题目自带的 C++ 判题器（Special Judge）
+    checker:                                 # 题目自带的 C++ 判题器（Special Judge）
       enabled: true
-      time-limit-ms: 2000             # 独立于题限，见 §6.5
+      time-limit-ms: 2000                    # 独立于题限，见 §6.5
       memory-limit-mb: 512
       compile-timeout-ms: 30000
       compile-memory-mb: 512
@@ -194,34 +195,28 @@ ioj:
       message-limit-bytes: 1024
     isolate:
       binary: /usr/bin/isolate
-      box-id-start: 1                 # 避开 root 手工测试留下的 box 0
-      box-id-count: 8                 # 应不小于 concurrency
+      box-id-start: 1                        # 避开 root 手工测试留下的 box 0
+      box-id-count: 2                        # 应不小于本机 Agent 并发
       check-on-startup: true
-      compile-processes: 64           # javac 需要大量线程
+      compile-processes: 64                  # javac 需要大量线程
       compile-time-seconds: 10
       compile-wall-time-seconds: 30
-      compile-cg-mem-kb: 524288       # 编译期内存上限 512MB
+      compile-cg-mem-kb: 524288              # 编译期内存上限 512MB
       compile-fsize-kb: 16384
       wall-time-extra-seconds: 3
-      setup-timeout-ms: 10000         # init/cleanup 的宿主侧超时
+      setup-timeout-ms: 10000                # init/cleanup 的宿主侧超时
       extra-dirs:
-        - /etc/java-21-openjdk        # 只读挂载，见 §6.3
+        - /etc/java-21-openjdk               # 只读挂载，见 §6.3
       resolve-executables: true
-    languages:
-      JAVA:
-        # 省略 display-name / source-file / run-wrapper；run-wrapper 只被 local 引擎使用
-        compile-command: javac -encoding UTF-8 -d . Main.java
-        run-command: java -Xmx{memoryMb}m -Xss64m -XX:+UseSerialGC Main
-        time-multiplier: 2.0
-        isolate-processes: 64
-        isolate-memory-extra-mb: 256
 ```
+
+> 语言命令（`source-file` / `compile-command` / `run-command` / `time-multiplier`）由主服务器随 claim 响应下发，不在 Agent 本地配置；Agent 只需要 `ioj.agent.languages` 声明本机装好的语言。
 
 | 配置 | 作用 | 调整建议 |
 | --- | --- | --- |
-| `engine` | 选择引擎；`local` 为无沙箱回退 | 生产固定 `isolate` |
-| `concurrency` | 同时评测的提交数 | ≤ 核数 - 1，见 §9 |
-| `box-id-start` / `box-id-count` | 本实例独占的 box 编号区间 | `count ≥ concurrency`；多实例分段 |
+| `engine` | Agent 固定 `isolate` | 生产不要用 `local` |
+| `ioj.agent.concurrency` | 本机同时评测的提交数 | ≤ 核数 - 1，见 §9 |
+| `box-id-start` / `box-id-count` | 本实例独占的 box 编号区间 | `count ≥ concurrency`；同机多 Agent 分段 |
 | `compile-processes` | 编译期 `--processes` | 保持 64，否则 javac 报 `pthread_create failed` |
 | `compile-cg-mem-kb` | 编译期 `--cg-mem` | 512MB 起，编译大项目可上调 |
 | `wall-time-extra-seconds` | 运行期墙钟 = CPU 限制 + 该值 | 死循环程序靠它兜底 |
@@ -449,14 +444,21 @@ exitcode:0
 Java 手工验证有两点要注意：编译必须 `--processes=64`；`javac` / `java` 建议写真实路径
 （`/usr/lib/jvm/java-21-openjdk-amd64/bin/...`），否则沙箱内跟随 `/etc/alternatives` 软链会失败。
 
-## 8. 通过后端验证
+## 8. 通过 Agent 验证
 
-机器侧验证通过后，再确认后端真的能把提交送进沙箱（需要 MySQL 已就绪，见 [04-deployment.md](04-deployment.md)）。
+机器侧验证通过后，再确认 Agent 真的能把提交送进沙箱（需要主服务器和 MySQL 已就绪，见 [04-deployment.md](04-deployment.md)）。
 
 ```bash
-cd server
-export IOJ_DB_USER=ioj IOJ_DB_PASSWORD='...' IOJ_JWT_SECRET="$(openssl rand -base64 48)"
-./mvnw spring-boot:run        # 启动日志中不应出现 isolate 相关报错
+# 主服务器（仓库根目录）
+./mvnw -DskipTests package
+IOJ_DB_USER=ioj IOJ_DB_PASSWORD='...' IOJ_JWT_SECRET="$(openssl rand -base64 48)" \
+  java -jar server/target/server-0.0.1-SNAPSHOT.jar
+
+# 判题机（先在管理员后台创建 key）
+IOJ_JUDGE_SERVER_URL=http://<主服务器内网IP>:8080 \
+IOJ_JUDGE_KEY='jsk_...' \
+IOJ_JUDGE_NODE_ID=judge-1 \
+  java -jar judge-agent/target/judge-agent-0.0.1-SNAPSHOT.jar
 ```
 
 ```bash
@@ -484,21 +486,21 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | 日志 | 无 `Isolate judging failed for submission`、无 `isolate --cleanup failed` |
 | 宿主机 | `ls /var/lib/isolate` 在判题结束后应为空 |
 
-如果 `memoryUsedKb` 一直是 `null`，先确认 `IOJ_JUDGE_ENGINE` 没有被设成 `local`：
+如果 `memoryUsedKb` 一直是 `null`，先确认 Agent 的 `ioj.judge.engine` 为 `isolate`：
 回退引擎不读 cgroup，本来就没有内存统计。
 
 ## 9. 容量与调优
 
 | 项 | 建议 | 原因 |
 | --- | --- | --- |
-| `concurrency` | 4–8（20 核机器） | 每个评测会占满 1 核跑用户程序，同时还要跑编译 |
-| `box-id-count` | ≥ `concurrency` | 小于并发只会让判题排队，不会报错 |
+| `ioj.agent.concurrency` | 4–8（20 核机器） | 每个评测会占满 1 核跑用户程序，同时还要跑编译 |
+| `box-id-count` | ≥ `ioj.agent.concurrency` | 小于并发只会让判题排队，不会报错 |
 | `compile-processes` | 64 不动 | `javac` 线程多 |
 | `compile-cg-mem-kb` | 512MB 起 | 实测一个 `Main.java` 编译峰值约 64MB，大工程更高 |
 | Java 的 `isolate-memory-extra-mb` | 256 | 实测空跑的 JVM `cg-mem` 就有 61–66MB，还要留 metaspace/线程栈 |
 | 磁盘 | `/tmp` 与 `/var/lib/isolate` 同盘时留足空间 | 每次评测会复制产物到每个测试点目录 |
 
-多实例（同一台机器跑两个判题进程）时 `box-id-start` 必须分段，例如 A 实例 `1..8`、B 实例 `9..16`；
+多实例（同一台机器跑两个 Agent）时 `box-id-start` 必须分段，例如 A 实例 `1..8`、B 实例 `9..16`；
 重叠会互相抢同一个 box，表现为 `isolate --init` 失败或结果串台。跨机器则无需分段。
 
 `--cg-mem` 是按**单次运行**限制的，不是整机配额：并发 8 且每题 512MB 时，峰值可能吃掉 4GB，
@@ -520,8 +522,8 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | 写入目录报 `Read-only file system` | `--dir` 没加 `:rw` | 只有 `/box` 需要写；`extra-dirs` 保持只读 |
 | 编译超时（`COMPILATION_ERROR: Compile Time Exceeded`） | `compile-time-seconds` / `compile-wall-time-seconds` 太小 | 分别上调 CPU 与墙钟限制 |
 | 判题结束后 `/var/lib/isolate` 有残留目录 | 进程被强杀，没执行 `--cleanup` | 确认日志告警；用同一用户 `isolate --cg --box-id=N --cleanup` |
-| 提交一直 `PENDING` | worker 被关闭（`IOJ_JUDGE_ENABLED=false`）或任务积压 | 查配置、`GET /api/v1/submissions?status=PENDING`、后端日志 |
-| 判题正常但 `memoryUsedKb` 为 `null` | 引擎是 `local` 回退，或 meta 里没有 `cg-mem` | 确认 `IOJ_JUDGE_ENGINE=isolate`，并手工跑一次看 meta |
+| 提交一直 `PENDING` | 没有在线 Agent（`IOJ_JUDGE_KEY` 未配置/错误）或任务积压 | 查 `GET /api/v1/admin/judge-nodes`、Agent 日志、`GET /api/v1/submissions?status=PENDING` |
+| 判题正常但 `memoryUsedKb` 为 `null` | Agent 引擎是 `local` 回退，或 meta 里没有 `cg-mem` | 确认 Agent 的 `ioj.judge.engine=isolate`，并手工跑一次看 meta |
 
 排查顺序建议：`isolate --version` → `systemctl is-active isolate.service` → `cat /run/isolate/cgroup`
 → 手工 §7 流程 → 再看后端日志。前两步就能覆盖大部分“装好了但判不了”的情况。
@@ -539,7 +541,7 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 
 其它约定：
 
-- 后端**不要用 root 运行**；需要 root 的部分由 setuid 的 `isolate` 自己完成。
+- Agent **不要用 root 运行**；需要 root 的部分由 setuid 的 `isolate` 自己完成。
 - 不要把数据库密码、JWT 密钥、证书放进判题机的工作目录或 `/tmp`。
 - 提交的代码只允许在沙箱内编译与执行，宿主机上的 `javac`/`g++` 只作为沙箱内可执行文件存在。
 - 上线前用 §7 的失败场景（TLE / MLE / RE / 只读挂载）各跑一遍，确认分类符合预期。

@@ -2,7 +2,7 @@ package me.iynotuo.judge.submission.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import me.iynotuo.judge.common.enums.Language;
+import me.iynotuo.judge.protocol.Language;
 
 /**
  * A code submission. The length limit is not declared here: it comes from

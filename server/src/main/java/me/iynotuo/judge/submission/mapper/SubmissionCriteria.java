@@ -1,7 +1,7 @@
 package me.iynotuo.judge.submission.mapper;
 
 import lombok.Data;
-import me.iynotuo.judge.common.enums.SubmissionStatus;
+import me.iynotuo.judge.protocol.SubmissionStatus;
 
 /**
  * Query criteria for submission lists.

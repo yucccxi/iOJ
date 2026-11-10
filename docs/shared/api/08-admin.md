@@ -223,3 +223,66 @@ scope 同样是共享字典（OJ 平台、比赛等），外部题用它分类�
 | `1005` | 重名、scope 仍被使用，或试图改名/删除 `LOCAL` |
 | `1003` | 非管理员 |
 
+
+## 8.8 判题机 Key 管理
+
+`/admin/judge-keys` ｜ 管理员
+
+判题机使用 key 访问主服务器的内部判题接口。**key 只在创建响应中出现一次**，之后只能看到前缀。
+
+| 接口 | 说明 |
+| --- | --- |
+| `POST /admin/judge-keys` | 创建，请求体 `{ "name": "judge-1", "expiresAt": null }` |
+| `GET /admin/judge-keys` | 列表，不返回明文 key |
+| `PATCH /admin/judge-keys/{id}` | 启用/禁用，请求体 `{ "enabled": false }` |
+| `DELETE /admin/judge-keys/{id}` | 删除 |
+
+**创建响应 `data`**
+
+```json
+{
+  "id": 3,
+  "name": "judge-1",
+  "prefix": "jsk_3f9a2c",
+  "key": "jsk_3f9a2c7e8b1d4a6f9c0e2d5b7a8f1c3e",
+  "expiresAt": null,
+  "createdAt": "2026-11-11T10:00:00"
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `key` | 完整 key，**只返回一次**；粘贴到判题机的 `IOJ_JUDGE_KEY` |
+| `prefix` | 展示用前缀，后续列表用它识别 key |
+| `enabled` | 禁用后不能 claim/result |
+| `lastUsedAt` | 最近成功领取/回报时间 |
+
+**规则**
+
+- 一个判题节点建议使用一个 key；
+- 禁用/删除 key 后，该节点不能继续领取任务；未完成任务的租约到期后自动回收；
+- key 丢失时直接删除并重新创建，不要尝试找回明文。
+
+## 8.9 判题节点列表
+
+`GET /admin/judge-nodes` ｜ 管理员
+
+用于查看当前有哪些判题机在线、支持哪些语言、正在跑多少任务。
+
+```json
+[
+  {
+    "nodeId": "judge-1",
+    "hostname": "judge-1.campus",
+    "version": "0.0.1",
+    "languages": ["JAVA", "CPP", "PYTHON3"],
+    "maxConcurrency": 2,
+    "runningTasks": 1,
+    "isolateVersion": "2.7",
+    "status": "ONLINE",
+    "lastHeartbeatAt": "2026-11-11T10:00:00"
+  }
+]
+```
+
+> `status=OFFLINE` 表示超过心跳阈值没有上报。任务不会被立即丢弃，等租约过期后由主服务器回收。

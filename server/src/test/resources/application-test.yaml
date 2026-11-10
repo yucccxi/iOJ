@@ -32,6 +32,7 @@ ioj:
   judge:
 # Integration tests call JudgeService directly instead of relying on the scheduled worker.
     enabled: false
+    mode: local
     engine: local
     compile-timeout-ms: 60000
     poll-interval-ms: 200

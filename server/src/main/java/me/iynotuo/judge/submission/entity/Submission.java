@@ -1,8 +1,8 @@
 package me.iynotuo.judge.submission.entity;
 
 import lombok.Data;
-import me.iynotuo.judge.common.enums.Language;
-import me.iynotuo.judge.common.enums.SubmissionStatus;
+import me.iynotuo.judge.protocol.Language;
+import me.iynotuo.judge.protocol.SubmissionStatus;
 
 import java.time.LocalDateTime;
 
@@ -37,6 +37,30 @@ public class Submission {
      * System-level error message (for example missing test data); never contains test data.
      */
     private String judgeMessage;
+
+    /**
+     * Key that claimed the remote judging lease, or {@code null} for a legacy/local submission.
+     */
+    private Long judgeKeyId;
+
+    /**
+     * Node that claimed the remote judging lease, or {@code null}.
+     */
+    private String judgeNodeId;
+
+    /**
+     * Fencing token of the current remote claim.
+     */
+    private String claimToken;
+
+    private LocalDateTime claimedAt;
+
+    private LocalDateTime leaseExpiresAt;
+
+    /**
+     * How many times a remote judge has claimed this submission.
+     */
+    private Integer attemptCount;
 
     private LocalDateTime createdAt;
 

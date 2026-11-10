@@ -89,12 +89,24 @@ ioj:
     cleanup-retention-hours: 24
   judge:
     enabled: ${IOJ_JUDGE_ENABLED:true}
-    engine: ${IOJ_JUDGE_ENGINE:isolate}
+    # remote: submissions are judged by remote agents (default); local: legacy in-process judge for tests/dev.
+    mode: ${IOJ_JUDGE_MODE:remote}
+    # none on the main server; the agent config sets isolate (or local for a development agent).
+    engine: ${IOJ_JUDGE_ENGINE:none}
     concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
     poll-interval-ms: 1000
     max-output-bytes: 16777216
     max-compile-output-bytes: 65536
     compile-timeout-ms: 30000
+    dispatch:
+      # How long an agent owns a task before the server may requeue it.
+      lease-seconds: ${IOJ_JUDGE_LEASE_SECONDS:300}
+      # A task is failed after this many claims instead of being requeued forever.
+      max-attempts: ${IOJ_JUDGE_MAX_ATTEMPTS:3}
+      reaper-interval-ms: ${IOJ_JUDGE_REAPER_INTERVAL_MS:30000}
+      node-offline-seconds: ${IOJ_JUDGE_NODE_OFFLINE_SECONDS:90}
+      max-claim-batch: ${IOJ_JUDGE_MAX_CLAIM_BATCH:10}
+      inline-max-bytes: ${IOJ_JUDGE_INLINE_MAX_BYTES:1048576}
     # Custom checker (special judge). Limits are global on purpose: they are intentionally
     # independent from the per-problem limits, because a checker usually needs more memory
     # and never should be reported as a contestant failure when it runs out of limits.
@@ -159,6 +171,8 @@ ioj:
       PYTHON3:
         display-name: Python 3
         source-file: main.py
+        compile-command: python3 -m py_compile main.py
+        copy-source-to-run: true
         run-command: python3 main.py
         run-wrapper: ulimit -v {memoryKb}; exec {command}
         time-multiplier: 3.0

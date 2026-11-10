@@ -98,3 +98,4 @@
 | 后台 · 用户 | `GET /admin/users`、`PATCH /admin/users/{id}/role`、`PATCH /admin/users/{id}/status` |
 | 后台 · 标签 | 列表 `GET /meta/tags`（公开，含使用量）、`POST /admin/tags`、`PUT /admin/tags/{id}`、`DELETE /admin/tags/{id}`（可带 `?force=true`） |
 | 后台 · Scope | 列表 `GET /meta/scopes`（公开，含使用量）、`POST /admin/scopes`、`PUT /admin/scopes/{id}`、`DELETE /admin/scopes/{id}` |
+| 后台 · 判题机 | `GET /admin/judge-keys`、`POST /admin/judge-keys`、`PATCH /admin/judge-keys/{id}`、`DELETE /admin/judge-keys/{id}`、`GET /admin/judge-nodes` |

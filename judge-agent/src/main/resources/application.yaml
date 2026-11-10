@@ -1,0 +1,64 @@
+# Remote judge agent. It never starts a web server and never connects to MySQL.
+spring:
+  application:
+    name: ioj-judge-agent
+  main:
+    web-application-type: none
+    banner-mode: off
+
+ioj:
+  agent:
+    server-url: ${IOJ_JUDGE_SERVER_URL:http://127.0.0.1:8080}
+    key: ${IOJ_JUDGE_KEY:}
+    node-id: ${IOJ_JUDGE_NODE_ID:judge-1}
+    concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
+    languages:
+      - JAVA
+      - CPP
+      - C
+      - PYTHON3
+    poll-interval-ms: ${IOJ_JUDGE_POLL_INTERVAL_MS:1000}
+    max-poll-interval-ms: ${IOJ_JUDGE_MAX_POLL_INTERVAL_MS:5000}
+    max-claim-batch: ${IOJ_JUDGE_MAX_CLAIM_BATCH:1}
+    lease-seconds: ${IOJ_JUDGE_LEASE_SECONDS:300}
+    heartbeat-interval-ms: ${IOJ_JUDGE_HEARTBEAT_INTERVAL_MS:100000}
+    request-timeout-seconds: ${IOJ_JUDGE_REQUEST_TIMEOUT_SECONDS:30}
+    version: ${IOJ_JUDGE_AGENT_VERSION:0.0.1}
+
+  judge:
+    # Language source-file/compile-command/run-command come from the main server in each claim.
+    # This value only selects the execution engine.
+    mode: agent
+    engine: isolate
+    max-output-bytes: 16777216
+    max-compile-output-bytes: 65536
+    compile-timeout-ms: 30000
+    isolate:
+      binary: ${IOJ_ISOLATE_BINARY:/usr/bin/isolate}
+      box-id-start: ${IOJ_ISOLATE_BOX_ID_START:1}
+      box-id-count: ${IOJ_ISOLATE_BOX_ID_COUNT:1}
+      check-on-startup: true
+      compile-processes: 64
+      compile-time-seconds: 10
+      compile-wall-time-seconds: 30
+      compile-cg-mem-kb: 524288
+      compile-fsize-kb: 16384
+      wall-time-extra-seconds: 3
+      setup-timeout-ms: 10000
+      extra-dirs:
+        - /etc/java-21-openjdk
+      resolve-executables: true
+    checker:
+      enabled: ${IOJ_JUDGE_CHECKER_ENABLED:true}
+      time-limit-ms: 2000
+      memory-limit-mb: 512
+      compile-timeout-ms: 30000
+      compile-memory-mb: 512
+      source-file: checker.cpp
+      compile-command: g++ -O2 -std=c++17 -pipe -o checker checker.cpp
+      message-limit-bytes: 1024
+
+logging:
+  level:
+    root: info
+    me.iynotuo.judge: info

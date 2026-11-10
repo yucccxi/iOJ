@@ -1,5 +1,7 @@
 package me.iynotuo.judge.config;
 
+import me.iynotuo.judge.core.config.JudgeProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -11,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Judge thread pool, isolated from web request threads so long-running judging cannot exhaust Tomcat threads.
  */
 @Configuration
+@ConditionalOnProperty(prefix = "ioj.judge", name = "mode", havingValue = "local")
 public class JudgeConfig {
 
     @Bean(name = "judgeExecutor", destroyMethod = "shutdown")

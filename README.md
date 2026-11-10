@@ -41,9 +41,12 @@
 
 ```
 iOJ/
-├── client/     # 前端（已预留，尚未开始）
-├── server/     # 后端服务：接口 + 评测（文档在 docs/server/）
-├── docs/       # 文档：接口文档 + 后端技术文档（索引见 docs/README.md）
+├── client/         # 前端（已预留，尚未开始）
+├── judge-protocol/ # 判题协议：主服务器与判题 Agent 共用的 DTO / 枚举
+├── judge-core/     # 判题核心：引擎、沙箱、输出比对、Special Judge
+├── judge-agent/    # 独立判题进程：claim、Isolate 执行、结果回报
+├── server/         # 主服务器：接口 + 调度 + 数据库
+├── docs/           # 文档：接口文档 + 后端技术文档（索引见 docs/README.md）
 ├── LICENSE
 └── README.md
 ```
@@ -69,6 +72,7 @@ iOJ/
 | [docs/server/04-deployment.md](docs/server/04-deployment.md) | 建库、配置项、systemd/Nginx、备份、上线检查清单 |
 | [docs/server/05-development.md](docs/server/05-development.md) | 分层规范、扩展方式、测试说明、踩坑记录 |
 | [docs/server/06-isolate.md](docs/server/06-isolate.md) | Isolate 安装、cgroup 服务、手动验证、接入说明 |
+| [docs/server/07-judge-agent.md](docs/server/07-judge-agent.md) | 判题 Agent 构建、key、配置、systemd、多节点与排障 |
 
 ## 项目状态
 
@@ -82,12 +86,12 @@ iOJ/
 - [x] **预览版前端**：`preview-client/`，By NuxusAurora and ChatGPT（已弃用）
 - [ ] **正式版前端**：`client/`
 - [ ] **Interactive、Run-Twice 题型**：需要扩展评测引擎与题目模型
-- [ ] **分布式判题器**：`judge/`
+- [x] **分布式判题器**：主服务器调度 + 独立 Judge Agent，API key、租约、心跳、结果幂等、过期回收
 
 ## 部署提示
 
 - 生产环境必须修改默认管理员密码与登录令牌密钥（见 [docs/server/README.md](docs/server/README.md)）。
-- 判题默认使用 Isolate 沙箱，需要判题机安装 Isolate、保持 `isolate.service` 运行并给运行用户 `isolate` 组权限（见 [docs/server/06-isolate.md](docs/server/06-isolate.md)）。只有可信环境才建议用 `engine=local` 回退。
+- 判题由独立 Judge Agent 使用 Isolate 沙箱执行，判题机需要安装 Isolate、保持 `isolate.service` 运行并给运行用户 `isolate` 组权限（见 [docs/server/06-isolate.md](docs/server/06-isolate.md)）。只有测试/可信开发环境才建议用 `engine=local`。
 
 ## License
 

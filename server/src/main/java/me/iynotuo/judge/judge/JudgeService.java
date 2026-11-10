@@ -1,7 +1,12 @@
 package me.iynotuo.judge.judge;
 
-import me.iynotuo.judge.config.JudgeProperties;
-import me.iynotuo.judge.judge.engine.JudgeEngine;
+import me.iynotuo.judge.core.JudgeContext;
+import me.iynotuo.judge.core.JudgeOutcome;
+import me.iynotuo.judge.core.JudgeProblem;
+import me.iynotuo.judge.core.JudgeSubmission;
+import me.iynotuo.judge.core.JudgeTestcase;
+import me.iynotuo.judge.core.config.JudgeProperties;
+import me.iynotuo.judge.core.engine.JudgeEngine;
 import me.iynotuo.judge.problem.entity.Problem;
 import me.iynotuo.judge.problem.entity.ProblemTestcase;
 import me.iynotuo.judge.problem.mapper.ProblemMapper;
@@ -12,6 +17,7 @@ import me.iynotuo.judge.submission.mapper.SubmissionCaseMapper;
 import me.iynotuo.judge.submission.mapper.SubmissionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +34,7 @@ import java.util.List;
  * compiles and runs it outside any transaction (long work never holds a database connection), and finally writes the per-case results and the final status in a new transaction.</p>
  */
 @Service
+@ConditionalOnProperty(prefix = "ioj.judge", name = "mode", havingValue = "local")
 public class JudgeService {
 
     private static final Logger log = LoggerFactory.getLogger(JudgeService.class);
@@ -104,7 +111,19 @@ public class JudgeService {
             outcome = JudgeOutcome.systemError("题目没有测试点");
         } else {
             try {
-                outcome = judgeEngine.judge(new JudgeContext(submission, problem, testcases, language, checkerCode));
+                List<JudgeTestcase> judgeTestcases = testcases.stream()
+                        .map(testcase -> new JudgeTestcase(testcase.getOrdinal(),
+                                testcase.getInputData(), testcase.getOutputData()))
+                        .toList();
+                JudgeContext context = new JudgeContext(
+                        new JudgeSubmission(submission.getId(), submission.getCode(), submission.getLanguage()),
+                        new JudgeProblem(problem.getId(),
+                                problem.getTimeLimitMs() == null ? 1000 : problem.getTimeLimitMs(),
+                                problem.getMemoryLimitMb() == null ? 256 : problem.getMemoryLimitMb()),
+                        judgeTestcases,
+                        language,
+                        checkerCode);
+                outcome = judgeEngine.judge(context);
             } catch (Exception ex) {
                 log.error("判题失败 submissionId={}", submissionId, ex);
                 outcome = JudgeOutcome.systemError("判题异常: " + ex.getClass().getSimpleName());

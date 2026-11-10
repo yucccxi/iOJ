@@ -1,8 +1,8 @@
 package me.iynotuo.judge.submission.mapper;
 
 import lombok.Data;
-import me.iynotuo.judge.common.enums.Language;
-import me.iynotuo.judge.common.enums.SubmissionStatus;
+import me.iynotuo.judge.protocol.Language;
+import me.iynotuo.judge.protocol.SubmissionStatus;
 
 import java.time.LocalDateTime;
 

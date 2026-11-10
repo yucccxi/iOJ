@@ -14,56 +14,67 @@ iOJ 的后端服务：一个 Spring Boot 单体应用，同时提供 **REST API*
 | 邮件 | Spring Mail（Jakarta Mail / angus-mail），注册邮箱验证码 |
 | 参数校验 | Jakarta Validation |
 | 测试 | JUnit 5 + AssertJ + H2（MySQL 兼容模式），含真实编译运行的端到端测试 |
-| 评测 | Isolate 沙箱（默认引擎）；本机进程作为无沙箱环境的回退 |
+| 评测 | 独立 Judge Agent + Isolate 沙箱；主服务器只负责任务调度与结果落库 |
 
 ## 代码结构
 
 ```
-server/
-├── pom.xml
-├── mvnw / mvnw.cmd
-└── src/
-    ├── main/java/me/iynotuo/judge/
-    │   ├── common/        统一响应、分页、错误码、全局异常、枚举
-    │   ├── config/        安全配置、配置项、评测线程池、启动自检
-    │   ├── security/      令牌签发与校验、登录身份
-    │   ├── user/          注册登录、邮箱验证码（`service` + `mail`）、个人资料、管理员用户管理
-    │   ├── problem/       题目、样例、测试数据、标签、scope、外部题库元数据、统一搜索
-    │   ├── submission/    提交记录
-    │   └── judge/         评测调度（JudgeService/JudgeWorker）、评测模型、输出比对
-    │       ├── sandbox/   Sandbox 接口、Isolate / 本机进程实现、isolate meta 解析
-    │       ├── answer/    AnswerChecker（文本比对 / 作者判题器 / 禁用回退）
-    │       └── engine/    JudgeEngine 接口与实现（isolate / local）
-    ├── main/resources/
-    │   ├── application.yaml
-    │   ├── db/schema.sql  建表脚本（MySQL / H2 通用）
-    │   ├── db/seed.sql    初始管理员与标签（可重复执行）
-    │   └── mapper/*.xml   SQL 映射
-    └── test/
-        ├── java/...       单元测试与端到端测试
-        └── resources/application-test.yaml
+iOJ/
+├── pom.xml                 # 父 POM，聚合 judge-protocol / judge-core / server
+├── judge-protocol/         # 主服务器与判题 Agent 共用的协议 DTO / 枚举
+├── judge-core/             # 判题引擎、沙箱、输出比对、Special Judge
+├── judge-agent/            # 独立判题进程：claim、Isolate 执行、结果回报
+└── server/
+    ├── pom.xml
+    ├── mvnw / mvnw.cmd
+    └── src/
+        ├── main/java/me/iynotuo/judge/
+        │   ├── common/        统一响应、分页、错误码、全局异常、枚举
+        │   ├── config/        安全配置、配置项、评测线程池、启动自检
+        │   ├── security/      令牌签发与校验、登录身份
+        │   ├── user/          注册登录、邮箱验证码（`service` + `mail`）、个人资料、管理员用户管理
+        │   ├── problem/       题目、样例、测试数据、标签、scope、外部题库元数据、统一搜索
+        │   ├── submission/    提交记录
+        │   └── judge/         任务调度（JudgeTaskService/JudgeResultService）、key/节点、租约回收
+        ├── main/resources/
+        │   ├── application.yaml
+        │   ├── db/schema.sql  建表脚本（MySQL / H2 通用）
+        │   ├── db/seed.sql    初始管理员与标签（可重复执行）
+        │   └── mapper/*.xml   SQL 映射
+        └── test/
+            ├── java/...       单元测试与端到端测试
+            └── resources/application-test.yaml
 ```
 
 ## 快速开始
 
 ### 1. 环境要求
 
-- JDK 21（评测 Java 代码也依赖 `javac`）
+**主服务器：**
+
+- JDK 21
 - MySQL 8
-- 评测机工具链：`g++`（C++17）、`gcc`（C11）、`python3`——按需要安装
-- Isolate 沙箱（默认引擎）：`isolate.service` 运行中，运行后端的用户能执行 `/usr/bin/isolate`（通常在 `isolate` 组）
+- 不需要安装 Isolate 或编译器（默认不本地判题）
 - 不需要单独安装 Maven，仓库自带 `./mvnw`
+
+**判题机（每台）：**
+
+- Linux（Debian/Ubuntu），cgroup v2，内核 ≥ 5.19
+- JDK 21（运行 Agent，也是 Java 评测工具链）
+- `g++`（C++17）、`gcc`（C11）、`python3`——按需要安装
+- Isolate 沙箱：`isolate.service` 运行中，运行 Agent 的用户能执行 `/usr/bin/isolate`
+- 能出站访问主服务器的内部 API
 
 安装/授权示例（Debian 13，详见 [06-isolate.md](./06-isolate.md)）：
 
 ```bash
-sudo apt install isolate
+sudo apt install isolate openjdk-21-jdk g++ gcc python3
 sudo systemctl enable --now isolate.service
 sudo usermod -aG isolate "$USER"     # 重新登录后生效
 isolate --check-config               # 无输出且退出码为 0 即可
 ```
 
-> 如果暂时没有 Isolate，可设置 `IOJ_JUDGE_ENGINE=local` 使用本机进程回退（仅适合可信用户）。
+> 只在测试或本地开发时使用 `IOJ_JUDGE_MODE=local` + `IOJ_JUDGE_ENGINE=local`；生产环境由 Agent 判题。
 
 ### 2. 建库并初始化
 
@@ -75,14 +86,23 @@ GRANT ALL PRIVILEGES ON ioj.* TO 'ioj'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
-# 在 server/ 目录下执行
-mysql -uioj -pchange-me ioj < src/main/resources/db/schema.sql
-mysql -uioj -pchange-me ioj < src/main/resources/db/seed.sql
+# 在仓库根目录执行
+mysql -uioj -pchange-me ioj < server/src/main/resources/db/schema.sql
+mysql -uioj -pchange-me ioj < server/src/main/resources/db/seed.sql
+```
+
+已有数据库升级到分布式判题时，不要重跑 `schema.sql`，执行一次迁移脚本：
+
+```bash
+mysqldump -uioj -p --single-transaction ioj > ioj-before-distributed-judge.sql
+mysql -uioj -p ioj < server/src/main/resources/db/migrate-distributed-judge.sql
 ```
 
 `seed.sql` 会创建默认管理员 **admin / admin123456**、10 个常用标签和保留 scope `LOCAL`，**首次登录后请立即修改密码**。
 
 ### 3. 配置环境变量
+
+主服务器：
 
 | 变量 | 是否必填 | 说明 |
 | --- | --- | --- |
@@ -91,8 +111,11 @@ mysql -uioj -pchange-me ioj < src/main/resources/db/seed.sql
 | `IOJ_JWT_SECRET` | **是** | 登录令牌签名密钥，≥32 字节；用 `openssl rand -base64 48` 生成 |
 | `IOJ_CORS_ORIGINS` | 否 | 允许的前端来源，默认 `http://localhost:5173`，多个用逗号分隔 |
 | `IOJ_PROBLEM_AUTO_PUBLISH` | 否 | 普通用户上传题目是否直接发布，默认 `true` |
-| `IOJ_JUDGE_ENABLED` | 否 | 是否启用评测，默认 `true`；设为 `false` 后提交会一直排队 |
-| `IOJ_JUDGE_CONCURRENCY` | 否 | 同时评测数，默认 `1`，建议 CPU 核数 - 1 |
+| `IOJ_JUDGE_MODE` | 否 | 默认 `remote`；`local` 仅用于测试/本地开发 |
+| `IOJ_JUDGE_ENGINE` | 否 | 主服务器默认 `none`；Agent 配置为 `isolate` |
+| `IOJ_JUDGE_LEASE_SECONDS` | 否 | 任务租约，默认 `300` 秒 |
+| `IOJ_JUDGE_MAX_ATTEMPTS` | 否 | 任务最多领取次数，默认 `3` |
+| `IOJ_JUDGE_MAX_CLAIM_BATCH` | 否 | 单次 claim 最多任务数，默认 `10` |
 | `IOJ_MAIL_HOST` / `IOJ_MAIL_PORT` | **是**（开启邮箱验证时） | SMTP 服务器；默认 `smtp.localhost.invalid`（不可解析），不配就会发信失败 |
 | `IOJ_MAIL_USERNAME` / `IOJ_MAIL_PASSWORD` | 视 SMTP 而定 | SMTP 账号；默认 `mail.smtp.auth=false`，需要认证时同时设 `IOJ_MAIL_SMTP_AUTH=true` |
 | `IOJ_MAIL_SSL` / `IOJ_MAIL_STARTTLS` | 否 | 加密方式；465 端口用 `IOJ_MAIL_SSL=true`，587 端口用 `IOJ_MAIL_STARTTLS=true` |
@@ -107,6 +130,20 @@ mysql -uioj -pchange-me ioj < src/main/resources/db/seed.sql
 | `IOJ_CAPTCHA_MAX_ATTEMPTS` | 否 | 单张图形验证码最多输错次数，默认 `3` |
 | `IOJ_CAPTCHA_ISSUE_PER_MINUTE_PER_IP` / `IOJ_CAPTCHA_ISSUE_PER_HOUR_PER_IP` | 否 | 单 IP 申请图形验证码的频率上限，默认 `60/分钟`、`600/小时` |
 
+判题 Agent（每台判题机）：
+
+| 变量 | 是否必填 | 说明 |
+| --- | --- | --- |
+| `IOJ_JUDGE_SERVER_URL` | **是** | 主服务器内部地址，例如 `http://10.0.0.10:8080` |
+| `IOJ_JUDGE_KEY` | **是** | 管理员在 `/api/v1/admin/judge-keys` 创建的 key |
+| `IOJ_JUDGE_NODE_ID` | 否 | 节点 id，默认 `judge-1`；一台 Agent 一个唯一 id |
+| `IOJ_JUDGE_CONCURRENCY` | 否 | 本机并发，默认 `1`，建议 CPU 核数 - 1 |
+| `IOJ_JUDGE_POLL_INTERVAL_MS` / `IOJ_JUDGE_MAX_POLL_INTERVAL_MS` | 否 | 空闲轮询与最大退避，默认 `1000` / `5000` |
+| `IOJ_JUDGE_LEASE_SECONDS` | 否 | 申请的任务租约，默认 `300` |
+| `IOJ_JUDGE_HEARTBEAT_INTERVAL_MS` | 否 | 节点/任务心跳间隔，默认 `100000` |
+| `IOJ_ISOLATE_BINARY` | 否 | Isolate 路径，默认 `/usr/bin/isolate` |
+| `IOJ_ISOLATE_BOX_ID_START` / `IOJ_ISOLATE_BOX_ID_COUNT` | 否 | 本机 box 区间；同机多 Agent 必须分段 |
+
 启动时服务会先做一次数据库连通性检查，成功会打印：
 
 ```
@@ -117,15 +154,20 @@ mysql -uioj -pchange-me ioj < src/main/resources/db/seed.sql
 
 ### 4. 启动
 
+以下命令在**仓库根目录**执行（多模块构建）：
+
 ```bash
-# 开发模式
+# 先构建全部模块
+./mvnw -DskipTests clean package
+
+# 运行 server
 IOJ_DB_USER=ioj IOJ_DB_PASSWORD='change-me' \
 IOJ_JWT_SECRET="$(openssl rand -base64 48)" \
-./mvnw spring-boot:run
+java -jar server/target/server-0.0.1-SNAPSHOT.jar
 
-# 或先打包再运行
-./mvnw -DskipTests clean package
-java -jar target/server-0.0.1-SNAPSHOT.jar
+# 如果要用 spring-boot:run，先把 judge-protocol / judge-core / judge-agent 安装到本地仓库
+./mvnw -DskipTests install
+cd server && ./mvnw spring-boot:run
 ```
 
 默认端口 `8080`。验证：
@@ -137,11 +179,39 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -d '{"account":"admin","password":"admin123456"}'
 ```
 
-### 5. 运行测试
+创建判题机 key（管理员 token）：
 
 ```bash
-./mvnw test                                # 全部测试，使用 H2 内存库，不需要 MySQL
-./mvnw test -Dtest=ApiFlowIntegrationTest  # 只跑端到端流程（会真实调用 javac 编译并评测）
+curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"judge-1"}'
+```
+
+响应中的 `data.key` 只出现一次，保存到判题机的环境变量 `IOJ_JUDGE_KEY`。
+
+启动 Agent：
+
+```bash
+IOJ_JUDGE_SERVER_URL=http://127.0.0.1:8080 \
+IOJ_JUDGE_KEY='jsk_...' \
+IOJ_JUDGE_NODE_ID=judge-1 \
+IOJ_JUDGE_CONCURRENCY=2 \
+java -jar judge-agent/target/judge-agent-0.0.1-SNAPSHOT.jar
+```
+
+Agent 启动后会先发心跳，再循环 claim。主服务器用 `GET /api/v1/admin/judge-nodes` 查看节点状态。
+
+### 5. 运行测试
+
+在仓库根目录执行：
+
+```bash
+./mvnw test                                # 全部模块，使用 H2 内存库，不需要 MySQL
+
+# 只跑 server 的端到端流程（会真实调用 javac 编译并评测）
+./mvnw -pl server -am test -Dtest=ApiFlowIntegrationTest \
+  -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
 测试覆盖：
@@ -150,9 +220,11 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | --- | --- |
 | `ServerApplicationTests` | Spring 上下文可启动、全部 Mapper 可加载 |
 | `JwtTokenProviderTest` | 令牌签发/解析、token 版本 claim、篡改、过期、弱密钥拒绝 |
-| `OutputComparatorTest` | 输出比对规则（行尾空白、换行、空输出等） |
-| `IsolateMetaTest` | Isolate meta 解析（时间/内存/退出码/信号/OOM/缺省值） |
-| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试数据→提交→评测→AC/WA→字段裁剪 |
+| `OutputComparatorTest` / `IsolateMetaTest` / `ProgramAnswerCheckerTest` / `IsolateSandboxCommandTest` | 位于 `judge-core`：输出比对、Isolate meta、判题器状态映射、isolate 命令行 |
+| `AgentTaskMapperTest` | 位于 `judge-agent`：协议任务 → JudgeContext、JudgeOutcome → JudgeResult |
+| `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、claim → 执行 → 回报循环 |
+| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试数据→提交→本地评测→AC/WA→字段裁剪 |
+| `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收 |
 | `AdminModerationIntegrationTest` | 测试数据增删改查、题目上下架、用户搜索与封禁 |
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、越权访问、`hasChecker` 暴露面、`CHECKER_ERROR` 判定 |
 | `ProgramAnswerCheckerTest` | 判题器结果 → 提交状态的映射（假 Sandbox，覆盖 AC/WA/PE/超时/崩溃/编译失败） |
@@ -188,11 +260,17 @@ curl -s -X POST http://localhost:8080/api/v1/auth/login \
 | `ioj.captcha.code-length` | `IOJ_CAPTCHA_CODE_LENGTH` | `5` | 图片字符数 |
 | `ioj.captcha.issue-per-minute-per-ip` / `issue-per-hour-per-ip` | `IOJ_CAPTCHA_ISSUE_PER_MINUTE_PER_IP` / `IOJ_CAPTCHA_ISSUE_PER_HOUR_PER_IP` | `60` / `600` | 单 IP 申请频率上限 |
 | `ioj.captcha.cleanup-retention-hours` | `IOJ_CAPTCHA_CLEANUP_RETENTION_HOURS` | `24` | 过期图形验证码保留时间 |
-| `ioj.judge.enabled` | `IOJ_JUDGE_ENABLED` | `true` | 是否启用评测；关闭后提交停留在排队状态 |
-| `ioj.judge.engine` | `IOJ_JUDGE_ENGINE` | `isolate` | 评测引擎：`isolate`（默认）/ `local`（本机进程回退）/ `docker`（未实现） |
+| `ioj.judge.enabled` | `IOJ_JUDGE_ENABLED` | `true` | 仅 local 模式使用；关闭后本地 worker 不消费任务 |
+| `ioj.judge.mode` | `IOJ_JUDGE_MODE` | `remote` | `remote` 主服务器调度；`local` 测试/本地开发 |
+| `ioj.judge.engine` | `IOJ_JUDGE_ENGINE` | `none` | 主服务器默认 `none`；Agent 为 `isolate`；`local` 仅测试 |
 | `ioj.judge.isolate.*` | — | 见下 | Isolate 路径、box 编号、编译限制、额外目录等 |
-| `ioj.judge.concurrency` | `IOJ_JUDGE_CONCURRENCY` | `1` | 同时评测的提交数 |
-| `ioj.judge.poll-interval-ms` | — | `1000` | 拉取待评测提交的间隔 |
+| `ioj.judge.dispatch.lease-seconds` | `IOJ_JUDGE_LEASE_SECONDS` | `300` | Agent 任务租约 |
+| `ioj.judge.dispatch.max-attempts` | `IOJ_JUDGE_MAX_ATTEMPTS` | `3` | 任务最多领取次数 |
+| `ioj.judge.dispatch.max-claim-batch` | `IOJ_JUDGE_MAX_CLAIM_BATCH` | `10` | 单次 claim 最多任务数 |
+| `ioj.judge.dispatch.inline-max-bytes` | `IOJ_JUDGE_INLINE_MAX_BYTES` | `1048576` | 测试数据超过该字节数时改用 bundle 下载 |
+| `ioj.judge.concurrency` | `IOJ_JUDGE_CONCURRENCY` | `1` | local 模式同时评测数；Agent 使用 `ioj.agent.concurrency` |
+| `ioj.judge.poll-interval-ms` | — | `1000` | local 模式拉取间隔 |
+| `ioj.agent.*` | `IOJ_AGENT_*` / `IOJ_JUDGE_*` | 见 07-judge-agent.md | Agent 连接、并发、语言、心跳 |
 | `ioj.judge.max-output-bytes` | — | `16777216` | 单个测试点允许的最大输出 |
 | `ioj.judge.max-compile-output-bytes` | — | `65536` | 编译输出保留上限 |
 | `ioj.judge.compile-timeout-ms` | — | `30000` | 编译超时（本机进程引擎使用） |
@@ -231,7 +309,8 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 
 初始化脚本：
 
-- `src/main/resources/db/schema.sql`：13 张表（`users`、`scopes`、`problems`、`problem_samples`、`problem_testcases`、`tags`、`problem_tags`、`external_problems`、`external_problem_tags`、`submissions`、`submission_cases`、`email_verification_codes`、`captcha_challenges`）及外键、索引。
+- `src/main/resources/db/schema.sql`：15 张表（`users`、`scopes`、`judge_keys`、`judge_nodes`、`problems`、`problem_samples`、`problem_testcases`、`tags`、`problem_tags`、`external_problems`、`external_problem_tags`、`submissions`、`submission_cases`、`email_verification_codes`、`captcha_challenges`）及外键、索引。
+- `src/main/resources/db/migrate-distributed-judge.sql`：已有数据库升级脚本（新增 key/节点表和 submissions 租约字段）。
 - `src/main/resources/db/seed.sql`：默认管理员、常用标签与保留 scope `LOCAL`，可重复执行。
 
 注意：
@@ -240,7 +319,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
   ```bash
   mysql -uroot -p -e "DROP DATABASE ioj;
                       CREATE DATABASE ioj DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
-  mysql -uioj -p ioj < src/main/resources/db/schema.sql
+  mysql -uioj -p ioj < server/src/main/resources/db/schema.sql
   mysql -uioj -p ioj < src/main/resources/db/seed.sql
   ```
 - 外部题库元数据由 `scripts/sync_clist_problems.py` 从 clist.by 导入 Codeforces 与 AtCoder；`sync --clear` 会先清空 `external_problems` 再全量导入。脚本同时按平台阈值计算 `difficulty`（EASY / MEDIUM / HARD，rating 为空为 UNKNOWN）、写入 clist 的 `time`（UTC 转中国时区 UTC+8），并从 Codeforces 官方 API 同步 `tags` / `external_problem_tags`（AtCoder 没有主题标签来源）。`code`（如 `CF_2278G`）既是查重标识，也会由 `GET /catalog` 返回给前端（本地题为 `null`）。脚本用法见文件头注释。
@@ -248,8 +327,9 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 
 ## 评测说明
 
-- **引擎**：默认 `isolate`，编译与运行都在 Isolate 沙箱内；没有 Isolate 时可回退到 `local`（本机进程 + `ulimit`）。
-- **流程**：提交入库为"排队中" → worker 取任务并标记"评测中" → 沙箱编译 → 逐测试点新建沙箱运行 → 写回逐点结果与最终状态。
+- **架构**：主服务器默认 `mode=remote`，不执行用户代码；判题 Agent 通过 `/internal/judge/**` 领取任务并在 Isolate 中编译/运行。
+- **流程**：提交入库为"排队中" → Agent claim 并写入租约 → 沙箱编译 → 逐测试点新建沙箱运行 → Agent 回报结果 → 主服务器条件落库。
+- **租约**：`claim_token` + `lease_expires_at`；Agent 通过心跳续租，超时由 `JudgeLeaseReaper` 重新排队，超过最大尝试次数判 `SYSTEM_ERROR`。
 - **资源限制**：`--time`（CPU）、`--wall-time`、`--cg-mem`、`--fsize`、`--processes`；JVM 需要更多线程与额外内存，已在语言配置中单独设置。
 - **统计**：Isolate 返回 `time` 与 `cg-mem`，会写入逐点结果，因此 `memoryUsedKb` 有值，OOM 可判为 `MEMORY_LIMIT_EXCEEDED`。
 - **输出比对**：默认忽略每行行尾空格/Tab 与文末多余空行，其余逐字符比较；题目配置了判题器（`problems.checker_code`）时改为在沙箱里编译并运行该 C++ 判题器，按其退出码判定 0=AC / 1=WA / 2=PE / 其他=`CHECKER_ERROR`。
@@ -259,7 +339,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 
 沙箱前置条件、参数映射与常见错误见 [./03-judge.md](./03-judge.md) 与 [./06-isolate.md](./06-isolate.md)。
 
-新增一门语言：在 `common/enums/Language.java` 增加枚举值，在 `application.yaml` 的 `ioj.judge.languages` 下补配置（含 `isolate-processes` / `isolate-memory-extra-mb`），评测机安装对应工具链即可，无需改评测代码。
+新增一门语言：在 `judge-protocol/src/main/java/me/iynotuo/judge/protocol/Language.java` 增加枚举值，在主服务器 `application.yaml` 的 `ioj.judge.languages` 下补配置（含 `isolate-processes` / `isolate-memory-extra-mb`），在 Agent 的 `ioj.agent.languages` 里加入该语言并安装对应工具链。Agent 不需要改代码。
 
 ## 接口
 
@@ -269,7 +349,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 
 ```bash
 curl -s localhost:8080/api/v1/meta/languages | jq
-curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
+curl -s "localhost:8080/api/v1/catalog?page=1&size=5" | jq
 ```
 
 ## 开发约定
@@ -292,6 +372,7 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | [./04-deployment.md](./04-deployment.md) | 建库、配置、systemd/Nginx、备份、上线检查清单 |
 | [./05-development.md](./05-development.md) | 开发规范、扩展方式、测试说明、踩坑记录 |
 | [./06-isolate.md](./06-isolate.md) | Isolate 安装、权限模型、参数映射、手动验证、容量与排障 |
+| [./07-judge-agent.md](./07-judge-agent.md) | 判题 Agent 构建、key、配置、systemd、多节点与排障 |
 
 ## 常见问题
 
@@ -299,7 +380,11 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | --- | --- |
 | 启动报 `CannotCreateTransactionException` | 看启动日志里的"实际使用的 JDBC URL / 用户名"：说明账号密码没生效。检查 `IOJ_DB_*` 是否设置在**当前进程**上；bash 中要一行一个 `export`，不要用分号串成一行；IDEA 中在 Run Configuration 的 Environment variables 里配置 |
 | 启动报端口占用 | 换端口：`java -jar ... --server.port=8081`，并同步调整前端与 Nginx |
-| 提交一直"排队中" | 检查 `IOJ_JUDGE_ENABLED` 是否为 `true`；查看日志是否有评测异常；确认评测机装有对应编译器 |
+| 提交一直"排队中" | 没有在线 Agent：检查 `GET /api/v1/admin/judge-nodes`、Agent 日志、`IOJ_JUDGE_KEY` 是否正确；确认 Agent 支持该语言 |
+| 提交一直"评测中" | Agent 崩溃或失联；等 `IOJ_JUDGE_LEASE_SECONDS` 后由租约回收任务，检查 Agent 日志和节点心跳 |
+| Agent 启动报 `ioj.agent.key 未配置` | 没有设置管理员创建的 `IOJ_JUDGE_KEY` |
+| Agent claim 返回 `401` | key 错误、被禁用或已过期；重新创建/启用 key |
+| Agent claim 返回 `409` | 同一 `nodeId` 已绑定其他 key；换一个 `IOJ_JUDGE_NODE_ID` 或删除旧节点 |
 | 注册时提示 `2009` / 收不到验证码邮件 | 看日志里的 `验证码邮件发送失败`：多半是 `IOJ_MAIL_HOST` 没覆盖（默认 `smtp.localhost.invalid` 不可解析）、端口/加密方式不匹配（465 要 `IOJ_MAIL_SSL=true`，587 要 `IOJ_MAIL_STARTTLS=true`）、或 `IOJ_MAIL_FROM` 与 SMTP 账号不同域被拒收；也检查垃圾箱 |
 | 注册提示 `2008` 验证码太频繁 | 同邮箱 60 秒冷却 / 每小时上限默认 5 次；调试时可用 `IOJ_EMAIL_CODE_RESEND_INTERVAL_SECONDS` / `IOJ_EMAIL_CODE_MAX_PER_HOUR` 放宽 |
 | 本地开发不想配 SMTP | 设 `IOJ_EMAIL_CODE_ENABLED=false`，注册不再校验验证码 |
@@ -312,7 +397,7 @@ curl -s "localhost:8080/api/v1/problems?page=1&size=5" | jq
 | JVM 报 `Error loading java.security file` | `extra-dirs` 缺少 `/etc/java-21-openjdk`（Debian） |
 | JVM 报 `pthread_create failed (EAGAIN)` | `isolate-processes` 太小：Java 建议 64 |
 | 评测报编译错误但代码没问题 | 评测机缺少工具链：`apt install -y g++ gcc python3`；Java 代码需使用 `public class Main` |
-| `schema.sql` 执行报"表已存在" | 该脚本不是幂等的，按上文"数据库"小节重建库，或手动删除旧表 |
+| `schema.sql` 执行报"表已存在" | 该脚本不是幂等的；新库重建，已有库执行 `db/migrate-distributed-judge.sql` |
 | 多个实例间登录互相 401 | 各实例的 `IOJ_JWT_SECRET` 必须一致 |
 | 上传较大的测试数据失败 | 先看错误码：`1000` 是单条超限 → 用 `IOJ_PROBLEM_MAX_TESTCASE_BYTES` 调大（默认 4 MiB）；`413` 是请求体过大 → 调大 Nginx 的 `client_max_body_size`；`500` 且日志提示 packet → 调大 MySQL 的 `max_allowed_packet` |
 | 测试环境与线上行为不一致 | 测试使用 H2（MySQL 模式），请避免使用 MySQL 专有语法（详见 `05-development.md`） |

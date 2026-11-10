@@ -4,7 +4,7 @@ import jakarta.validation.Valid;
 import me.iynotuo.judge.common.api.ApiResponse;
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
-import me.iynotuo.judge.common.enums.SubmissionStatus;
+import me.iynotuo.judge.protocol.SubmissionStatus;
 import me.iynotuo.judge.security.LoginUser;
 import me.iynotuo.judge.submission.dto.SubmissionDetailVO;
 import me.iynotuo.judge.submission.dto.SubmissionSummaryVO;

@@ -1,7 +1,7 @@
 package me.iynotuo.judge.submission.entity;
 
 import lombok.Data;
-import me.iynotuo.judge.common.enums.SubmissionStatus;
+import me.iynotuo.judge.protocol.SubmissionStatus;
 
 /**
  * The result of one test case within a submission.

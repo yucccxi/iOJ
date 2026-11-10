@@ -29,6 +29,45 @@ CREATE TABLE scopes (
     CONSTRAINT uk_scopes_name UNIQUE (name)
 );
 
+-- API keys used by remote judge agents. Only the SHA-256 hash is stored; the plaintext key is shown
+-- once when an administrator creates it.
+CREATE TABLE judge_keys (
+    id           BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name         VARCHAR(128) NOT NULL,
+    key_prefix   VARCHAR(16)  NOT NULL,
+    key_hash     VARCHAR(64)  NOT NULL,
+    enabled      BOOLEAN      NOT NULL DEFAULT TRUE,
+    expires_at   DATETIME     NULL,
+    last_used_at DATETIME     NULL,
+    created_by   BIGINT       NULL,
+    created_at   DATETIME     NOT NULL,
+    CONSTRAINT uk_judge_keys_hash UNIQUE (key_hash),
+    CONSTRAINT fk_judge_keys_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_judge_keys_prefix ON judge_keys (key_prefix);
+
+-- Judge agents that have reported a heartbeat. One key belongs to one node; deleting the key removes
+-- the node record, while submissions keep their historical key id as NULL.
+CREATE TABLE judge_nodes (
+    id                VARCHAR(64)  NOT NULL PRIMARY KEY,
+    key_id            BIGINT       NOT NULL,
+    hostname          VARCHAR(128) NULL,
+    version           VARCHAR(32)  NULL,
+    languages         VARCHAR(255) NULL,
+    max_concurrency   INT          NOT NULL DEFAULT 1,
+    running_tasks     INT          NOT NULL DEFAULT 0,
+    isolate_version   VARCHAR(64)  NULL,
+    status            VARCHAR(16)  NOT NULL DEFAULT 'ONLINE',
+    last_heartbeat_at DATETIME     NULL,
+    created_at        DATETIME     NOT NULL,
+    updated_at        DATETIME     NOT NULL,
+    CONSTRAINT uk_judge_nodes_key UNIQUE (key_id),
+    CONSTRAINT fk_judge_nodes_key FOREIGN KEY (key_id) REFERENCES judge_keys (id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_judge_nodes_heartbeat ON judge_nodes (last_heartbeat_at);
+
 CREATE TABLE problems (
     id              BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
     title           VARCHAR(128) NOT NULL,
@@ -143,10 +182,18 @@ CREATE TABLE submissions (
     compile_message MEDIUMTEXT   NULL,
     -- Holds system-level errors, including the compiler output of a broken custom checker.
     judge_message   TEXT         NULL,
+    -- Remote judge lease. A task is owned by judge_node_id/claim_token until the lease expires.
+    judge_key_id     BIGINT       NULL,
+    judge_node_id    VARCHAR(64)  NULL,
+    claim_token      VARCHAR(64)  NULL,
+    claimed_at       DATETIME     NULL,
+    lease_expires_at DATETIME     NULL,
+    attempt_count    INT          NOT NULL DEFAULT 0,
     created_at      DATETIME     NOT NULL,
     judged_at       DATETIME     NULL,
     CONSTRAINT fk_submissions_problem FOREIGN KEY (problem_id) REFERENCES problems (id) ON DELETE CASCADE,
-    CONSTRAINT fk_submissions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    CONSTRAINT fk_submissions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_submissions_judge_key FOREIGN KEY (judge_key_id) REFERENCES judge_keys (id) ON DELETE SET NULL
 );
 
 CREATE TABLE submission_cases (
@@ -202,6 +249,8 @@ CREATE INDEX idx_external_problem_tags_tag ON external_problem_tags (tag_id);
 CREATE INDEX idx_submissions_problem ON submissions (problem_id, id);
 CREATE INDEX idx_submissions_user ON submissions (user_id, id);
 CREATE INDEX idx_submissions_status ON submissions (status, id);
+CREATE INDEX idx_submissions_lease ON submissions (status, lease_expires_at);
+CREATE INDEX idx_submissions_judge_key ON submissions (judge_key_id, status);
 CREATE INDEX idx_email_verification_codes_email ON email_verification_codes (email, purpose, id);
 CREATE INDEX idx_email_verification_codes_expires ON email_verification_codes (expires_at);
 CREATE INDEX idx_captcha_expires ON captcha_challenges (expires_at);

@@ -2,6 +2,12 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="me.iynotuo.judge.submission.mapper.SubmissionMapper">
 
+    <sql id="columns">
+        id, problem_id, user_id, language, code, status, time_used_ms, memory_used_kb,
+        compile_message, judge_message, judge_key_id, judge_node_id, claim_token, claimed_at,
+        lease_expires_at, attempt_count, created_at, judged_at
+    </sql>
+
     <sql id="pageWhere">
         <where>
             <if test="problemId != null">
@@ -25,10 +31,16 @@
     </insert>
 
     <select id="findById" resultType="me.iynotuo.judge.submission.entity.Submission">
-        SELECT id, problem_id, user_id, language, code, status, time_used_ms, memory_used_kb,
-               compile_message, judge_message, created_at, judged_at
+        SELECT <include refid="columns"/>
         FROM submissions
         WHERE id = #{id}
+    </select>
+
+    <select id="findByIdForUpdate" resultType="me.iynotuo.judge.submission.entity.Submission">
+        SELECT <include refid="columns"/>
+        FROM submissions
+        WHERE id = #{id}
+        FOR UPDATE
     </select>
 
     <select id="findPage" resultType="me.iynotuo.judge.submission.mapper.SubmissionSummaryRow">
@@ -63,8 +75,36 @@
         FOR UPDATE
     </select>
 
+    <select id="lockNextPendingIdForLanguages" resultType="java.lang.Long">
+        SELECT id
+        FROM submissions
+        WHERE status = 'PENDING'
+        <if test="languages != null and languages.size() > 0">
+            AND language IN
+            <foreach collection="languages" item="language" open="(" separator="," close=")">
+                #{language}
+            </foreach>
+        </if>
+        ORDER BY id
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
     <update id="markJudging">
         UPDATE submissions SET status = 'JUDGING' WHERE id = #{id}
+    </update>
+
+    <update id="markClaimed">
+        UPDATE submissions
+        SET status = 'JUDGING',
+            judge_key_id = #{judgeKeyId},
+            judge_node_id = #{judgeNodeId},
+            claim_token = #{claimToken},
+            claimed_at = #{claimedAt},
+            lease_expires_at = #{leaseExpiresAt},
+            attempt_count = attempt_count + 1
+        WHERE id = #{id}
+          AND status = 'PENDING'
     </update>
 
     <update id="updateResult" parameterType="me.iynotuo.judge.submission.entity.Submission">
@@ -76,6 +116,83 @@
             judge_message = #{judgeMessage},
             judged_at = #{judgedAt}
         WHERE id = #{id}
+    </update>
+
+    <update id="applyResult">
+        UPDATE submissions
+        SET status = #{status},
+            time_used_ms = #{timeUsedMs},
+            memory_used_kb = #{memoryUsedKb},
+            compile_message = #{compileMessage},
+            judge_message = #{judgeMessage},
+            judged_at = #{judgedAt}
+        WHERE id = #{id}
+          AND claim_token = #{claimToken}
+          AND status = 'JUDGING'
+    </update>
+
+    <update id="extendLease">
+        UPDATE submissions
+        SET lease_expires_at = #{leaseExpiresAt}
+        WHERE id = #{id}
+          AND claim_token = #{claimToken}
+          AND status = 'JUDGING'
+    </update>
+
+    <update id="releaseClaim">
+        UPDATE submissions
+        SET status = 'PENDING',
+            judge_key_id = NULL,
+            judge_node_id = NULL,
+            claim_token = NULL,
+            claimed_at = NULL,
+            lease_expires_at = NULL
+        WHERE id = #{id}
+          AND claim_token = #{claimToken}
+          AND status = 'JUDGING'
+    </update>
+
+    <update id="failClaim">
+        UPDATE submissions
+        SET status = 'SYSTEM_ERROR',
+            judge_message = #{message},
+            judged_at = #{judgedAt},
+            judge_key_id = NULL,
+            judge_node_id = NULL,
+            claim_token = NULL,
+            claimed_at = NULL,
+            lease_expires_at = NULL
+        WHERE id = #{id}
+          AND claim_token = #{claimToken}
+          AND status = 'JUDGING'
+    </update>
+
+    <update id="requeueExpiredLeases">
+        UPDATE submissions
+        SET status = 'PENDING',
+            judge_key_id = NULL,
+            judge_node_id = NULL,
+            claim_token = NULL,
+            claimed_at = NULL,
+            lease_expires_at = NULL
+        WHERE status = 'JUDGING'
+          AND lease_expires_at &lt; #{now}
+          AND attempt_count &lt; #{maxAttempts}
+    </update>
+
+    <update id="failExpiredLeases">
+        UPDATE submissions
+        SET status = 'SYSTEM_ERROR',
+            judge_message = #{message},
+            judged_at = #{now},
+            judge_key_id = NULL,
+            judge_node_id = NULL,
+            claim_token = NULL,
+            claimed_at = NULL,
+            lease_expires_at = NULL
+        WHERE status = 'JUDGING'
+          AND lease_expires_at &lt; #{now}
+          AND attempt_count &gt;= #{maxAttempts}
     </update>
 
     <update id="resetJudgingToPending">

@@ -22,6 +22,7 @@
 | [server/04-deployment.md](server/04-deployment.md) | 环境要求、建库、配置项、systemd/Nginx、备份、上线检查清单 |
 | [server/05-development.md](server/05-development.md) | 代码结构、分层规范、扩展方式、测试说明、踩坑记录 |
 | [server/06-isolate.md](server/06-isolate.md) | Isolate 安装、cgroup 服务、手动验证命令、接入说明 |
+| [server/07-judge-agent.md](server/07-judge-agent.md) | 判题 Agent 构建、key、配置、systemd、多节点与排障 |
 | [shared/special-judge.md](shared/special-judge.md) | 出题者视角的自定义判题器（Special Judge）编写与上传指南 |
 
 ## 文档结构
@@ -51,7 +52,8 @@ docs/
     ├── 03-judge.md
     ├── 04-deployment.md
     ├── 05-development.md
-    └── 06-isolate.md
+    ├── 06-isolate.md
+    └── 07-judge-agent.md
 ```
 
 ## 阅读建议

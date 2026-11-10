@@ -1,6 +1,6 @@
 package me.iynotuo.judge.judge;
 
-import me.iynotuo.judge.config.JudgeProperties;
+import me.iynotuo.judge.core.config.JudgeProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,13 +20,14 @@ import java.util.concurrent.Semaphore;
  * and is easy to inspect. If submission volume grows, claimNext() can be replaced by a message queue consumer.</p>
  */
 @Component
-@ConditionalOnProperty(prefix = "ioj.judge", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "ioj.judge", name = "mode", havingValue = "local")
 public class JudgeWorker {
 
     private static final Logger log = LoggerFactory.getLogger(JudgeWorker.class);
 
     private final JudgeService judgeService;
     private final ExecutorService executor;
+    private final JudgeProperties judgeProperties;
     private final Semaphore slots;
 
     public JudgeWorker(JudgeService judgeService,
@@ -34,16 +35,23 @@ public class JudgeWorker {
                        JudgeProperties properties) {
         this.judgeService = judgeService;
         this.executor = executor;
+        this.judgeProperties = properties;
         this.slots = new Semaphore(Math.max(1, properties.getConcurrency()));
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
+        if (!judgeProperties.isEnabled()) {
+            return;
+        }
         judgeService.recoverStuckSubmissions();
     }
 
     @Scheduled(fixedDelayString = "${ioj.judge.poll-interval-ms:1000}")
     public void poll() {
+        if (!judgeProperties.isEnabled()) {
+            return;
+        }
         while (slots.tryAcquire()) {
             Long submissionId;
             try {

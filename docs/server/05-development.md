@@ -2,25 +2,38 @@
 
 ## 1. 代码结构
 
-```
-me.iynotuo.judge
-├── ServerApplication.java        @SpringBootApplication + @ConfigurationPropertiesScan + @EnableScheduling
-├── common
-│   ├── api        ApiResponse / PageQuery / PageResult / JsonResponses
-│   ├── enums      UserRole / UserStatus / Difficulty / ProblemStatus / SubmissionStatus / Language
-│   └── exception  ErrorCode / BusinessException / GlobalExceptionHandler
-├── config         SecurityConfig / JudgeConfig / *Properties
-├── security       JwtTokenProvider / JwtAuthenticationFilter / LoginUser / Rest*Handler
-├── user           entity(User, EmailVerificationCode) / mapper / service / controller / dto / mail
-├── problem        entity(Problem, ProblemSample, ProblemTestcase, Tag, ProblemScope)
-│                  / mapper（含外部题 Catalog 行）/ service（含 CatalogService）/ controller / dto
-├── submission     entity(Submission, SubmissionCase) / mapper / service / controller / dto
-└── judge           JudgeService / JudgeWorker / JudgeContext / JudgeOutcome / OutputComparator
-    ├── sandbox     Sandbox（接口）/ IsolateSandbox / LocalSandbox / SandboxCommand / SandboxResult
-    │               SandboxFiles / Limits / Commands / IsolateMeta / StreamCollector
-    ├── answer      AnswerChecker（接口）/ TextAnswerChecker / ProgramAnswerChecker
-    │               DisabledAnswerChecker / AnswerCheckerFactory
-    └── engine      JudgeEngine（接口）/ IsolateJudgeEngine / LocalProcessJudgeEngine
+```text
+iOJ/                         # 父 POM，聚合 judge-protocol / judge-core / judge-agent / server
+├── judge-protocol/          # 主服务器与判题 Agent 共用
+│   ├── SubmissionStatus
+│   ├── Language
+│   ├── JudgeTask / JudgeTestCase / JudgeLanguageConfig
+│   ├── JudgeResult / JudgeCaseResult
+│   ├── JudgeTaskClaimRequest / JudgeTaskClaimResponse
+│   └── ProtocolVersion
+├── judge-core/              # 判题执行核心
+│   ├── JudgeContext / JudgeSubmission / JudgeProblem / JudgeTestcase
+│   ├── JudgeOutcome / OutputComparator / LanguageCommands
+│   ├── config               JudgeProperties / LanguageConfig / Isolate / Checker / Dispatch
+│   ├── sandbox              Sandbox（接口）/ IsolateSandbox / LocalSandbox / SandboxCommand / SandboxResult
+│   │                        SandboxFiles / Limits / Commands / IsolateMeta / StreamCollector
+│   ├── answer               AnswerChecker（接口）/ TextAnswerChecker / ProgramAnswerChecker
+│   │                        DisabledAnswerChecker / AnswerCheckerFactory
+│   └── engine               JudgeEngine（接口）/ IsolateJudgeEngine / LocalProcessJudgeEngine
+├── judge-agent/             # 独立判题进程
+│   ├── AgentRunner / AgentTaskMapper / AgentProperties
+│   └── HttpJudgeAgentClient
+└── server/                  # Web API + 数据库 + 调度
+    └── me.iynotuo.judge
+        ├── ServerApplication.java
+        ├── common           ApiResponse / PageQuery / PageResult / JsonResponses / ErrorCode / 业务枚举
+        ├── config           SecurityConfig / JudgeConfig / *Properties
+        ├── security         JwtTokenProvider / JwtAuthenticationFilter / JudgeKeyAuthenticationFilter / LoginUser / Rest*Handler
+        ├── user             entity / mapper / service / controller / dto / mail
+        ├── problem          entity / mapper / service / controller / dto
+        ├── submission       entity / mapper / service / controller / dto
+        └── judge            JudgeTaskService / JudgeResultService / JudgeLeaseReaper
+                             JudgeKeyService / JudgeNodeService / JudgeService（local 模式）
 ```
 
 分层职责：
@@ -30,9 +43,9 @@ me.iynotuo.judge
 | Controller | 参数绑定、`@Valid`、`@PreAuthorize`、把 `LoginUser` 传给 Service、包装 `ApiResponse` | 不写业务分支、不碰 Mapper |
 | Service | 事务边界、权限与领域校验、组装 VO | 不处理 HTTP 细节 |
 | Mapper | SQL（XML），入参是实体或 `Criteria`/`@Param` | 不含业务判断 |
-| judge | 编排判题（编译 → 逐点运行 → 判定 → 聚合），返回 `JudgeOutcome` | 不直接写数据库（由 `JudgeService` 落库） |
-| judge/sandbox | 起进程、加限额、读回输出（isolate / 本机进程各一个实现） | 不知道"答案""判定""提交" |
-| judge/answer | 判定一个测试点是否正确（文本比对 / 作者判题器） | 不知道用的是哪个引擎 |
+| judge-core/engine | 编排判题（编译 → 逐点运行 → 判定 → 聚合），返回 `JudgeOutcome` | 不直接写数据库（由 `JudgeResultService` 落库） |
+| judge-core/sandbox | 起进程、加限额、读回输出（isolate / 本机进程各一个实现） | 不知道"答案""判定""提交" |
+| judge-core/answer | 判定一个测试点是否正确（文本比对 / 作者判题器） | 不知道用的是哪个引擎 |
 
 约定：
 
@@ -86,7 +99,7 @@ public ApiResponse<ProblemStatsVO> stats(@PathVariable Long id) {
 
 ## 3. 新增一门语言
 
-1. `common/enums/Language.java` 加枚举值（如 `GO`）。数据库存的就是枚举名。
+1. `judge-protocol/src/main/java/me/iynotuo/judge/protocol/Language.java` 加枚举值（如 `GO`）。数据库存的就是枚举名。
 2. `application.yaml`：
 
 ```yaml
@@ -108,8 +121,8 @@ ioj:
 
 见 `03-judge.md` 的「判题引擎选择」与 §2.1「代码分层」。要点：
 
-- 优先只写一个 `Sandbox` 实现（`me.iynotuo.judge.judge.sandbox` 包）：把"起进程、加限额、读回输出"做完，然后复用现成的引擎流程。绝大多数新沙箱（Docker、nsjail）只需要替换这一层。
-- 真要替换整条流程时，实现 `JudgeEngine`（放在 `me.iynotuo.judge.judge.engine` 包，与现有实现同级），用 `@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "docker")` 限定生效条件，避免两个实现同时注册。
+- 优先只写一个 `Sandbox` 实现（`me.iynotuo.judge.core.sandbox` 包）：把"起进程、加限额、读回输出"做完，然后复用现成的引擎流程。绝大多数新沙箱（Docker、nsjail）只需要替换这一层。
+- 真要替换整条流程时，实现 `JudgeEngine`（放在 `me.iynotuo.judge.core.engine` 包，与现有实现同级），用 `@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "docker")` 限定生效条件，避免两个实现同时注册。
 - 返回的 `JudgeOutcome` 语义要与现有引擎（`isolate` / `local`）一致：`status` 取第一个失败测试点的状态，`cases` 按执行顺序，失败即停。
 - **不要自己判断"答案对不对"**：把选手输出交给 `AnswerChecker`（由 `AnswerCheckerFactory` 创建），这样文本比对与作者判题器对新引擎自动生效。
 - `MEMORY_LIMIT_EXCEEDED` 通过沙箱的 `SandboxResult.outOfMemory()` 判定，同时写入 `memoryUsedKb`（`IsolateSandbox` 已提供参考实现）。
@@ -122,16 +135,19 @@ ioj:
   - 不用 `ENGINE/CHARSET/COMMENT`，索引用独立 `CREATE INDEX`；
   - 不用 `GROUP_CONCAT`、`JSON_*`、窗口函数等 MySQL 专有/较新的函数（SQL 里用得少，尽量用标准 SQL）；
   - 唯一约束用 `CONSTRAINT xxx UNIQUE (...)`。
-- 改表时同步更新 `schema.sql` 与 `02-database.md`。
-- 判题抢占用了 `FOR UPDATE`（H2 支持）。**不要**在 mapper 里写 `SKIP LOCKED`，否则集成测试会失败。
+- 改表时同步更新 `schema.sql` 与 `02-database.md`；已有数据库的升级脚本放在 `db/migrate-*.sql`，不要修改 `schema.sql` 去重跑。
+- 判题抢占用了 `FOR UPDATE`（H2 支持）。**不要**在 mapper 里写 `SKIP LOCKED`，否则集成测试会失败；多主服务器再考虑方言或 Testcontainers。
 - Mapper 的 SQL 也要照顾 MySQL：`CAST(NULL AS BIGINT)` 在 H2 能过、**MySQL 会直接语法错误**（生产环境 500，而集成测试全绿）。需要占位空列时写 `NULL AS column_alias`，或 `CAST(NULL AS SIGNED)`；字符/整数类型可以正常用 `CAST(NULL AS CHAR(n))` / `CAST(NULL AS INTEGER)`。
 
 ## 6. 测试
 
 ```bash
-cd server
-./mvnw test                                  # 全部测试（H2 内存库，无需 MySQL）
-./mvnw test -Dtest=ApiFlowIntegrationTest    # 只跑端到端流程
+# 在仓库根目录执行
+./mvnw test                                  # 全部模块（H2 内存库，无需 MySQL）
+
+# 只跑 server 的端到端流程
+./mvnw -pl server -am test -Dtest=ApiFlowIntegrationTest \
+  -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
 现有测试：
@@ -140,8 +156,11 @@ cd server
 | --- | --- |
 | `ServerApplicationTests` | Spring 上下文可启动（含所有 Mapper XML 解析） |
 | `JwtTokenProviderTest` | 签发/解析、token 版本、篡改、换密钥、过期、弱密钥拒绝 |
-| `OutputComparatorTest` | 行尾空白、CRLF、文末空行、空输出、行首空格 |
-| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→匿名列表→提交 Java 代码→worker 抢占→真实 javac 编译+运行→AC/WA→权限裁剪 |
+| `OutputComparatorTest` / `IsolateMetaTest` / `ProgramAnswerCheckerTest` / `IsolateSandboxCommandTest` | 位于 `judge-core`：输出比对、Isolate meta、判题器退出码映射、isolate 命令行 |
+| `AgentTaskMapperTest` | 位于 `judge-agent`：协议任务 → JudgeContext、JudgeOutcome → JudgeResult |
+| `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、claim → 执行 → 回报循环 |
+| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→匿名列表→提交 Java 代码→本地 local 引擎评测→AC/WA→权限裁剪 |
+| `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收 |
 | `AdminModerationIntegrationTest` | 测试点单个/批量增删查、题目审核上下架、后台用户搜索、封禁后旧 token 立即失效 |
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、匿名与越权拒绝、题目详情只暴露 `hasChecker`、local 引擎返回 `CHECKER_ERROR` |
 | `ProgramAnswerCheckerTest` | 判题器退出码 0/1/2/其他、超时、崩溃、内存超限、编译失败、缺少二进制（假 Sandbox，无需 isolate） |
@@ -157,8 +176,9 @@ cd server
 集成测试的关键配置（`src/test/resources/application-test.yaml`）：
 
 - 每个 Spring 上下文一个独立 H2 内存库（`jdbc:h2:mem:ioj-${random.uuid};MODE=MySQL`），启动时执行 `db/schema.sql`；
-- `ioj.judge.enabled=false`：关掉定时任务，测试里显式调用 `judgeService.judge(id)`，结果确定且快；
-- 语言配置直接复用主配置，所以测试会真实调用本机 `javac`。CI 需要 JDK（构建本来就需要）；
+- `ioj.judge.mode=local` + `ioj.judge.enabled=false`：关掉本地 worker，测试里显式调用 `judgeService.judge(id)`，结果确定且快；分布式测试用 `ioj.judge.mode=remote` 覆盖。
+- 语言配置直接复用主配置，所以 local 测试会真实调用本机 `javac`。CI 需要 JDK（构建本来就需要）；
+- `DistributedJudgeIntegrationTest` 使用独立 H2 库和 remote 模式，覆盖 claim/result/lease 全链路。
 - 需要独立断言的集成测试类用 `@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:...")` 覆盖数据源，从而拥有独立的 H2 内存库，断言总数时不会互相干扰；代价是每个不同配置都会让 Spring 缓存一个独立上下文。
 - `application-test.yaml` 里 `ioj.email-code.enabled=false`：大多数流程测试只需要一个账号，不必先发码。`EmailVerificationIntegrationTest` 与 `PasswordResetIntegrationTest` 用 `@SpringBootTest(properties = "ioj.email-code.enabled=true")` 单独打开该功能，并用 `@Primary` 的假 `EmailCodeSender` 顶掉 SMTP 实现——测试不碰网络，也不需要真的邮箱。
 - `application-test.yaml` 里 `ioj.captcha.enabled=false`：现有流程测试不需要解图片。`CaptchaIntegrationTest` 与 `CaptchaRateLimitIntegrationTest` 单独打开该功能，并用固定 code generator 让测试可重复。
@@ -196,7 +216,7 @@ class MyFeatureTest {
 - 4 空格缩进；类/方法命名用英文，注释与用户可见文案用中文。
 - 一个文件一个公开类；Controller 按资源聚合，不要一个接口一个类。
 - 新增错误码加到 `ErrorCode`（业务号段：用户 2xxx、题目 3xxx、提交 4xxx）。
-- 提交前跑 `./mvnw test`；改 SQL 时同时跑集成测试（它会真的执行所有 mapper）。
+- 提交前在仓库根目录跑 `./mvnw test`；改 SQL 时同时跑集成测试（它会真的执行所有 mapper）。
 - Git 提交信息建议：`feat(problem): 支持按标签筛选`、`fix(judge): 修复 Java 超时判定`。
 - 前端字段变更属于破坏性变更，需同步更新 `../shared/api/README.md`。
 
@@ -207,7 +227,7 @@ class MyFeatureTest {
 | 无 refresh token | 7 天后需重新登录 | 增加 refresh token + 轮换 |
 | 无提交频率限制 | 恶意用户可以刷提交 | 每用户每分钟限 N 次（Redis 或 DB 计数） |
 | 无比赛/榜单 | 只能练题 | 新增 contest 相关表与聚合查询 |
-| 判题默认使用 Isolate 沙箱 | 需要安装与授权（不在 `isolate` 组则无法执行） | 按 06-isolate.md 配置；开发/CI 可用 `engine=local` 回退 |
+| 判题 Agent 使用 Isolate 沙箱 | 需要安装与授权（不在 `isolate` 组则无法执行） | 按 06-isolate.md 配置；主服务器默认不判题，测试/CI 可用 `engine=local` |
 | 计数冗余字段 | 极端并发下可能略有偏差 | 定时对账任务修正 `submit_count` / `accepted_count` |
 | 无审计日志 | 管理员操作不可追溯 | 增加 `admin_audit_logs` |
 

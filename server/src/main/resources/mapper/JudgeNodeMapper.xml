@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.iynotuo.judge.judge.mapper.JudgeNodeMapper">
+
+    <sql id="columns">
+        id, key_id, hostname, version, languages, max_concurrency, running_tasks,
+        isolate_version, status, last_heartbeat_at, created_at, updated_at
+    </sql>
+
+    <select id="findById" resultType="me.iynotuo.judge.judge.entity.JudgeNode">
+        SELECT <include refid="columns"/> FROM judge_nodes WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultType="me.iynotuo.judge.judge.entity.JudgeNode">
+        SELECT <include refid="columns"/> FROM judge_nodes ORDER BY id
+    </select>
+
+    <insert id="insert" parameterType="me.iynotuo.judge.judge.entity.JudgeNode">
+        INSERT INTO judge_nodes
+            (id, key_id, hostname, version, languages, max_concurrency, running_tasks,
+             isolate_version, status, last_heartbeat_at, created_at, updated_at)
+        VALUES
+            (#{id}, #{keyId}, #{hostname}, #{version}, #{languages}, #{maxConcurrency}, #{runningTasks},
+             #{isolateVersion}, #{status}, #{lastHeartbeatAt}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateHeartbeat" parameterType="me.iynotuo.judge.judge.entity.JudgeNode">
+        UPDATE judge_nodes
+        SET key_id = #{keyId},
+            hostname = #{hostname},
+            version = #{version},
+            languages = #{languages},
+            max_concurrency = #{maxConcurrency},
+            running_tasks = #{runningTasks},
+            isolate_version = #{isolateVersion},
+            status = #{status},
+            last_heartbeat_at = #{lastHeartbeatAt},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="markOfflineBefore">
+        UPDATE judge_nodes
+        SET status = 'OFFLINE',
+            updated_at = #{threshold}
+        WHERE status = 'ONLINE'
+          AND last_heartbeat_at &lt; #{threshold}
+    </update>
+
+</mapper>

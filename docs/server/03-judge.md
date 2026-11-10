@@ -5,7 +5,8 @@
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING: 用户提交
-    PENDING --> JUDGING: worker 抢占（FOR UPDATE）
+    PENDING --> JUDGING: Agent 领取（claim_token + lease）
+    JUDGING --> PENDING: 租约过期，重新排队
     JUDGING --> ACCEPTED: 全部测试点通过
     JUDGING --> WRONG_ANSWER: 输出不一致
     JUDGING --> TIME_LIMIT_EXCEEDED: 超过 CPU/墙钟限制
@@ -33,18 +34,18 @@ stateDiagram-v2
 
 ## 2. 判题引擎选择
 
-`JudgeEngine` 是接口（`me.iynotuo.judge.judge.engine.JudgeEngine`），实现类通过 Spring 的条件装配选择：
+`JudgeEngine` 是接口（`me.iynotuo.judge.core.engine.JudgeEngine`），实现类通过 Spring 的条件装配选择：
 
 | `ioj.judge.engine` | 实现类 | 说明 |
 | --- | --- | --- |
-| `isolate`（默认） | `IsolateJudgeEngine` | 编译与运行都在 Isolate 沙箱内，资源限制与统计最完整 |
-| `local` | `LocalProcessJudgeEngine` | 本机进程 + `ulimit`，用于没有 Isolate 的开发机或测试环境 |
-| `docker` | 未实现 | 预留，需要自行实现 `JudgeEngine` |
+| `isolate` | `IsolateJudgeEngine` | 编译与运行都在 Isolate 沙箱内，资源限制与统计最完整；生产 Agent 使用 |
+| `local` | `LocalProcessJudgeEngine` | 本机进程 + `ulimit`，仅用于测试/本地开发 |
+| `none` | 无 | 主服务器默认值：不创建判题引擎，只负责任务调度 |
 
 - 选择方式：`application.yaml` 的 `ioj.judge.engine`，或环境变量 `IOJ_JUDGE_ENGINE`。
-- 选择机制是 `@ConditionalOnProperty`（不是运行时工厂）：值不匹配任何实现时，应用启动会失败（`JudgeService` 缺少 `JudgeEngine` Bean），这是有意的 fail-fast。
-- 与 `ioj.judge.enabled` 正交：后者只控制 worker 是否消费待评测任务。
-- 测试环境使用 `local`（`src/test/resources/application-test.yaml`），生产使用 `isolate`。
+- 选择机制是 `@ConditionalOnProperty`（不是运行时工厂）：主服务器 `engine=none`，Agent 为 `isolate`。
+- `ioj.judge.mode=remote`（主服务器默认）只启用 claim/result/lease；`ioj.judge.mode=local` 才启用旧的 `JudgeService`/`JudgeWorker`，用于测试和本地开发。
+- 测试环境使用 `local`（`src/test/resources/application-test.yaml`），生产 Agent 使用 `isolate`。
 - **自定义判题器（Special Judge）只在 `isolate` 引擎下生效**。`local` 引擎没有真正的沙箱，执行出题者上传的代码风险不可控，因此遇到带 `checker_code` 的题目会直接返回 `CHECKER_ERROR`（见 §10），而不是退回文本比对——静默换判定方式比报错更危险。
 
 ### 2.1 代码分层
@@ -53,28 +54,69 @@ stateDiagram-v2
 
 | 层 | 包 | 职责 | 不知道什么 |
 | --- | --- | --- | --- |
-| 引擎 | `judge/engine` | 算限额、串流程（编译 → 逐点运行 → 判定 → 聚合） | 不知道 isolate 命令行，也不知道判题器 |
-| 沙箱 | `judge/sandbox` | `Sandbox.compile/run` 两个原语：起进程、加限额、回收 box、把输出读回来 | 不知道"提交""答案""判定" |
-| 判定 | `judge/answer` | `AnswerChecker`：内置比对、作者判题器、不可用时的 `CHECKER_ERROR` | 不知道用的是哪个引擎 |
+| 引擎 | `judge-core/engine` | 算限额、串流程（编译 → 逐点运行 → 判定 → 聚合） | 不知道 isolate 命令行，也不知道判题器 |
+| 沙箱 | `judge-core/sandbox` | `Sandbox.compile/run` 两个原语：起进程、加限额、回收 box、把输出读回来 | 不知道"提交""答案""判定" |
+| 判定 | `judge-core/answer` | `AnswerChecker`：内置比对、作者判题器、不可用时的 `CHECKER_ERROR` | 不知道用的是哪个引擎 |
 
 ```
-judge/
-├── JudgeService / JudgeWorker / JudgeContext / JudgeOutcome / OutputComparator
+judge-protocol/
+├── SubmissionStatus / Language
+└── JudgeTask / JudgeResult 等内部协议 DTO
+
+judge-core/
+├── JudgeContext / JudgeOutcome / JudgeSubmission / JudgeProblem / JudgeTestcase
+├── config/    JudgeProperties、LanguageConfig、Isolate、Checker
 ├── sandbox/   Sandbox（接口）、IsolateSandbox、LocalSandbox、SandboxCommand/Result、SandboxFiles
 ├── answer/    AnswerChecker（接口）、TextAnswerChecker、ProgramAnswerChecker、
 │              DisabledAnswerChecker、AnswerCheckerFactory
 └── engine/    JudgeEngine（接口）、IsolateJudgeEngine、LocalProcessJudgeEngine
+
+judge-agent/
+├── AgentRunner / AgentTaskMapper
+├── HttpJudgeAgentClient
+└── AgentProperties
+
+server/judge/
+├── JudgeTaskService / JudgeResultService
+├── JudgeLeaseReaper
+├── JudgeKeyService / JudgeNodeService
+└── JudgeService / JudgeWorker（仅 local 模式）
 ```
 
 - 选哪种判定由 `AnswerCheckerFactory` 一处决定：题目有 `checker_code` 且沙箱支持作者代码 → `ProgramAnswerChecker`；否则 → `TextAnswerChecker`；不支持时 → `DisabledAnswerChecker`（判 `CHECKER_ERROR`）。
 - 因此两个引擎里**没有 "checker" 字样**，新增题型（例如 interactive）只需要再加一个 `AnswerChecker`。
 - 沙箱自己管理的文件是 `stdout.txt` / `stderr.txt` / `empty.txt`；调用方的 `input.txt`、`output.txt`、`answer.txt` 不会被覆盖。
 
+### 2.2 分布式任务协议
+
+主服务器通过 `/internal/judge/**` 向 Agent 提供：
+
+| 接口 | 作用 |
+| --- | --- |
+| `POST /internal/judge/nodes/heartbeat` | 节点注册/心跳，上报语言、并发、版本 |
+| `POST /internal/judge/tasks/claim` | 领取 1~N 个 PENDING 任务 |
+| `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载完整测试数据 |
+| `POST /internal/judge/tasks/{id}/heartbeat` | 续租；返回 `cancel=true` 表示任务已被重领/重测 |
+| `POST /internal/judge/tasks/{id}/result` | 回报终态结果 |
+| `POST /internal/judge/tasks/{id}/release` | Agent 优雅停机时释放未开始任务 |
+
+任务归属靠 `submissions` 上的字段：
+
+```text
+judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / attempt_count
+```
+
+- `claim_token` 是 fencing token；结果写入时同时校验 token 和 `JUDGING` 状态。
+- 测试数据总量小于 `ioj.judge.dispatch.inline-max-bytes`（默认 1 MiB）时直接内联在 claim 响应；超过时返回 `testcaseBundleUrl`，Agent 用同一个 `claimToken` 通过 GET 下载。
+- 租约过期后 `JudgeLeaseReaper` 把任务改回 `PENDING`；超过 `max-attempts` 后改判 `SYSTEM_ERROR`。
+- 同一 token 的重复结果幂等；旧 token 的迟到结果返回 `409`，不会覆盖新结果。
+- `accepted_count` 只在条件更新真正把提交写成 `ACCEPTED` 时 +1。
+
 ## 3. 一次判题做了什么（isolate）
 
 ```
-JudgeService.judge(submissionId)
-├── 读取 submission / problem / problem_testcases / 语言配置 / checker_code
+AgentRunner.execute(task)
+├── AgentTaskMapper.toContext(task)
 ├── IsolateJudgeEngine.judge(context)
 │   ├── 从 box-id 池取一个编号，创建临时工作目录
 │   ├── 编译阶段
@@ -95,7 +137,8 @@ JudgeService.judge(submissionId)
 │   │   ├── 失败即停止
 │   │   └── isolate --cleanup
 │   └── 汇总取最大耗时/内存，返回 JudgeOutcome
-└── persist：重写 submission_cases + 更新 submissions + accepted_count
+└── AgentTaskMapper.toResult → POST /internal/judge/tasks/{id}/result
+    └── JudgeResultService：条件更新 submissions + 重写 submission_cases + accepted_count
 ```
 
 要点：
@@ -109,7 +152,7 @@ JudgeService.judge(submissionId)
 
 ## 4. 语言配置
 
-配置位于 `application.yaml` 的 `ioj.judge.languages`，key 是提交时的 `language` 枚举名。
+语言命令的唯一来源是**主服务器**的 `application.yaml` 中的 `ioj.judge.languages`，key 是提交时的 `language` 枚举名。Agent 在 claim 响应的 `languageConfig` 中拿到同一份命令，本地只配置 Isolate 路径、box id、挂载目录等机器参数。
 占位符在运行时替换：
 
 | 占位符 | 含义 |
@@ -125,15 +168,16 @@ JudgeService.judge(submissionId)
 | JAVA | Main.java | `javac -encoding UTF-8 -d . Main.java` | `java -Xmx{memoryMb}m -Xss64m -XX:+UseSerialGC Main` | 2.0 | 64 | +256MB |
 | CPP | main.cpp | `g++ -O2 -std=c++17 -pipe -o main main.cpp` | `./main` | 1.0 | 1 | +16MB |
 | C | main.c | `gcc -O2 -std=c11 -pipe -o main main.c` | `./main` | 1.0 | 1 | +16MB |
-| PYTHON3 | main.py | 无 | `python3 main.py` | 3.0 | 1 | +64MB |
+| PYTHON3 | main.py | `python3 -m py_compile main.py` | `python3 main.py` | 3.0 | 1 | +64MB |
 
 - **时间系数**：抵消 JVM/Python 启动的固定开销，只作用于运行阶段。
 - **进程数**：Isolate 的 `--processes` 统计的是任务/线程数。JVM 需要大量线程，因此 Java 设为 64；C/C++/Python 用 1。
 - **额外内存**：JVM 需要 metaspace、code cache、线程栈等，`--cg-mem` 在题目限制上另加 256MB；C++/Python 留少量余量。
 - 命令的第一个词会解析成**宿主机真实路径**（例如 `javac` → `/usr/lib/jvm/.../bin/javac`），避免沙箱内跟随 `/etc/alternatives` 符号链接失败。
 - Python 这类解释型语言没有编译产物，运行阶段会把源文件复制到运行目录。
+- Python 的 `py_compile` 只是语法检查，必须同时设置 `copy-source-to-run: true`，否则 isolate 引擎会跳过源文件复制，运行时找不到 `main.py`。这样语法错误会判 `COMPILATION_ERROR`，合法代码仍然执行源文件。
 
-新增语言仍是两步：`common/enums/Language.java` 加枚举值，`application.yaml` 补一段配置；然后确认裁判机安装了对应工具链。
+新增语言：`judge-protocol/src/main/java/me/iynotuo/judge/protocol/Language.java` 加枚举值，主服务器 `application.yaml` 补一段 `ioj.judge.languages` 配置，Agent 的 `ioj.agent.languages` 加入该语言并安装对应工具链。Agent 代码不需要改。
 
 ## 5. Isolate 沙箱
 
@@ -195,7 +239,7 @@ JudgeService.judge(submissionId)
 
 ## 6. 本机进程回退（`engine=local`）
 
-用于没有 Isolate 的开发机、CI 或单元测试（测试 profile 固定使用该引擎）。它把用户程序作为普通子进程运行：
+仅用于没有 Isolate 的开发机、测试或 `ioj.judge.mode=local` 的本地调试。生产 Agent 固定使用 `engine=isolate`。它把用户程序作为普通子进程运行：
 
 | 手段 | 实现 |
 | --- | --- |
@@ -210,17 +254,17 @@ JudgeService.judge(submissionId)
 
 | 配置 | 作用 | 建议 |
 | --- | --- | --- |
-| `ioj.judge.concurrency` | 同时评测的提交数（worker 线程数） | CPU 核数 - 1 |
-| `ioj.judge.isolate.box-id-count` | 本实例可用 box 数 | ≥ 并发数；多实例部署时用 `box-id-start` 分段 |
+| `ioj.agent.concurrency` | 单个 Agent 同时评测的提交数 | CPU 核数 - 1 |
+| `ioj.judge.isolate.box-id-count` | 单个 Agent 可用 box 数 | ≥ 并发数；同一台机器多个 Agent 时用 `box-id-start` 分段 |
 | `ioj.judge.isolate.compile-processes` | 编译阶段进程/线程上限 | 保持 64，javac 需要较多线程 |
 | 语言的 `isolate-processes` | 运行阶段线程上限 | Java 64；C/C++/Python 1 |
 | 语言的 `isolate-memory-extra-mb` | 运行时额外内存 | Java 256；其余按需 |
 
 注意：
 
-- 同一台机器上 box id 不能冲突。两个判题实例要么共用一段 id（由不同进程竞争会出错），要么用不同的 `box-id-start` 区间。
-- 逐任务的 Isolate 限制不能替代整机容量管理：给系统、数据库和 worker 留出余量。
-- 编译器与运行库版本应固定，避免不同节点产生差异。
+- 同一台机器上 box id 不能冲突。两个 Agent 进程要么共用一段 id（会互相冲突），要么用不同的 `box-id-start` 区间。
+- 逐任务的 Isolate 限制不能替代整机容量管理：给系统、数据库和 Agent 留出余量。
+- 编译器与运行库版本应固定，避免不同节点产生差异；Agent 启动时上报版本，主服务器只分配语言能力匹配的任务。
 
 ## 8. 常见问题
 
@@ -232,7 +276,8 @@ JudgeService.judge(submissionId)
 | JVM 启动报 `Error loading java.security file` | 沙箱内缺少 `/etc/java-21-openjdk` | 在 `extra-dirs` 中保留该目录（Debian），或按发行版调整 |
 | `pthread_create failed (EAGAIN)` | `--processes` 太小，JVM 无法创建线程 | 提高 Java 的 `isolate-processes`（默认 64）或 `compile-processes` |
 | 内存超限没有判成 MLE | 使用了 `engine=local` | 切换到 isolate；isolate 通过 cgroup OOM 检测 |
-| 提交一直 `PENDING` | worker 被关闭或队列积压 | 检查 `IOJ_JUDGE_ENABLED`、`GET /submissions?status=PENDING`、服务日志 |
+| 提交一直 `PENDING` | 没有在线 Agent、Agent 未配置 key、队列积压 | 检查 `GET /api/v1/admin/judge-nodes`、Agent 日志、`GET /api/v1/submissions?status=PENDING` |
+| 提交一直 `JUDGING` | Agent 崩溃/失联，租约尚未过期 | 等 `lease-seconds` 后由 `JudgeLeaseReaper` 回收；检查 Agent 日志和节点心跳 |
 | 编译超时（`COMPILATION_ERROR: Compile Time Exceeded`） | `compile-time-seconds` / `compile-wall-time-seconds` 太小 | 提高配置，注意编译与运行限制分开设置 |
 | `/var/lib/isolate` 残留目录 | 进程被强杀，未执行 cleanup | 确认服务日志；用对应用户执行 `isolate --cg --box-id=N --cleanup` |
 

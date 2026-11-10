@@ -2,10 +2,10 @@ package me.iynotuo.judge.submission.service;
 
 import me.iynotuo.judge.common.api.PageQuery;
 import me.iynotuo.judge.common.api.PageResult;
-import me.iynotuo.judge.common.enums.SubmissionStatus;
+import me.iynotuo.judge.protocol.SubmissionStatus;
 import me.iynotuo.judge.common.exception.BusinessException;
 import me.iynotuo.judge.common.exception.ErrorCode;
-import me.iynotuo.judge.config.JudgeProperties;
+import me.iynotuo.judge.core.config.JudgeProperties;
 import me.iynotuo.judge.config.SubmissionProperties;
 import me.iynotuo.judge.problem.entity.Problem;
 import me.iynotuo.judge.problem.mapper.ProblemMapper;

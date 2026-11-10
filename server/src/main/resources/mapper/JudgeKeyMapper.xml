@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="me.iynotuo.judge.judge.mapper.JudgeKeyMapper">
+
+    <sql id="columns">
+        id, name, key_prefix, key_hash, enabled, expires_at, last_used_at, created_by, created_at
+    </sql>
+
+    <insert id="insert" parameterType="me.iynotuo.judge.judge.entity.JudgeKey"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO judge_keys (name, key_prefix, key_hash, enabled, expires_at, created_by, created_at)
+        VALUES (#{name}, #{keyPrefix}, #{keyHash}, #{enabled}, #{expiresAt}, #{createdBy}, #{createdAt})
+    </insert>
+
+    <select id="findById" resultType="me.iynotuo.judge.judge.entity.JudgeKey">
+        SELECT <include refid="columns"/> FROM judge_keys WHERE id = #{id}
+    </select>
+
+    <select id="findByHash" resultType="me.iynotuo.judge.judge.entity.JudgeKey">
+        SELECT <include refid="columns"/> FROM judge_keys WHERE key_hash = #{keyHash}
+    </select>
+
+    <select id="findAll" resultType="me.iynotuo.judge.judge.entity.JudgeKey">
+        SELECT <include refid="columns"/> FROM judge_keys ORDER BY id DESC
+    </select>
+
+    <update id="updateEnabled">
+        UPDATE judge_keys SET enabled = #{enabled} WHERE id = #{id}
+    </update>
+
+    <update id="updateLastUsed">
+        UPDATE judge_keys SET last_used_at = #{lastUsedAt} WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM judge_keys WHERE id = #{id}
+    </delete>
+
+</mapper>

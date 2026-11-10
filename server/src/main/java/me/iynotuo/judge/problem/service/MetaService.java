@@ -1,6 +1,6 @@
 package me.iynotuo.judge.problem.service;
 
-import me.iynotuo.judge.config.JudgeProperties;
+import me.iynotuo.judge.core.config.JudgeProperties;
 import me.iynotuo.judge.problem.dto.LanguageVO;
 import me.iynotuo.judge.problem.dto.ScopeMetaVO;
 import me.iynotuo.judge.problem.dto.TagMetaVO;

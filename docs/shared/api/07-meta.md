@@ -42,7 +42,7 @@
 
 | 字段 | 说明 |
 | --- | --- |
-| `id` | 标签 id，用于 `GET /problems?tagId=` / `GET /catalog?tagId=` 筛选，以及出题时的 `tagIds` |
+| `id` | 标签 id，用于 `GET /catalog?tagId=` 筛选，以及出题时的 `tagIds` |
 | `name` | 标签名 |
 | `problemCount` | 使用该标签的**已发布**本地题 + 外部 OJ 链接数量；草稿、待审核、已下架的本地题**不计入** |
 

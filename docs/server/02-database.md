@@ -34,6 +34,9 @@ erDiagram
     tags ||--o{ external_problem_tags : "tag_id"
     problems ||--o{ submissions : "problem_id"
     submissions ||--o{ submission_cases : "submission_id"
+    judge_keys ||--o{ judge_nodes : "key_id"
+    judge_keys ||--o{ submissions : "judge_key_id"
+    judge_nodes ||--o{ submissions : "judge_node_id"
     email_verification_codes {
         BIGINT id PK
         VARCHAR email
@@ -56,6 +59,7 @@ erDiagram
 | `submission_cases.status` | 同上（不含 `PENDING`/`JUDGING`） | 单测试点状态 |
 | `email_verification_codes.purpose` | `REGISTER` / `RESET_PASSWORD` | 发码用途：注册 / 找回密码。**码与用途绑定**，注册码不能用于重置，反之亦然 |
 | `captcha_challenges.purpose` | `LOGIN` / `EMAIL_SENDING` | 图形验证码用途：登录 / 发送邮箱验证码 |
+| `judge_nodes.status` | `ONLINE` / `OFFLINE` | 判题节点心跳状态 |
 
 枚举都用字符串而不是 TINYINT：可读性高、排查问题时不用查字典、加值时不用改表。代价是多占几个字节，俱乐部规模完全无感。
 
@@ -179,6 +183,12 @@ erDiagram
 | memory_used_kb | INT | NULL | 内存峰值（Isolate 引擎写入 `cg-mem`；本机进程回退模式下为 null，见 03-judge.md） |
 | compile_message | MEDIUMTEXT | NULL | 编译错误输出 |
 | judge_message | TEXT | NULL | 系统错误信息，含判题器编译失败时的编译器输出；不含测试数据 |
+| judge_key_id | BIGINT | FK → judge_keys.id, SET NULL | 领取任务的 Agent key；用于审计和历史 |
+| judge_node_id | VARCHAR(64) | NULL | 领取任务的节点 id |
+| claim_token | VARCHAR(64) | NULL | 当前租约的 fencing token；结果写入时校验 |
+| claimed_at | DATETIME | NULL | 最近一次领取时间 |
+| lease_expires_at | DATETIME | NULL | 租约到期时间；过期后由回收任务重新排队 |
+| attempt_count | INT | NOT NULL DEFAULT 0 | 被 Agent 领取的次数，防止坏任务无限重试 |
 | created_at | DATETIME | NOT NULL | 提交时间 |
 | judged_at | DATETIME | NULL | 判题完成时间 |
 
@@ -282,6 +292,40 @@ erDiagram
 - `@Scheduled` 每小时清理 `expires_at < now - cleanup-retention-hours` 的行，保留 24 小时便于排查。
 - 验证码答案只存 hash；`max-attempts` 在配置文件中，不重复入库。
 
+### 4.13 judge_keys —— 判题 Agent API key
+
+管理员为每台判题机创建一个 key。数据库只存 SHA-256 hash，明文只在创建响应中出现一次。
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| id | BIGINT | PK, AUTO_INCREMENT | |
+| name | VARCHAR(128) | NOT NULL | 节点名/备注 |
+| key_prefix | VARCHAR(16) | NOT NULL | 展示用前缀，如 `jsk_3f9a2c` |
+| key_hash | VARCHAR(64) | NOT NULL, UNIQUE | SHA-256 hex |
+| enabled | BOOLEAN | NOT NULL DEFAULT TRUE | 禁用后不能 claim/result |
+| expires_at | DATETIME | NULL | 可选过期时间 |
+| last_used_at | DATETIME | NULL | 仅在成功领取/写入结果时更新 |
+| created_by | BIGINT | FK → users.id, SET NULL | 创建者 |
+| created_at | DATETIME | NOT NULL | |
+
+### 4.14 judge_nodes —— 判题节点
+
+Agent 通过心跳注册自己，主服务器只把匹配语言的任务分配给在线节点。
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| id | VARCHAR(64) | PK | Agent 配置的 `nodeId` |
+| key_id | BIGINT | NOT NULL, UNIQUE, FK → judge_keys.id CASCADE | 一个 key 对应一个节点 |
+| hostname | VARCHAR(128) | NULL | 主机名 |
+| version | VARCHAR(32) | NULL | Agent 版本 |
+| languages | VARCHAR(255) | NULL | 逗号分隔，如 `JAVA,CPP,PYTHON3` |
+| max_concurrency | INT | NOT NULL DEFAULT 1 | 节点并发上限 |
+| running_tasks | INT | NOT NULL DEFAULT 0 | 最近一次心跳上报的运行任务数 |
+| isolate_version | VARCHAR(64) | NULL | Isolate 版本 |
+| status | VARCHAR(16) | NOT NULL DEFAULT 'ONLINE' | `ONLINE` / `OFFLINE` |
+| last_heartbeat_at | DATETIME | NULL | 最近心跳时间 |
+| created_at / updated_at | DATETIME | NOT NULL | |
+
 ## 5. 索引设计与关键 SQL
 
 | 索引 | 服务的查询 |
@@ -301,28 +345,50 @@ erDiagram
 | `idx_external_problem_tags_tag (tag_id)` | 外部题按标签筛选 |
 | `idx_submissions_problem (problem_id, id)` | 题目下的提交列表 |
 | `idx_submissions_user (user_id, id)` | 用户的提交记录 |
-| `idx_submissions_status (status, id)` | 判题 worker 抢占 `WHERE status='PENDING' ORDER BY id LIMIT 1` |
+| `idx_submissions_status (status, id)` | 判题 Agent 领取 `WHERE status='PENDING' ORDER BY id LIMIT 1` |
+| `idx_submissions_lease (status, lease_expires_at)` | 回收过期租约 |
+| `idx_submissions_judge_key (judge_key_id, status)` | 按节点/key 排查任务 |
+| `idx_judge_keys_prefix (key_prefix)` | 管理后台按前缀展示/排查 |
+| `idx_judge_nodes_heartbeat (last_heartbeat_at)` | 标记离线节点 |
 | `idx_email_verification_codes_email (email, purpose, id)` | 取该邮箱最新的验证码、统计最近一小时发码数 |
 | `idx_email_verification_codes_expires (expires_at)` | 定时清理过期行 |
 | `idx_captcha_ip_created (client_ip, created_at)` | 按 IP 统计最近一分钟/一小时的图形验证码申请量 |
 | `idx_captcha_expires (expires_at)` | 定时清理过期图形验证码 |
 
-判题抢占 SQL（MySQL 8）：
+判题领取 SQL（MySQL 8，单主服务器）：
 
 ```sql
 START TRANSACTION;
-SELECT id FROM submissions WHERE status = 'PENDING' ORDER BY id LIMIT 1 FOR UPDATE;
-UPDATE submissions SET status = 'JUDGING' WHERE id = ?;
+
+SELECT id
+FROM submissions
+WHERE status = 'PENDING'
+ORDER BY id
+LIMIT 1
+FOR UPDATE;
+
+UPDATE submissions
+SET status = 'JUDGING',
+    judge_key_id = ?,
+    judge_node_id = ?,
+    claim_token = ?,
+    claimed_at = NOW(),
+    lease_expires_at = NOW() + INTERVAL 300 SECOND,
+    attempt_count = attempt_count + 1
+WHERE id = ?;
+
 COMMIT;
 ```
 
-对俱乐部规模来说，串行抢占（不加 `SKIP LOCKED`）足够；如果以后要多判题机并行，把 SQL 改成 `FOR UPDATE SKIP LOCKED` 即可（MySQL 8 支持，H2 不支持，注意测试库差异）。
+多主服务器时把 `FOR UPDATE` 改成 `FOR UPDATE SKIP LOCKED`；H2 不支持 `SKIP LOCKED`，测试库仍使用 `FOR UPDATE`。
 
 ## 6. 事务与一致性
 
 - 创建/更新题目：`problems` + `problem_samples` + `problem_tags` 在同一个事务内完成。
 - 提交：插入 `submissions` 与 `problems.submit_count + 1` 同一事务；这里允许计数多 1（提交成功但事务回滚的概率极低），计数仅用于展示。
-- 判题落库：删除旧 `submission_cases` → 插入新结果 → 更新 `submissions` → 通过时 `accepted_count + 1`，同一事务。
+- 领取任务：`SELECT ... FOR UPDATE` + `UPDATE submissions SET status='JUDGING', claim_token=..., lease_expires_at=...` 在同一个短事务里完成。
+- 判题落库：条件更新 `submissions`（校验 `claim_token` 和 `JUDGING`）→ 删除旧 `submission_cases` → 插入新结果 → 通过时 `accepted_count + 1`，同一事务。
+- 租约回收：过期任务先改回 `PENDING`；超过最大尝试次数改判 `SYSTEM_ERROR`。所有时间使用服务器时间。
 - 删除题目：外键 `ON DELETE CASCADE` 自动清理样例、测试点、标签关联与提交记录，避免留下孤儿数据。
 - 注册时验证码与建号的关系：`verify` 只读校验，`users` 插入与 `markConsumed` 在**同一个事务**里，所以插库失败时验证码仍可用、成功时不可能被重放；而“输错次数 +1”走 `REQUIRES_NEW`（`EmailCodeAttemptRecorder`），否则它会随注册事务的回滚一起丢失，尝试次数上限就永远触发不了。
 
@@ -331,6 +397,7 @@ COMMIT;
 | 表 | 估算行数 | 单行大小 | 总量 |
 | --- | --- | --- | --- |
 | users | 200 | < 1KB | < 1MB |
+| judge_keys / judge_nodes | 几~几十 | < 1KB | 可忽略 |
 | problems | 500 | 题面 5~50KB | 5~25MB |
 | problem_testcases | 5000（每题 10 个） | 1~20KB | 10~100MB |
 | submissions | 50000 | 代码 1~5KB | 50~250MB |
