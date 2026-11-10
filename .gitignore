@@ -7,3 +7,9 @@ scripts/.env
 scripts/.state/
 scripts/.venv/
 **/__pycache__/
+
+# Local design notes and agent workspace, not committed
+agent/
+
+# Maven build output for the multi-module build
+target/
