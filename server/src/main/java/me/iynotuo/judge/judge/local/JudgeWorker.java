@@ -1,4 +1,4 @@
-package me.iynotuo.judge.judge;
+package me.iynotuo.judge.judge.local;
 
 import me.iynotuo.judge.core.config.JudgeProperties;
 import org.slf4j.Logger;

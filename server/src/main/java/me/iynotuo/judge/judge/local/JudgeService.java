@@ -1,4 +1,4 @@
-package me.iynotuo.judge.judge;
+package me.iynotuo.judge.judge.local;
 
 import me.iynotuo.judge.core.JudgeContext;
 import me.iynotuo.judge.core.JudgeOutcome;

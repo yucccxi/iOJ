@@ -85,6 +85,8 @@ ioj:
 # Must be an address the SMTP account is allowed to send as.
     from: ${IOJ_MAIL_FROM:no-reply@localhost}
     subject: ${IOJ_EMAIL_CODE_SUBJECT:iOJ 邮箱验证码}
+# Password reset mails use a different subject so the two flows are easy to tell apart.
+    subject-reset: ${IOJ_EMAIL_CODE_SUBJECT_RESET:iOJ 找回密码验证码}
 # Consumed and expired rows are deleted after this many hours.
     cleanup-retention-hours: 24
   judge:
@@ -123,7 +125,7 @@ ioj:
       probe-commands:
         - g++ --version
     isolate:
-      binary: /usr/bin/isolate
+      binary: ${IOJ_ISOLATE_BINARY:/usr/bin/isolate}
       # Box 0 is commonly created by root during manual tests; start at 1 so a non-root
       # service user does not collide with root-owned boxes.
       box-id-start: 1

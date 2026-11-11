@@ -33,7 +33,8 @@ iOJ/                         # 父 POM，聚合 judge-protocol / judge-core / ju
         ├── problem          entity / mapper / service / controller / dto
         ├── submission       entity / mapper / service / controller / dto
         └── judge            JudgeTaskService / JudgeResultService / JudgeLeaseReaper
-                             JudgeKeyService / JudgeNodeService / JudgeService（local 模式）
+                             JudgeKeyService / JudgeNodeService
+                             local/JudgeService / local/JudgeWorker（仅 local 模式）
 ```
 
 分层职责：

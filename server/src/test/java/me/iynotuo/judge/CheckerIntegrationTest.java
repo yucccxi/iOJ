@@ -1,6 +1,6 @@
 package me.iynotuo.judge;
 
-import me.iynotuo.judge.judge.JudgeService;
+import me.iynotuo.judge.judge.local.JudgeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

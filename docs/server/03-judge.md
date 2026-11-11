@@ -80,7 +80,8 @@ server/judge/
 ├── JudgeTaskService / JudgeResultService
 ├── JudgeLeaseReaper
 ├── JudgeKeyService / JudgeNodeService
-└── JudgeService / JudgeWorker（仅 local 模式）
+└── local/
+    └── JudgeService / JudgeWorker（仅 local 模式）
 ```
 
 - 选哪种判定由 `AnswerCheckerFactory` 一处决定：题目有 `checker_code` 且沙箱支持作者代码 → `ProgramAnswerChecker`；否则 → `TextAnswerChecker`；不支持时 → `DisabledAnswerChecker`（判 `CHECKER_ERROR`）。
