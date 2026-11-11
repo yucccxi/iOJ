@@ -12,17 +12,15 @@ ioj:
     key: ${IOJ_JUDGE_KEY:}
     node-id: ${IOJ_JUDGE_NODE_ID:judge-1}
     concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
-    languages:
-      - JAVA
-      - CPP
-      - C
-      - PYTHON3
     poll-interval-ms: ${IOJ_JUDGE_POLL_INTERVAL_MS:1000}
     max-poll-interval-ms: ${IOJ_JUDGE_MAX_POLL_INTERVAL_MS:5000}
     max-claim-batch: ${IOJ_JUDGE_MAX_CLAIM_BATCH:1}
     lease-seconds: ${IOJ_JUDGE_LEASE_SECONDS:300}
     heartbeat-interval-ms: ${IOJ_JUDGE_HEARTBEAT_INTERVAL_MS:100000}
     request-timeout-seconds: ${IOJ_JUDGE_REQUEST_TIMEOUT_SECONDS:30}
+    config-fetch-retries: ${IOJ_JUDGE_CONFIG_FETCH_RETRIES:5}
+    config-fetch-retry-delay-ms: ${IOJ_JUDGE_CONFIG_FETCH_RETRY_DELAY_MS:2000}
+    probe-timeout-ms: ${IOJ_JUDGE_PROBE_TIMEOUT_MS:5000}
     version: ${IOJ_JUDGE_AGENT_VERSION:0.0.1}
 
   judge:

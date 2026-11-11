@@ -52,6 +52,15 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         String judgeKey = createdKey.path("data").path("key").asString();
         assertThat(judgeKey).startsWith("jsk_");
 
+        JsonNode bootstrap = get("/internal/judge/config", judgeKey);
+        assertThat(bootstrap.path("code").asInt()).isZero();
+        assertThat(bootstrap.path("data").path("protocolVersion").asInt()).isPositive();
+        assertThat(bootstrap.path("data").path("requiredLanguages").toString()).contains("JAVA");
+        assertThat(bootstrap.path("data").path("languages").path("JAVA").path("probeCommands").size())
+                .isPositive();
+        assertThat(bootstrap.path("data").path("checkerEnabled").asBoolean()).isTrue();
+        assertThat(bootstrap.path("data").path("checkerProbeCommands").size()).isPositive();
+
         // A normal user cannot create agent keys.
         JsonNode registerBob = post("/api/v1/auth/register", null, Map.of(
                 "username", "distbob", "email", "distbob@example.com", "password", "password123"));

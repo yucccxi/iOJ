@@ -1,5 +1,7 @@
 package me.iynotuo.judge.protocol;
 
+import java.util.List;
+
 /**
  * Language command snapshot sent with a judge task.
  *
@@ -16,6 +18,7 @@ package me.iynotuo.judge.protocol;
  * @param isolateMemoryExtraMb extra memory reserved for the runtime
  * @param copySourceToRun      whether the source file must be copied into run directories even when
  *                             a compile command is configured (for example Python syntax pre-check)
+ * @param probeCommands        commands the agent runs at startup to verify the toolchain
  */
 public record JudgeLanguageConfig(String sourceFile,
                                   String compileCommand,
@@ -24,5 +27,10 @@ public record JudgeLanguageConfig(String sourceFile,
                                   double timeMultiplier,
                                   Integer isolateProcesses,
                                   Integer isolateMemoryExtraMb,
-                                  boolean copySourceToRun) {
+                                  boolean copySourceToRun,
+                                  List<String> probeCommands) {
+
+    public JudgeLanguageConfig {
+        probeCommands = probeCommands == null ? List.of() : List.copyOf(probeCommands);
+    }
 }

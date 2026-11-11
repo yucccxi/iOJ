@@ -197,6 +197,12 @@ public class JudgeProperties {
         private boolean copySourceToRun;
 
         /**
+         * Commands the judge agent runs at startup to verify this language's toolchain. Each command
+         * must exit with status 0.
+         */
+        private List<String> probeCommands = new ArrayList<>();
+
+        /**
          * Time multiplier that compensates for fixed overhead such as JVM startup.
          */
         private double timeMultiplier = 1.0;
@@ -439,5 +445,10 @@ public class JudgeProperties {
          * {@code submission_cases.message}.
          */
         private int messageLimitBytes = 1_024;
+
+        /**
+         * Commands the judge agent runs at startup to verify the checker compiler.
+         */
+        private List<String> probeCommands = new ArrayList<>();
     }
 }

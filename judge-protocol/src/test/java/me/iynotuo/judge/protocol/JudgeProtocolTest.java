@@ -29,7 +29,8 @@ class JudgeProtocolTest {
                 "public class Main {}",
                 1000,
                 256,
-                new JudgeLanguageConfig("Main.java", "javac Main.java", "java Main", null, 2.0, 64, 256, false),
+                new JudgeLanguageConfig("Main.java", "javac Main.java", "java Main", null, 2.0, 64, 256,
+                        false, List.of("javac -version")),
                 null,
                 List.of(new JudgeTestCase(1, "1 2\n", "3\n")),
                 null,
@@ -68,5 +69,21 @@ class JudgeProtocolTest {
     @Test
     void protocolVersionIsPositive() {
         assertThat(ProtocolVersion.CURRENT).isPositive();
+    }
+
+    @Test
+    void bootstrapConfigRoundTripsThroughJson() throws Exception {
+        JudgeLanguageConfig language = new JudgeLanguageConfig(
+                "Main.java", "javac Main.java", "java Main", null, 2.0, 64, 256,
+                false, List.of("javac -version", "java -version"));
+        JudgeBootstrapConfig config = new JudgeBootstrapConfig(
+                ProtocolVersion.CURRENT, "config-hash", List.of(Language.JAVA),
+                java.util.Map.of(Language.JAVA, language), true, List.of("g++ --version"));
+
+        String encoded = json.writeValueAsString(config);
+        JudgeBootstrapConfig decoded = json.readValue(encoded, JudgeBootstrapConfig.class);
+
+        assertThat(decoded).isEqualTo(config);
+        assertThat(decoded.languages().get(Language.JAVA).probeCommands()).hasSize(2);
     }
 }

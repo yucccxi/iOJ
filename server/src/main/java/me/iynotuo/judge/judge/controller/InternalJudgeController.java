@@ -1,9 +1,11 @@
 package me.iynotuo.judge.judge.controller;
 
 import me.iynotuo.judge.common.api.ApiResponse;
+import me.iynotuo.judge.judge.service.JudgeBootstrapService;
 import me.iynotuo.judge.judge.service.JudgeNodeService;
 import me.iynotuo.judge.judge.service.JudgeResultService;
 import me.iynotuo.judge.judge.service.JudgeTaskService;
+import me.iynotuo.judge.protocol.JudgeBootstrapConfig;
 import me.iynotuo.judge.protocol.JudgeHeartbeatRequest;
 import me.iynotuo.judge.protocol.JudgeHeartbeatResponse;
 import me.iynotuo.judge.protocol.JudgeNodeInfo;
@@ -37,13 +39,21 @@ public class InternalJudgeController {
     private final JudgeTaskService judgeTaskService;
     private final JudgeResultService judgeResultService;
     private final JudgeNodeService judgeNodeService;
+    private final JudgeBootstrapService judgeBootstrapService;
 
     public InternalJudgeController(JudgeTaskService judgeTaskService,
                                    JudgeResultService judgeResultService,
-                                   JudgeNodeService judgeNodeService) {
+                                   JudgeNodeService judgeNodeService,
+                                   JudgeBootstrapService judgeBootstrapService) {
         this.judgeTaskService = judgeTaskService;
         this.judgeResultService = judgeResultService;
         this.judgeNodeService = judgeNodeService;
+        this.judgeBootstrapService = judgeBootstrapService;
+    }
+
+    @GetMapping("/config")
+    public ApiResponse<JudgeBootstrapConfig> config() {
+        return ApiResponse.ok(judgeBootstrapService.bootstrapConfig());
     }
 
     @PostMapping("/nodes/heartbeat")

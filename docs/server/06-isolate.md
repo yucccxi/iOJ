@@ -210,7 +210,7 @@ ioj:
       resolve-executables: true
 ```
 
-> 语言命令（`source-file` / `compile-command` / `run-command` / `time-multiplier`）由主服务器随 claim 响应下发，不在 Agent 本地配置；Agent 只需要 `ioj.agent.languages` 声明本机装好的语言。
+> 语言命令（`source-file` / `compile-command` / `run-command` / `time-multiplier`）由主服务器随 claim 响应下发，不在 Agent 本地配置；Agent 启动时从 `/internal/judge/config` 拉取 `requiredLanguages` 与探测命令。
 
 | 配置 | 作用 | 调整建议 |
 | --- | --- | --- |

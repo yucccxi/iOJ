@@ -141,6 +141,8 @@ mysql -uioj -p ioj < server/src/main/resources/db/migrate-distributed-judge.sql
 | `IOJ_JUDGE_POLL_INTERVAL_MS` / `IOJ_JUDGE_MAX_POLL_INTERVAL_MS` | 否 | 空闲轮询与最大退避，默认 `1000` / `5000` |
 | `IOJ_JUDGE_LEASE_SECONDS` | 否 | 申请的任务租约，默认 `300` |
 | `IOJ_JUDGE_HEARTBEAT_INTERVAL_MS` | 否 | 节点/任务心跳间隔，默认 `100000` |
+| `IOJ_JUDGE_CONFIG_FETCH_RETRIES` / `IOJ_JUDGE_CONFIG_FETCH_RETRY_DELAY_MS` | 否 | 启动配置拉取重试次数/间隔，默认 `5` / `2000` |
+| `IOJ_JUDGE_PROBE_TIMEOUT_MS` | 否 | 单条工具链探测超时，默认 `5000` |
 | `IOJ_ISOLATE_BINARY` | 否 | Isolate 路径，默认 `/usr/bin/isolate` |
 | `IOJ_ISOLATE_BOX_ID_START` / `IOJ_ISOLATE_BOX_ID_COUNT` | 否 | 本机 box 区间；同机多 Agent 必须分段 |
 
@@ -200,7 +202,7 @@ IOJ_JUDGE_CONCURRENCY=2 \
 java -jar judge-agent/target/judge-agent-0.0.1-SNAPSHOT.jar
 ```
 
-Agent 启动后会先发心跳，再循环 claim。主服务器用 `GET /api/v1/admin/judge-nodes` 查看节点状态。
+Agent 启动时会先拉取 `/internal/judge/config`，按主服务器的 `requiredLanguages` 逐项探测本机工具链。**缺少任意一种语言就拒绝启动**；全部通过后才发节点心跳并循环 claim。主服务器用 `GET /api/v1/admin/judge-nodes` 查看节点状态。
 
 ### 5. 运行测试
 
@@ -222,7 +224,9 @@ Agent 启动后会先发心跳，再循环 claim。主服务器用 `GET /api/v1/
 | `JwtTokenProviderTest` | 令牌签发/解析、token 版本 claim、篡改、过期、弱密钥拒绝 |
 | `OutputComparatorTest` / `IsolateMetaTest` / `ProgramAnswerCheckerTest` / `IsolateSandboxCommandTest` | 位于 `judge-core`：输出比对、Isolate meta、判题器状态映射、isolate 命令行 |
 | `AgentTaskMapperTest` | 位于 `judge-agent`：协议任务 → JudgeContext、JudgeOutcome → JudgeResult |
+| `AgentBootstrapTest` | 位于 `judge-agent`：启动配置拉取、协议校验、工具链探测、缺失语言拒绝启动 |
 | `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、claim → 执行 → 回报循环 |
+| `JudgeAgentApplicationTest` | 位于 `judge-agent`：Spring 上下文、配置绑定和 Agent Bean 装配 |
 | `ApiFlowIntegrationTest` | 注册→登录→建题→传测试数据→提交→本地评测→AC/WA→字段裁剪 |
 | `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收 |
 | `AdminModerationIntegrationTest` | 测试数据增删改查、题目上下架、用户搜索与封禁 |
@@ -274,7 +278,7 @@ Agent 启动后会先发心跳，再循环 claim。主服务器用 `GET /api/v1/
 | `ioj.judge.max-output-bytes` | — | `16777216` | 单个测试点允许的最大输出 |
 | `ioj.judge.max-compile-output-bytes` | — | `65536` | 编译输出保留上限 |
 | `ioj.judge.compile-timeout-ms` | — | `30000` | 编译超时（本机进程引擎使用） |
-| `ioj.judge.languages.*` | — | JAVA / CPP / C / PYTHON3 | 各语言源码、编译/运行命令、时间系数、`isolate-processes`、`isolate-memory-extra-mb` |
+| `ioj.judge.languages.*` | — | JAVA / CPP / C / PYTHON3 | 各语言源码、编译/运行命令、时间系数、`isolate-processes`、`isolate-memory-extra-mb`、`probe-commands` |
 | `ioj.judge.checker.*` | `IOJ_JUDGE_CHECKER_*` | 见下 | 自定义判题器（Special Judge）的开关、运行/编译限制与编译命令 |
 
 > `ioj.problem.auto-publish=true` 时，`POST /problems` 会直接返回 `PUBLISHED`，**即使题目还没有测试点**；此时题面可访问，但提交会返回 `3003`。只有管理员通过 `PATCH /admin/problems/{id}/status` 上架时才强制要求至少一个测试点。若希望"有测试点才可见"，应关闭自动发布或在上传后补测试点。
@@ -339,7 +343,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 
 沙箱前置条件、参数映射与常见错误见 [./03-judge.md](./03-judge.md) 与 [./06-isolate.md](./06-isolate.md)。
 
-新增一门语言：在 `judge-protocol/src/main/java/me/iynotuo/judge/protocol/Language.java` 增加枚举值，在主服务器 `application.yaml` 的 `ioj.judge.languages` 下补配置（含 `isolate-processes` / `isolate-memory-extra-mb`），在 Agent 的 `ioj.agent.languages` 里加入该语言并安装对应工具链。Agent 不需要改代码。
+新增一门语言：在 `judge-protocol/src/main/java/me/iynotuo/judge/protocol/Language.java` 增加枚举值，在主服务器 `application.yaml` 的 `ioj.judge.languages` 下补配置（含 `probe-commands`、`isolate-processes` / `isolate-memory-extra-mb`），在每台判题机安装对应工具链。Agent 启动时会从主服务器拉取新语言并探测，无需改 Agent 代码。
 
 ## 接口
 

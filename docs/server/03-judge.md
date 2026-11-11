@@ -93,6 +93,7 @@ server/judge/
 
 | 接口 | 作用 |
 | --- | --- |
+| `GET /internal/judge/config` | Agent 启动时拉取语言、探测命令、checker 和协议版本 |
 | `POST /internal/judge/nodes/heartbeat` | 节点注册/心跳，上报语言、并发、版本 |
 | `POST /internal/judge/tasks/claim` | 领取 1~N 个 PENDING 任务 |
 | `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载完整测试数据 |
@@ -107,6 +108,7 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 ```
 
 - `claim_token` 是 fencing token；结果写入时同时校验 token 和 `JUDGING` 状态。
+- Agent 启动时先拉取 `/internal/judge/config`，按 `requiredLanguages` 的 `probeCommands` 校验本机工具链；缺任何语言就拒绝启动，不会先发心跳或 claim。
 - 测试数据总量小于 `ioj.judge.dispatch.inline-max-bytes`（默认 1 MiB）时直接内联在 claim 响应；超过时返回 `testcaseBundleUrl`，Agent 用同一个 `claimToken` 通过 GET 下载。
 - 租约过期后 `JudgeLeaseReaper` 把任务改回 `PENDING`；超过 `max-attempts` 后改判 `SYSTEM_ERROR`。
 - 同一 token 的重复结果幂等；旧 token 的迟到结果返回 `409`，不会覆盖新结果。
@@ -176,8 +178,9 @@ AgentRunner.execute(task)
 - 命令的第一个词会解析成**宿主机真实路径**（例如 `javac` → `/usr/lib/jvm/.../bin/javac`），避免沙箱内跟随 `/etc/alternatives` 符号链接失败。
 - Python 这类解释型语言没有编译产物，运行阶段会把源文件复制到运行目录。
 - Python 的 `py_compile` 只是语法检查，必须同时设置 `copy-source-to-run: true`，否则 isolate 引擎会跳过源文件复制，运行时找不到 `main.py`。这样语法错误会判 `COMPILATION_ERROR`，合法代码仍然执行源文件。
+- Agents 启动时按 `probe-commands` 校验工具链；每个命令退出码必须为 0。缺少任意一个服务端支持的语言，Agent 拒绝启动。默认探测命令见 `application.yaml`。
 
-新增语言：`judge-protocol/src/main/java/me/iynotuo/judge/protocol/Language.java` 加枚举值，主服务器 `application.yaml` 补一段 `ioj.judge.languages` 配置，Agent 的 `ioj.agent.languages` 加入该语言并安装对应工具链。Agent 代码不需要改。
+新增语言：`judge-protocol/src/main/java/me/iynotuo/judge/protocol/Language.java` 加枚举值，主服务器 `application.yaml` 补一段 `ioj.judge.languages` 配置（含 `probe-commands`），在每台判题机安装对应工具链。Agent 启动时会拉取并探测，代码不需要改。
 
 ## 5. Isolate 沙箱
 

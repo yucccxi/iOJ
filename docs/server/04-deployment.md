@@ -184,7 +184,10 @@ Environment=IOJ_JUDGE_KEY=jsk_改成管理员创建的key
 Environment=IOJ_JUDGE_NODE_ID=judge-1
 Environment=IOJ_JUDGE_CONCURRENCY=2
 ExecStart=/usr/bin/java -Xms128m -Xmx512m -jar /opt/ioj-agent/judge-agent.jar
-Restart=always
+Restart=on-failure
+RestartPreventExitStatus=78
+StartLimitIntervalSec=300
+StartLimitBurst=5
 RestartSec=5
 LimitNOFILE=65536
 
@@ -196,6 +199,8 @@ WantedBy=multi-user.target
 sudo systemctl daemon-reload && sudo systemctl enable --now ioj-judge-agent
 sudo journalctl -u ioj-judge-agent -f
 ```
+
+Agent 启动时会先拉取 `/internal/judge/config`，按主服务器的 `requiredLanguages` 逐项探测工具链；缺少任意一种语言会以退出码 `78` 拒绝启动，不会先发心跳或 claim。安装对应工具包后重启即可。
 
 - 一个 Agent 进程使用一个 key 和一个 `nodeId`
 - 同一台机器跑多个 Agent 时，给每个进程分配不同的 `IOJ_ISOLATE_BOX_ID_START` / `IOJ_ISOLATE_BOX_ID_COUNT`

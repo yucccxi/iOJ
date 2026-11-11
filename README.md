@@ -84,9 +84,9 @@ iOJ/
 - [x] **评测机**：Isolate 2.7 接入完成：编译/运行隔离、MLE 判定、内存统计
 - [x] **文档**：接口文档（前端视角）+ 后端技术文档（架构、数据库、评测、部署、开发）
 - [x] **预览版前端**：`preview-client/`，By NuxusAurora and ChatGPT（已弃用）
+- [ ] **分布式判题器**：主服务器调度 + 独立 Judge Agent，API key、租约、心跳、结果幂等、过期回收
 - [ ] **正式版前端**：`client/`
 - [ ] **Interactive、Run-Twice 题型**：需要扩展评测引擎与题目模型
-- [x] **分布式判题器**：主服务器调度 + 独立 Judge Agent，API key、租约、心跳、结果幂等、过期回收
 
 ## 部署提示
 

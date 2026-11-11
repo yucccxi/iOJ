@@ -18,7 +18,31 @@
 - Agent：`ioj.judge.engine=isolate`
 - Agent 只需要出站访问主服务器，不需要公网入站端口，也不连接 MySQL
 
-## 2. 构建
+## 2. 启动流程
+
+Agent 启动时先向主服务器拉取配置，再决定是否进入 claim 循环：
+
+```text
+读取本地配置（server-url / key / node-id / isolate 路径）
+        ↓
+GET /internal/judge/config（key 认证）
+        ↓
+校验 protocolVersion / 配置完整性
+        ↓
+按 probeCommands 探测所有 requiredLanguages
+        ↓
+探测 Isolate 与 checker 编译器
+        ↓
+全部通过 → 节点心跳（上报已验证语言）
+        ↓
+开始 claim
+```
+
+- 如果主服务器支持的语言在本机探测失败，Agent **拒绝启动**并打印缺失语言和失败的探测命令。
+- 不会先发心跳，避免主服务器在工具链校验完成前分配任务。
+- 判题机是同构的：`requiredLanguages` 默认等于主服务器 `ioj.judge.languages` 的全部 key。
+
+## 3. 构建
 
 在仓库根目录：
 
@@ -27,7 +51,7 @@
 ls judge-agent/target/judge-agent-0.0.1-SNAPSHOT.jar
 ```
 
-## 3. 创建 key
+## 4. 创建 key
 
 管理员登录后调用：
 
@@ -42,7 +66,7 @@ curl -s -X POST https://oj.example.com/api/v1/admin/judge-keys \
 
 一个 Agent 一个 key；更换节点或怀疑泄露时，创建新 key、更新 Agent、禁用旧 key。
 
-## 4. 配置
+## 5. 配置
 
 Agent 的配置在 `judge-agent/src/main/resources/application.yaml`，生产环境建议用环境变量覆盖：
 
@@ -57,17 +81,15 @@ ioj:
     key: ${IOJ_JUDGE_KEY:}
     node-id: ${IOJ_JUDGE_NODE_ID:judge-1}
     concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
-    languages:
-      - JAVA
-      - CPP
-      - C
-      - PYTHON3
     poll-interval-ms: 1000
     max-poll-interval-ms: 5000
     max-claim-batch: 1
     lease-seconds: 300
     heartbeat-interval-ms: 100000
     request-timeout-seconds: 30
+    config-fetch-retries: 5
+    config-fetch-retry-delay-ms: 2000
+    probe-timeout-ms: 5000
 
   judge:
     mode: agent
@@ -102,11 +124,14 @@ ioj:
 
 - **源码文件名、编译命令、运行命令、时间系数、进程数、额外内存**：主服务器 `ioj.judge.languages`，随 claim 响应的 `languageConfig` 下发。
 - **Isolate 路径、box id、`extra-dirs`、编译限制、checker 编译命令**：Agent 本地配置。
-- Agent 的 `ioj.agent.languages` 是本机实际装好的语言；主服务器只分配匹配的题。
+- Agent 不再维护本地语言列表：启动时从主服务器拉取 `requiredLanguages` 和 `probeCommands`，全部探测通过才启动。
+- 主服务器为每种语言配置探测命令，例如 Java `javac -version` / `java -version`、C++ `g++ --version`、Python `python3 --version`；checker 单独配置 `g++ --version`。
+
+Agent 启动失败时不会先发心跳或 claim；缺少工具链会打印具体语言和失败命令，并以退出码 `78` 结束。
 
 这样所有 Agent 使用同一份语言策略，不会出现“同代码不同机器结果不同”。
 
-## 5. systemd
+## 6. systemd
 
 ```ini
 # /etc/systemd/system/ioj-judge-agent.service
@@ -126,7 +151,10 @@ Environment=IOJ_JUDGE_CONCURRENCY=2
 Environment=IOJ_ISOLATE_BOX_ID_START=1
 Environment=IOJ_ISOLATE_BOX_ID_COUNT=2
 ExecStart=/usr/bin/java -Xms128m -Xmx512m -jar /opt/ioj-agent/judge-agent.jar
-Restart=always
+Restart=on-failure
+RestartPreventExitStatus=78
+StartLimitIntervalSec=300
+StartLimitBurst=5
 RestartSec=5
 LimitNOFILE=65536
 
@@ -140,7 +168,16 @@ sudo systemctl enable --now ioj-judge-agent
 sudo journalctl -u ioj-judge-agent -f
 ```
 
-## 6. 多 Agent
+Agent 启动失败时的退出码：
+
+| 退出码 | 含义 |
+| --- | --- |
+| `78` | 配置/工具链/协议不兼容；systemd 不自动重启（`RestartPreventExitStatus=78`） |
+| `75` | 主服务器暂时不可达；可由 systemd 重试 |
+
+如果缺少语言工具链，日志会列出缺失的语言和失败的探测命令，安装后重启 Agent 即可。
+
+## 7. 多 Agent
 
 同一台机器可以跑多个 Agent，但必须：
 
@@ -151,10 +188,11 @@ sudo journalctl -u ioj-judge-agent -f
 
 不同机器之间不需要分段。
 
-## 7. 任务协议
+## 8. 任务协议
 
 | 接口 | 说明 |
 | --- | --- |
+| `GET /internal/judge/config` | 启动时拉取语言、探测命令、checker 和协议版本 |
 | `POST /internal/judge/nodes/heartbeat` | 节点注册/心跳，上报语言、并发、版本 |
 | `POST /internal/judge/tasks/claim` | 领取任务；返回 `claimToken`、测试数据、语言配置 |
 | `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载完整测试数据 |
@@ -167,14 +205,17 @@ sudo journalctl -u ioj-judge-agent -f
 - 旧 token 的迟到结果返回 `409`
 - 租约过期后主服务器重新排队任务；超过 `max-attempts` 判 `SYSTEM_ERROR`
 
-## 8. 排障
+## 9. 排障
 
 | 现象 | 处理 |
 | --- | --- |
 | `ioj.agent.key 未配置` | 设置 `IOJ_JUDGE_KEY` |
 | claim 返回 `401` | key 错误/禁用/过期；重新创建或启用 |
 | claim 返回 `409` | `nodeId` 已绑定其他 key；换 nodeId 或删除旧节点 |
-| 一直领取不到任务 | 检查 `GET /api/v1/admin/judge-nodes`、Agent `languages`、主服务器是否有 PENDING |
+| 启动失败 `判题机能力校验失败` | 本机缺少主服务器要求的语言工具链；按日志中的探测命令安装后重启 |
+| 启动失败 `主服务器协议版本不匹配` | 主服务器与 Agent 版本不兼容；先升级 Agent 或回滚主服务器 |
+| 启动失败 `无法从主服务器获取判题配置` | 检查 `IOJ_JUDGE_SERVER_URL`、网络和主服务器状态；Agent 会按 `config-fetch-retries` 重试 |
+| 一直领取不到任务 | 检查 `GET /api/v1/admin/judge-nodes`、节点是否 ONLINE、主服务器是否有 PENDING |
 | 任务一直 JUDGING | Agent 崩溃/失联；等租约过期回收，检查 Agent 日志 |
 | Python 运行失败 | 确认主服务器 Python 配置同时有 `compile-command: python3 -m py_compile main.py` 和 `copy-source-to-run: true`，见 03-judge.md §4 |
 | `isolate binary is not executable` | 给运行用户执行权限，确认 `isolate --version` |
@@ -182,7 +223,7 @@ sudo journalctl -u ioj-judge-agent -f
 | JVM `Error loading java.security file` | `extra-dirs` 加 `/etc/java-21-openjdk` |
 | 节点显示 OFFLINE | 心跳超时；检查网络、进程、`IOJ_JUDGE_HEARTBEAT_INTERVAL_MS` |
 
-## 9. 安全
+## 10. 安全
 
 - Agent 不需要 root；Isolate 自身 setuid
 - Agent 不连接 MySQL，不持有 JWT/SMTP 凭据

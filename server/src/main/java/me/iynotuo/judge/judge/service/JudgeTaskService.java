@@ -163,7 +163,8 @@ public class JudgeTaskService {
                 language.getTimeMultiplier(),
                 language.getIsolateProcesses(),
                 language.getIsolateMemoryExtraMb(),
-                language.isCopySourceToRun());
+                language.isCopySourceToRun(),
+                language.getProbeCommands());
         return new JudgeTask(
                 submission.getId(),
                 submission.getId(),

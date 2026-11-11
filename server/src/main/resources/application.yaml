@@ -120,6 +120,8 @@ ioj:
       source-file: checker.cpp
       compile-command: g++ -O2 -std=c++17 -pipe -o checker checker.cpp
       message-limit-bytes: 1024
+      probe-commands:
+        - g++ --version
     isolate:
       binary: /usr/bin/isolate
       # Box 0 is commonly created by root during manual tests; start at 1 so a non-root
@@ -150,6 +152,9 @@ ioj:
         time-multiplier: 2.0
         isolate-processes: 64
         isolate-memory-extra-mb: 256
+        probe-commands:
+          - javac -version
+          - java -version
       CPP:
         display-name: C++17
         source-file: main.cpp
@@ -159,6 +164,8 @@ ioj:
         time-multiplier: 1.0
         isolate-processes: 1
         isolate-memory-extra-mb: 16
+        probe-commands:
+          - g++ --version
       C:
         display-name: C11
         source-file: main.c
@@ -168,6 +175,8 @@ ioj:
         time-multiplier: 1.0
         isolate-processes: 1
         isolate-memory-extra-mb: 16
+        probe-commands:
+          - gcc --version
       PYTHON3:
         display-name: Python 3
         source-file: main.py
@@ -178,6 +187,8 @@ ioj:
         time-multiplier: 3.0
         isolate-processes: 1
         isolate-memory-extra-mb: 64
+        probe-commands:
+          - python3 --version
 
 logging:
   level:
