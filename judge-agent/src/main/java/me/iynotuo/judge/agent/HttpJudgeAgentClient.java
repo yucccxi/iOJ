@@ -19,12 +19,18 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * HTTP implementation of the internal judge protocol.
@@ -68,11 +74,56 @@ public class HttpJudgeAgentClient implements JudgeAgentClient {
 
     @Override
     public List<JudgeTestCase> fetchTestcases(Long taskId, String claimToken) {
-        List<JudgeTestCase> testcases = get("/internal/judge/tasks/" + taskId + "/testcases?claimToken="
-                        + claimToken,
-                new TypeReference<JudgeApiResponse<List<JudgeTestCase>>>() {
-                });
-        return testcases == null ? List.of() : testcases;
+        if (properties.getKey() == null || properties.getKey().isBlank()) {
+            throw new IllegalStateException("ioj.agent.key 未配置，无法访问主服务器");
+        }
+        String path = "/internal/judge/tasks/" + taskId + "/testcases?claimToken=" + claimToken;
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + path))
+                    .timeout(Duration.ofSeconds(Math.max(1, properties.getRequestTimeoutSeconds())))
+                    .header("Authorization", "Bearer " + properties.getKey().trim())
+                    .header("Accept", "application/zip, application/json")
+                    .GET()
+                    .build();
+            HttpResponse<InputStream> response = httpClient.send(request,
+                    HttpResponse.BodyHandlers.ofInputStream());
+            try (InputStream body = response.body()) {
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    throw new AgentClientException("HTTP " + response.statusCode() + ": "
+                            + new String(body.readAllBytes(), StandardCharsets.UTF_8));
+                }
+                String contentType = response.headers().firstValue("Content-Type").orElse("");
+                if (contentType.toLowerCase(Locale.ROOT).contains("zip")) {
+                    return readTestcaseZip(body);
+                }
+                JudgeApiResponse<List<JudgeTestCase>> envelope = json.readValue(body,
+                        new TypeReference<JudgeApiResponse<List<JudgeTestCase>>>() {
+                        });
+                if (envelope.code() != 0) {
+                    throw new AgentClientException("业务错误 " + envelope.code() + ": " + envelope.message());
+                }
+                return envelope.data() == null ? List.of() : envelope.data();
+            }
+        } catch (AgentClientException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new AgentClientException("下载测试数据失败: " + ex.getMessage(), ex);
+        }
+    }
+
+    private List<JudgeTestCase> readTestcaseZip(InputStream body) throws IOException {
+        try (ZipInputStream zip = new ZipInputStream(body)) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                if ("testcases.json".equals(entry.getName())) {
+                    List<JudgeTestCase> testcases = json.readValue(zip,
+                            new TypeReference<List<JudgeTestCase>>() {
+                            });
+                    return testcases == null ? List.of() : testcases;
+                }
+            }
+        }
+        throw new AgentClientException("测试数据 bundle 中缺少 testcases.json");
     }
 
     @Override

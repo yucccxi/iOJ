@@ -97,7 +97,7 @@ server/judge/
 | `GET /internal/judge/config` | Agent 启动时拉取语言、探测命令、checker 和协议版本 |
 | `POST /internal/judge/nodes/heartbeat` | 节点注册/心跳，上报语言、并发、版本 |
 | `POST /internal/judge/tasks/claim` | 领取 1~N 个 PENDING 任务 |
-| `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载完整测试数据 |
+| `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载 ZIP bundle（含 `testcases.json`） |
 | `POST /internal/judge/tasks/{id}/heartbeat` | 续租；返回 `cancel=true` 表示任务已被重领/重测 |
 | `POST /internal/judge/tasks/{id}/result` | 回报终态结果 |
 | `POST /internal/judge/tasks/{id}/release` | Agent 优雅停机时释放未开始任务 |
@@ -110,7 +110,9 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 
 - `claim_token` 是 fencing token；结果写入时同时校验 token 和 `JUDGING` 状态。
 - Agent 启动时先拉取 `/internal/judge/config`，按 `requiredLanguages` 的 `probeCommands` 校验本机工具链；缺任何语言就拒绝启动，不会先发心跳或 claim。
-- 测试数据总量小于 `ioj.judge.dispatch.inline-max-bytes`（默认 1 MiB）时直接内联在 claim 响应；超过时返回 `testcaseBundleUrl`，Agent 用同一个 `claimToken` 通过 GET 下载。
+- 测试数据总量不超过 `ioj.judge.dispatch.inline-max-bytes`（默认 1 MiB）时直接内联在 claim 响应；超过时返回 `testcaseBundleUrl`，Agent 用同一个 `claimToken` 通过 GET 下载 ZIP bundle。
+- ZIP bundle 只有一个 `testcases.json` 条目。Agent 请求时发送 `Accept: application/zip, application/json`；服务端按 `Accept` 返回 ZIP 或旧的 JSON 格式，便于滚动升级。
+- `bundleSha256` 字段已预留但当前 ZIP 响应暂不填充；ZIP/DEFLATE 自带 CRC32，可用于发现传输损坏。
 - 租约过期后 `JudgeLeaseReaper` 把任务改回 `PENDING`；超过 `max-attempts` 后改判 `SYSTEM_ERROR`。
 - 同一 token 的重复结果幂等；旧 token 的迟到结果返回 `409`，不会覆盖新结果。
 - `accepted_count` 只在条件更新真正把提交写成 `ACCEPTED` 时 +1。

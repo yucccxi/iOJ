@@ -17,11 +17,14 @@ import me.iynotuo.judge.protocol.SubmissionStatus;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.io.ByteArrayOutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -105,6 +108,39 @@ class HttpJudgeAgentClientTest {
             client.release(1L, "claim-token", "no free slot");
             assertThat(releaseBody.get()).contains("\"claimToken\":\"claim-token\"");
             assertThat(releaseBody.get()).contains("\"reason\":\"no free slot\"");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void fetchesZipTestcaseBundle() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/internal/judge/tasks/1/testcases", exchange -> {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+                zip.putNextEntry(new ZipEntry("testcases.json"));
+                zip.write(json.writeValueAsBytes(
+                        List.of(new JudgeTestCase(1, "1 2\n", "3\n"))));
+                zip.closeEntry();
+            }
+            exchange.getResponseHeaders().add("Content-Type", "application/zip");
+            exchange.sendResponseHeaders(200, bytes.size());
+            exchange.getResponseBody().write(bytes.toByteArray());
+            exchange.close();
+        });
+        server.start();
+
+        try {
+            AgentProperties properties = new AgentProperties();
+            properties.setServerUrl("http://127.0.0.1:" + server.getAddress().getPort());
+            properties.setKey("jsk_test");
+            properties.setNodeId("judge-1");
+            HttpJudgeAgentClient client = new HttpJudgeAgentClient(properties, json);
+
+            List<JudgeTestCase> testcases = client.fetchTestcases(1L, "claim-token");
+            assertThat(testcases).hasSize(1);
+            assertThat(testcases.get(0).input()).isEqualTo("1 2\n");
         } finally {
             server.stop(0);
         }

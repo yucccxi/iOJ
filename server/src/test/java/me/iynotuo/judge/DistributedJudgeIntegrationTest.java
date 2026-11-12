@@ -2,6 +2,7 @@ package me.iynotuo.judge;
 
 import me.iynotuo.judge.common.enums.UserRole;
 import me.iynotuo.judge.judge.service.JudgeLeaseReaper;
+import me.iynotuo.judge.protocol.JudgeTestCase;
 import me.iynotuo.judge.user.entity.User;
 import me.iynotuo.judge.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -9,12 +10,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 
+import java.io.ByteArrayInputStream;
 import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -102,6 +107,27 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
                 + "/testcases?claimToken=" + claimToken, judgeKey);
         assertThat(bundle.path("data").size()).isEqualTo(1);
         assertThat(bundle.path("data").get(0).path("input").asString()).isEqualTo("1 2\n");
+
+        // Agents that ask for ZIP receive a compressed bundle with one testcases.json entry.
+        HttpResponse<byte[]> zipResponse = client.send(request("/internal/judge/tasks/" + submissionId
+                        + "/testcases?claimToken=" + claimToken)
+                        .header("Authorization", "Bearer " + judgeKey)
+                        .header("Accept", "application/zip")
+                        .GET()
+                        .build(), HttpResponse.BodyHandlers.ofByteArray());
+        assertThat(zipResponse.statusCode()).isEqualTo(200);
+        assertThat(zipResponse.headers().firstValue("Content-Type").orElse(""))
+                .contains("application/zip");
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(zipResponse.body()))) {
+            ZipEntry entry = zip.getNextEntry();
+            assertThat(entry).isNotNull();
+            assertThat(entry.getName()).isEqualTo("testcases.json");
+            List<JudgeTestCase> zipped = JSON.readValue(zip,
+                    new TypeReference<List<JudgeTestCase>>() {
+                    });
+            assertThat(zipped).hasSize(1);
+            assertThat(zipped.get(0).input()).isEqualTo("1 2\n");
+        }
         assertThat(get("/api/v1/submissions/" + submissionId, adminToken)
                 .path("data").path("status").asString()).isEqualTo("JUDGING");
 

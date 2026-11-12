@@ -195,11 +195,13 @@ Agent 启动失败时的退出码：
 | `GET /internal/judge/config` | 启动时拉取语言、探测命令、checker 和协议版本 |
 | `POST /internal/judge/nodes/heartbeat` | 节点注册/心跳，上报语言、并发、版本 |
 | `POST /internal/judge/tasks/claim` | 领取任务；返回 `claimToken`、测试数据、语言配置 |
-| `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载完整测试数据 |
+| `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载 ZIP bundle（含 `testcases.json`） |
 | `POST /internal/judge/tasks/{id}/heartbeat` | 续租；`cancel=true` 表示任务已被重领/重测 |
 | `POST /internal/judge/tasks/{id}/result` | 回报终态结果 |
 | `POST /internal/judge/tasks/{id}/release` | 优雅停机时释放未开始任务 |
 
+- 大数据任务通过 `Accept: application/zip, application/json` 下载；新服务端返回 ZIP，旧服务端返回 JSON，Agent 两者都支持
+- ZIP bundle 只有一个 `testcases.json` 条目
 - 结果写入会校验 `claimToken` 和 `JUDGING` 状态
 - 同一 token 重复回报幂等
 - 旧 token 的迟到结果返回 `409`

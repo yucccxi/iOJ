@@ -160,10 +160,10 @@ ioj:
 | `OutputComparatorTest` / `IsolateMetaTest` / `ProgramAnswerCheckerTest` / `IsolateSandboxCommandTest` | 位于 `judge-core`：输出比对、Isolate meta、判题器退出码映射、isolate 命令行 |
 | `AgentTaskMapperTest` | 位于 `judge-agent`：协议任务 → JudgeContext、JudgeOutcome → JudgeResult |
 | `AgentBootstrapTest` | 位于 `judge-agent`：启动配置拉取、协议校验、工具链探测、缺失语言拒绝启动 |
-| `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、claim → 执行 → 回报循环 |
+| `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、ZIP bundle 解析、claim → 执行 → 回报循环 |
 | `JudgeAgentApplicationTest` | 位于 `judge-agent`：Spring 上下文、配置绑定和 Agent Bean 装配 |
 | `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→匿名列表→提交 Java 代码→本地 local 引擎评测→AC/WA→权限裁剪 |
-| `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收 |
+| `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、ZIP bundle 下载、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收 |
 | `AdminModerationIntegrationTest` | 测试点单个/批量增删查、题目审核上下架、后台用户搜索、封禁后旧 token 立即失效 |
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、匿名与越权拒绝、题目详情只暴露 `hasChecker`、local 引擎返回 `CHECKER_ERROR` |
 | `ProgramAnswerCheckerTest` | 判题器退出码 0/1/2/其他、超时、崩溃、内存超限、编译失败、缺少二进制（假 Sandbox，无需 isolate） |

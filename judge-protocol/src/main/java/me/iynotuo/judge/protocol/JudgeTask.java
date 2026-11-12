@@ -6,8 +6,8 @@ import java.util.List;
  * One unit of work claimed by a judge agent.
  *
  * <p>Large test data is not required to travel in this payload: {@code testcaseBundleUrl} points at a
- * streaming download that the agent can fetch with the same claim token. Small tasks may inline the
- * test cases instead.</p>
+ * ZIP download that the agent can fetch with the same claim token. The archive contains a single
+ * {@code testcases.json} entry. Small tasks may inline the test cases instead.</p>
  *
  * @param taskId             submission id used as the task id in the current implementation
  * @param submissionId       submission being judged
@@ -20,8 +20,9 @@ import java.util.List;
  * @param languageConfig     compile/run command snapshot
  * @param checkerCode        custom checker source, or {@code null} for the built-in comparator
  * @param testcases          inline test cases; empty when a bundle is used
- * @param testcaseBundleUrl  relative or absolute URL of a compressed test case bundle
- * @param bundleSha256       SHA-256 of the bundle, used to verify the download
+ * @param testcaseBundleUrl  relative or absolute URL of a ZIP test case bundle containing
+ *                           {@code testcases.json}
+ * @param bundleSha256       SHA-256 of the bundle, or {@code null} when the server does not provide one
  */
 public record JudgeTask(Long taskId,
                         Long submissionId,

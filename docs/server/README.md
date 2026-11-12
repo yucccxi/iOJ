@@ -225,10 +225,10 @@ Agent 启动时会先拉取 `/internal/judge/config`，按主服务器的 `requi
 | `OutputComparatorTest` / `IsolateMetaTest` / `ProgramAnswerCheckerTest` / `IsolateSandboxCommandTest` | 位于 `judge-core`：输出比对、Isolate meta、判题器状态映射、isolate 命令行 |
 | `AgentTaskMapperTest` | 位于 `judge-agent`：协议任务 → JudgeContext、JudgeOutcome → JudgeResult |
 | `AgentBootstrapTest` | 位于 `judge-agent`：启动配置拉取、协议校验、工具链探测、缺失语言拒绝启动 |
-| `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、claim → 执行 → 回报循环 |
+| `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、ZIP bundle 解析、claim → 执行 → 回报循环 |
 | `JudgeAgentApplicationTest` | 位于 `judge-agent`：Spring 上下文、配置绑定和 Agent Bean 装配 |
 | `ApiFlowIntegrationTest` | 注册→登录→建题→传测试数据→提交→本地评测→AC/WA→字段裁剪 |
-| `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收 |
+| `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、ZIP bundle 下载、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收 |
 | `AdminModerationIntegrationTest` | 测试数据增删改查、题目上下架、用户搜索与封禁 |
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、越权访问、`hasChecker` 暴露面、`CHECKER_ERROR` 判定 |
 | `ProgramAnswerCheckerTest` | 判题器结果 → 提交状态的映射（假 Sandbox，覆盖 AC/WA/PE/超时/崩溃/编译失败） |
@@ -332,7 +332,7 @@ Isolate 相关默认值（`application.yaml` 中可改）：
 ## 评测说明
 
 - **架构**：主服务器默认 `mode=remote`，不执行用户代码；判题 Agent 通过 `/internal/judge/**` 领取任务并在 Isolate 中编译/运行。
-- **流程**：提交入库为"排队中" → Agent claim 并写入租约 → 沙箱编译 → 逐测试点新建沙箱运行 → Agent 回报结果 → 主服务器条件落库。
+- **流程**：提交入库为"排队中" → Agent claim 并写入租约 → 沙箱编译 → 逐测试点新建沙箱运行 → Agent 回报结果 → 主服务器条件落库。测试数据较大时通过 ZIP bundle 下载，压缩后的内容只包含一个 `testcases.json` 条目。
 - **租约**：`claim_token` + `lease_expires_at`；Agent 通过心跳续租，超时由 `JudgeLeaseReaper` 重新排队，超过最大尝试次数判 `SYSTEM_ERROR`。
 - **资源限制**：`--time`（CPU）、`--wall-time`、`--cg-mem`、`--fsize`、`--processes`；JVM 需要更多线程与额外内存，已在语言配置中单独设置。
 - **统计**：Isolate 返回 `time` 与 `cg-mem`，会写入逐点结果，因此 `memoryUsedKb` 有值，OOM 可判为 `MEMORY_LIMIT_EXCEEDED`。
