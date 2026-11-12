@@ -177,7 +177,7 @@
             claimed_at = NULL,
             lease_expires_at = NULL
         WHERE status = 'JUDGING'
-          AND lease_expires_at &lt; #{now}
+          AND lease_expires_at &lt;= #{now}
           AND attempt_count &lt; #{maxAttempts}
     </update>
 
@@ -192,7 +192,7 @@
             claimed_at = NULL,
             lease_expires_at = NULL
         WHERE status = 'JUDGING'
-          AND lease_expires_at &lt; #{now}
+          AND lease_expires_at &lt;= #{now}
           AND attempt_count &gt;= #{maxAttempts}
     </update>
 

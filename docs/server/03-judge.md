@@ -114,6 +114,7 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 - ZIP bundle 只有一个 `testcases.json` 条目。Agent 请求时发送 `Accept: application/zip, application/json`；服务端按 `Accept` 返回 ZIP 或旧的 JSON 格式，便于滚动升级。
 - `bundleSha256` 字段已预留但当前 ZIP 响应暂不填充；ZIP/DEFLATE 自带 CRC32，可用于发现传输损坏。
 - 任务租约由主服务器 `ioj.judge.dispatch.lease-seconds` 决定；Agent 任务心跳间隔为租约的 `1/3`。
+- 租约边界采用半开区间：`lease_expires_at > now` 时仍有效，`lease_expires_at <= now` 时回收器可以处理；心跳在等号时返回 `cancel=true`。
 - 节点离线阈值由主服务器 `ioj.judge.dispatch.node-offline-seconds` 决定；Agent 启动后立即发一次节点心跳，之后按该值的 `1/3` 调度；拿到响应前先使用本地默认间隔。
 - 租约过期后 `JudgeLeaseReaper` 把任务改回 `PENDING`；超过 `max-attempts` 后改判 `SYSTEM_ERROR`。
 - 同一 token 的重复结果幂等；旧 token 的迟到结果返回 `409`，不会覆盖新结果。
