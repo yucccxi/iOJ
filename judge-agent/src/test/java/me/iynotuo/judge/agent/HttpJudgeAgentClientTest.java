@@ -6,6 +6,7 @@ import me.iynotuo.judge.protocol.JudgeApiResponse;
 import me.iynotuo.judge.protocol.JudgeBootstrapConfig;
 import me.iynotuo.judge.protocol.JudgeHeartbeatResponse;
 import me.iynotuo.judge.protocol.JudgeLanguageConfig;
+import me.iynotuo.judge.protocol.JudgeNodeHeartbeatResponse;
 import me.iynotuo.judge.protocol.JudgeNodeInfo;
 import me.iynotuo.judge.protocol.JudgeResult;
 import me.iynotuo.judge.protocol.JudgeTask;
@@ -44,7 +45,8 @@ class HttpJudgeAgentClientTest {
 
         server.createContext("/internal/judge/nodes/heartbeat", exchange -> {
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
-            respond(exchange, JudgeApiResponse.class, new JudgeApiResponse<>(0, "ok", null));
+            respond(exchange, JudgeApiResponse.class,
+                    new JudgeApiResponse<>(0, "ok", new JudgeNodeHeartbeatResponse(90)));
         });
         server.createContext("/internal/judge/tasks/claim", exchange -> {
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
@@ -86,8 +88,10 @@ class HttpJudgeAgentClientTest {
 
             assertThat(client.fetchConfig().requiredLanguages()).containsExactly(Language.JAVA);
 
-            client.heartbeatNode(new JudgeNodeInfo("judge-1", "host", "0.0.1",
-                    List.of(Language.JAVA), 1, 0, "2.7"));
+            JudgeNodeHeartbeatResponse nodeHeartbeat = client.heartbeatNode(
+                    new JudgeNodeInfo("judge-1", "host", "0.0.1",
+                            List.of(Language.JAVA), 1, 0, "2.7"));
+            assertThat(nodeHeartbeat.offlineSeconds()).isEqualTo(90);
             assertThat(authorization.get()).isEqualTo("Bearer jsk_test");
 
             List<JudgeTask> tasks = client.claim(1, List.of(Language.JAVA));

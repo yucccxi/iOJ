@@ -4,6 +4,7 @@ import jakarta.annotation.PreDestroy;
 import me.iynotuo.judge.core.JudgeOutcome;
 import me.iynotuo.judge.core.engine.JudgeEngine;
 import me.iynotuo.judge.protocol.JudgeHeartbeatResponse;
+import me.iynotuo.judge.protocol.JudgeNodeHeartbeatResponse;
 import me.iynotuo.judge.protocol.JudgeNodeInfo;
 import me.iynotuo.judge.protocol.JudgeResult;
 import me.iynotuo.judge.protocol.JudgeTask;
@@ -39,6 +40,9 @@ public class AgentRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AgentRunner.class);
 
+    private static final int DEFAULT_TASK_LEASE_SECONDS = 300;
+    private static final long MIN_HEARTBEAT_INTERVAL_MS = 1_000L;
+
     private final AgentProperties properties;
     private final JudgeAgentClient client;
     private final AgentTaskMapper taskMapper;
@@ -47,6 +51,7 @@ public class AgentRunner {
     private final Semaphore slots;
     private final ExecutorService executor;
     private final ConcurrentHashMap<Long, JudgeTask> activeTasks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Long> taskHeartbeatDeadlines = new ConcurrentHashMap<>();
     private final Set<Long> cancelledTasks = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final AtomicInteger emptyPolls = new AtomicInteger();
@@ -55,6 +60,8 @@ public class AgentRunner {
     private Thread loopThread;
     private volatile List<Language> languages = List.of();
     private volatile String configVersion = "";
+    private volatile long nodeHeartbeatIntervalMs;
+    private volatile long nextNodeHeartbeatAtNanos = Long.MAX_VALUE;
 
     public AgentRunner(AgentProperties properties,
                        JudgeAgentClient client,
@@ -66,6 +73,8 @@ public class AgentRunner {
         this.taskMapper = taskMapper;
         this.judgeEngine = judgeEngine;
         this.bootstrap = bootstrap;
+        this.nodeHeartbeatIntervalMs = Math.max(MIN_HEARTBEAT_INTERVAL_MS,
+                properties.getNodeHeartbeatIntervalMs());
         this.slots = new Semaphore(Math.max(1, properties.getConcurrency()));
         AtomicInteger counter = new AtomicInteger();
         this.executor = Executors.newFixedThreadPool(Math.max(1, properties.getConcurrency()), runnable -> {
@@ -96,27 +105,48 @@ public class AgentRunner {
         safeNodeHeartbeat();
         loopThread = new Thread(this::runLoop, "judge-agent-loop");
         loopThread.start();
-        log.info("判题 Agent 已启动 nodeId={} server={} concurrency={} languages={} configVersion={}",
+        log.info("判题 Agent 已启动 nodeId={} server={} concurrency={} languages={} configVersion={} "
+                        + "nodeHeartbeatIntervalMs={}",
                 properties.getNodeId(), properties.getServerUrl(), properties.getConcurrency(),
-                languages, configVersion);
+                languages, configVersion, nodeHeartbeatIntervalMs);
     }
 
-    @Scheduled(fixedDelayString = "${ioj.agent.heartbeat-interval-ms:100000}")
+    @Scheduled(fixedDelayString = "${ioj.agent.heartbeat-tick-ms:1000}")
     public void heartbeat() {
         if (!running.get() || languages.isEmpty()) {
             return;
         }
-        safeNodeHeartbeat();
+        if (System.nanoTime() >= nextNodeHeartbeatAtNanos) {
+            safeNodeHeartbeat();
+        }
+        long now = System.nanoTime();
         for (JudgeTask task : activeTasks.values()) {
+            Long deadline = taskHeartbeatDeadlines.get(task.taskId());
+            if (deadline == null) {
+                taskHeartbeatDeadlines.put(task.taskId(),
+                        now + taskHeartbeatIntervalNanos(task.leaseSeconds()));
+                continue;
+            }
+            if (now < deadline) {
+                continue;
+            }
             try {
                 JudgeHeartbeatResponse response = client.heartbeatTask(task.taskId(), task.claimToken());
-                if (response.cancel()) {
+                if (response == null || response.cancel()) {
                     cancelledTasks.add(task.taskId());
                     activeTasks.remove(task.taskId());
+                    taskHeartbeatDeadlines.remove(task.taskId());
                     log.warn("主服务器要求取消任务 submissionId={}", task.taskId());
+                } else {
+                    taskHeartbeatDeadlines.put(task.taskId(), System.nanoTime()
+                            + taskHeartbeatIntervalNanos(response.leaseSeconds(), task.leaseSeconds()));
                 }
             } catch (Exception ex) {
                 log.warn("任务心跳失败 submissionId={}: {}", task.taskId(), ex.getMessage());
+                long retryNanos = Math.min(taskHeartbeatIntervalNanos(task.leaseSeconds()),
+                        TimeUnit.SECONDS.toNanos(5));
+                taskHeartbeatDeadlines.put(task.taskId(), System.nanoTime()
+                        + Math.max(TimeUnit.SECONDS.toNanos(1), retryNanos));
             }
         }
     }
@@ -142,6 +172,8 @@ public class AgentRunner {
                         continue;
                     }
                     activeTasks.put(task.taskId(), task);
+                    taskHeartbeatDeadlines.put(task.taskId(),
+                            System.nanoTime() + taskHeartbeatIntervalNanos(task.leaseSeconds()));
                     executor.execute(() -> execute(task));
                 }
             } catch (Exception ex) {
@@ -170,6 +202,7 @@ public class AgentRunner {
             reportWithRetry(task, taskMapper.systemError(task, "判题机执行失败: " + ex.getMessage()));
         } finally {
             activeTasks.remove(task.taskId());
+            taskHeartbeatDeadlines.remove(task.taskId());
             slots.release();
         }
     }
@@ -193,10 +226,35 @@ public class AgentRunner {
 
     private void safeNodeHeartbeat() {
         try {
-            client.heartbeatNode(nodeInfo());
+            JudgeNodeHeartbeatResponse response = client.heartbeatNode(nodeInfo());
+            if (response != null && response.offlineSeconds() > 0) {
+                long interval = heartbeatIntervalMs(response.offlineSeconds());
+                if (interval != nodeHeartbeatIntervalMs) {
+                    log.info("节点心跳间隔更新 offlineSeconds={} heartbeatIntervalMs={}",
+                            response.offlineSeconds(), interval);
+                    nodeHeartbeatIntervalMs = interval;
+                }
+            }
         } catch (Exception ex) {
             log.warn("节点心跳失败: {}", ex.getMessage());
+        } finally {
+            nextNodeHeartbeatAtNanos = System.nanoTime()
+                    + TimeUnit.MILLISECONDS.toNanos(nodeHeartbeatIntervalMs);
         }
+    }
+
+    private long heartbeatIntervalMs(int seconds) {
+        return Math.max(MIN_HEARTBEAT_INTERVAL_MS, seconds * 1000L / 3);
+    }
+
+    private long taskHeartbeatIntervalNanos(int leaseSeconds) {
+        return taskHeartbeatIntervalNanos(leaseSeconds, DEFAULT_TASK_LEASE_SECONDS);
+    }
+
+    private long taskHeartbeatIntervalNanos(int responseLeaseSeconds, int taskLeaseSeconds) {
+        int leaseSeconds = responseLeaseSeconds > 0 ? responseLeaseSeconds : taskLeaseSeconds;
+        int effectiveLease = leaseSeconds > 0 ? leaseSeconds : DEFAULT_TASK_LEASE_SECONDS;
+        return TimeUnit.MILLISECONDS.toNanos(heartbeatIntervalMs(effectiveLease));
     }
 
     private JudgeNodeInfo nodeInfo() {

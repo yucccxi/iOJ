@@ -139,8 +139,8 @@ mysql -uioj -p ioj < server/src/main/resources/db/migrate-distributed-judge.sql
 | `IOJ_JUDGE_NODE_ID` | 否 | 节点 id，默认 `judge-1`；一台 Agent 一个唯一 id |
 | `IOJ_JUDGE_CONCURRENCY` | 否 | 本机并发，默认 `1`，建议 CPU 核数 - 1 |
 | `IOJ_JUDGE_POLL_INTERVAL_MS` / `IOJ_JUDGE_MAX_POLL_INTERVAL_MS` | 否 | 空闲轮询与最大退避，默认 `1000` / `5000` |
-| `IOJ_JUDGE_LEASE_SECONDS` | 否 | 申请的任务租约，默认 `300` |
-| `IOJ_JUDGE_HEARTBEAT_INTERVAL_MS` | 否 | 节点/任务心跳间隔，默认 `100000` |
+| `IOJ_JUDGE_NODE_HEARTBEAT_INTERVAL_MS` | 否 | 首次节点心跳间隔，默认 `30000`；之后按服务端 `offlineSeconds / 3` 调整 |
+| `IOJ_JUDGE_HEARTBEAT_TICK_MS` | 否 | 心跳调度器的检查间隔，默认 `1000` |
 | `IOJ_JUDGE_CONFIG_FETCH_RETRIES` / `IOJ_JUDGE_CONFIG_FETCH_RETRY_DELAY_MS` | 否 | 启动配置拉取重试次数/间隔，默认 `5` / `2000` |
 | `IOJ_JUDGE_PROBE_TIMEOUT_MS` | 否 | 单条工具链探测超时，默认 `5000` |
 | `IOJ_ISOLATE_BINARY` | 否 | Isolate 路径，默认 `/usr/bin/isolate` |
@@ -268,7 +268,8 @@ Agent 启动时会先拉取 `/internal/judge/config`，按主服务器的 `requi
 | `ioj.judge.mode` | `IOJ_JUDGE_MODE` | `remote` | `remote` 主服务器调度；`local` 测试/本地开发 |
 | `ioj.judge.engine` | `IOJ_JUDGE_ENGINE` | `none` | 主服务器默认 `none`；Agent 为 `isolate`；`local` 仅测试 |
 | `ioj.judge.isolate.*` | — | 见下 | Isolate 路径、box 编号、编译限制、额外目录等 |
-| `ioj.judge.dispatch.lease-seconds` | `IOJ_JUDGE_LEASE_SECONDS` | `300` | Agent 任务租约 |
+| `ioj.judge.dispatch.lease-seconds` | `IOJ_JUDGE_LEASE_SECONDS` | `300` | Agent 任务租约；任务心跳为该值的 `1/3` |
+| `ioj.judge.dispatch.node-offline-seconds` | `IOJ_JUDGE_NODE_OFFLINE_SECONDS` | `90` | 节点心跳超时阈值；Agent 节点心跳为该值的 `1/3` |
 | `ioj.judge.dispatch.max-attempts` | `IOJ_JUDGE_MAX_ATTEMPTS` | `3` | 任务最多领取次数 |
 | `ioj.judge.dispatch.max-claim-batch` | `IOJ_JUDGE_MAX_CLAIM_BATCH` | `10` | 单次 claim 最多任务数 |
 | `ioj.judge.dispatch.inline-max-bytes` | `IOJ_JUDGE_INLINE_MAX_BYTES` | `1048576` | 测试数据超过该字节数时改用 bundle 下载 |

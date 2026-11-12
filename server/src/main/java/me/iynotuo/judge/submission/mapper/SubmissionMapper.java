@@ -74,6 +74,7 @@ public interface SubmissionMapper {
      */
     int extendLease(@Param("id") Long id,
                     @Param("claimToken") String claimToken,
+                    @Param("now") LocalDateTime now,
                     @Param("leaseExpiresAt") LocalDateTime leaseExpiresAt);
 
     /**

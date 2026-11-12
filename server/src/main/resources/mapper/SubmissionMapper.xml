@@ -137,6 +137,7 @@
         WHERE id = #{id}
           AND claim_token = #{claimToken}
           AND status = 'JUDGING'
+          AND lease_expires_at &gt; #{now}
     </update>
 
     <update id="releaseClaim">

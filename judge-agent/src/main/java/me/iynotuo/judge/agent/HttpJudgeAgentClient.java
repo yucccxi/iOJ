@@ -4,6 +4,7 @@ import me.iynotuo.judge.protocol.JudgeApiResponse;
 import me.iynotuo.judge.protocol.JudgeBootstrapConfig;
 import me.iynotuo.judge.protocol.JudgeHeartbeatRequest;
 import me.iynotuo.judge.protocol.JudgeHeartbeatResponse;
+import me.iynotuo.judge.protocol.JudgeNodeHeartbeatResponse;
 import me.iynotuo.judge.protocol.JudgeNodeInfo;
 import me.iynotuo.judge.protocol.JudgeReleaseRequest;
 import me.iynotuo.judge.protocol.JudgeResult;
@@ -127,9 +128,9 @@ public class HttpJudgeAgentClient implements JudgeAgentClient {
     }
 
     @Override
-    public void heartbeatNode(JudgeNodeInfo info) {
-        post("/internal/judge/nodes/heartbeat", info,
-                new TypeReference<JudgeApiResponse<Void>>() {
+    public JudgeNodeHeartbeatResponse heartbeatNode(JudgeNodeInfo info) {
+        return post("/internal/judge/nodes/heartbeat", info,
+                new TypeReference<JudgeApiResponse<JudgeNodeHeartbeatResponse>>() {
                 });
     }
 

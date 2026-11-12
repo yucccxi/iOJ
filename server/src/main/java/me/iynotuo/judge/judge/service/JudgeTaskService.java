@@ -109,8 +109,9 @@ public class JudgeTaskService {
         if (claimToken == null || claimToken.isBlank()) {
             return new JudgeHeartbeatResponse(0, true);
         }
-        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(leaseSeconds);
-        int updated = submissionMapper.extendLease(submissionId, claimToken, expiresAt);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiresAt = now.plusSeconds(leaseSeconds);
+        int updated = submissionMapper.extendLease(submissionId, claimToken, now, expiresAt);
         if (updated == 0) {
             return new JudgeHeartbeatResponse(0, true);
         }

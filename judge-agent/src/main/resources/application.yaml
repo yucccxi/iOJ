@@ -15,8 +15,10 @@ ioj:
     poll-interval-ms: ${IOJ_JUDGE_POLL_INTERVAL_MS:1000}
     max-poll-interval-ms: ${IOJ_JUDGE_MAX_POLL_INTERVAL_MS:5000}
     max-claim-batch: ${IOJ_JUDGE_MAX_CLAIM_BATCH:1}
-    lease-seconds: ${IOJ_JUDGE_LEASE_SECONDS:300}
-    heartbeat-interval-ms: ${IOJ_JUDGE_HEARTBEAT_INTERVAL_MS:100000}
+    # Initial value only. After the first node heartbeat the agent uses
+    # one third of the server's node-offline-seconds.
+    node-heartbeat-interval-ms: ${IOJ_JUDGE_NODE_HEARTBEAT_INTERVAL_MS:30000}
+    heartbeat-tick-ms: ${IOJ_JUDGE_HEARTBEAT_TICK_MS:1000}
     request-timeout-seconds: ${IOJ_JUDGE_REQUEST_TIMEOUT_SECONDS:30}
     config-fetch-retries: ${IOJ_JUDGE_CONFIG_FETCH_RETRIES:5}
     config-fetch-retry-delay-ms: ${IOJ_JUDGE_CONFIG_FETCH_RETRY_DELAY_MS:2000}

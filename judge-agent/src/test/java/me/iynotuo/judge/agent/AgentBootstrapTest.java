@@ -4,6 +4,7 @@ import me.iynotuo.judge.core.config.JudgeProperties;
 import me.iynotuo.judge.protocol.JudgeBootstrapConfig;
 import me.iynotuo.judge.protocol.JudgeHeartbeatResponse;
 import me.iynotuo.judge.protocol.JudgeLanguageConfig;
+import me.iynotuo.judge.protocol.JudgeNodeHeartbeatResponse;
 import me.iynotuo.judge.protocol.JudgeNodeInfo;
 import me.iynotuo.judge.protocol.JudgeResult;
 import me.iynotuo.judge.protocol.JudgeTask;
@@ -128,7 +129,8 @@ class AgentBootstrapTest {
         }
 
         @Override
-        public void heartbeatNode(JudgeNodeInfo info) {
+        public JudgeNodeHeartbeatResponse heartbeatNode(JudgeNodeInfo info) {
+            return new JudgeNodeHeartbeatResponse(90);
         }
 
         @Override

@@ -84,8 +84,10 @@ ioj:
     poll-interval-ms: 1000
     max-poll-interval-ms: 5000
     max-claim-batch: 1
-    lease-seconds: 300
-    heartbeat-interval-ms: 100000
+    # 首次节点心跳使用该默认值；之后按节点心跳响应中的 offlineSeconds / 3 调整
+    node-heartbeat-interval-ms: 30000
+    # 心跳调度器的检查间隔；实际节点/任务心跳由各自的到期时间决定
+    heartbeat-tick-ms: 1000
     request-timeout-seconds: 30
     config-fetch-retries: 5
     config-fetch-retry-delay-ms: 2000
@@ -130,6 +132,15 @@ ioj:
 Agent 启动失败时不会先发心跳或 claim；缺少工具链会打印具体语言和失败命令，并以退出码 `78` 结束。
 
 这样所有 Agent 使用同一份语言策略，不会出现“同代码不同机器结果不同”。
+
+### 心跳与租约由谁配置
+
+- **任务租约**：主服务器 `ioj.judge.dispatch.lease-seconds`，随 claim 响应写入 `JudgeTask.leaseSeconds`。
+- **任务心跳**：Agent 按每个任务租约的 `1/3` 调度；任务心跳响应里的 `JudgeHeartbeatResponse.leaseSeconds` 会刷新下一次时间。
+- **节点离线阈值**：主服务器 `ioj.judge.dispatch.node-offline-seconds`，由节点心跳响应返回。
+- **节点心跳**：Agent 启动后立即发一次节点心跳；拿到响应前，后续间隔使用本地 `node-heartbeat-interval-ms`，之后改为 `offlineSeconds / 3`。
+- Agent 不再配置 `lease-seconds`；租约的唯一来源是主服务器。
+- 节点心跳和任务心跳共用一个心跳调度器，但按各自的到期时间执行，不要求相同频率。
 
 ## 6. systemd
 
@@ -223,7 +234,7 @@ Agent 启动失败时的退出码：
 | `isolate binary is not executable` | 给运行用户执行权限，确认 `isolate --version` |
 | `This box belongs to a different user` | 换 `box-id-start` 或清理旧 box |
 | JVM `Error loading java.security file` | `extra-dirs` 加 `/etc/java-21-openjdk` |
-| 节点显示 OFFLINE | 心跳超时；检查网络、进程、`IOJ_JUDGE_HEARTBEAT_INTERVAL_MS` |
+| 节点显示 OFFLINE | 心跳超时；检查网络、进程、`IOJ_JUDGE_NODE_HEARTBEAT_INTERVAL_MS`，以及主服务器 `node-offline-seconds` 是否过小 |
 
 ## 10. 安全
 

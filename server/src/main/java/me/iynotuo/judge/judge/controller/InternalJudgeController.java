@@ -10,6 +10,7 @@ import me.iynotuo.judge.judge.service.JudgeTestcaseBundleWriter;
 import me.iynotuo.judge.protocol.JudgeBootstrapConfig;
 import me.iynotuo.judge.protocol.JudgeHeartbeatRequest;
 import me.iynotuo.judge.protocol.JudgeHeartbeatResponse;
+import me.iynotuo.judge.protocol.JudgeNodeHeartbeatResponse;
 import me.iynotuo.judge.protocol.JudgeNodeInfo;
 import me.iynotuo.judge.protocol.JudgeReleaseRequest;
 import me.iynotuo.judge.protocol.JudgeResult;
@@ -70,10 +71,10 @@ public class InternalJudgeController {
     }
 
     @PostMapping("/nodes/heartbeat")
-    public ApiResponse<Void> nodeHeartbeat(@AuthenticationPrincipal JudgePrincipal principal,
-                                           @RequestBody JudgeNodeInfo info) {
+    public ApiResponse<JudgeNodeHeartbeatResponse> nodeHeartbeat(@AuthenticationPrincipal JudgePrincipal principal,
+                                                                 @RequestBody JudgeNodeInfo info) {
         judgeNodeService.heartbeat(info, principal.keyId());
-        return ApiResponse.ok();
+        return ApiResponse.ok(new JudgeNodeHeartbeatResponse(judgeNodeService.nodeOfflineSeconds()));
     }
 
     @PostMapping("/tasks/claim")

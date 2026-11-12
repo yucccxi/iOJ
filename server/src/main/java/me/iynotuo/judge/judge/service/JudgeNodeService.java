@@ -106,12 +106,24 @@ public class JudgeNodeService {
 
     @Scheduled(fixedDelayString = "${ioj.judge.dispatch.node-monitor-interval-ms:30000}")
     public void markOfflineNodes() {
-        long offlineSeconds = judgeProperties.getDispatch().getNodeOfflineSeconds();
-        LocalDateTime threshold = LocalDateTime.now().minusSeconds(Math.max(1, offlineSeconds));
+        LocalDateTime threshold = LocalDateTime.now().minusSeconds(nodeOfflineSeconds());
         int changed = judgeNodeMapper.markOfflineBefore(threshold);
         if (changed > 0) {
             log.info("标记 {} 个判题节点为离线", changed);
         }
+    }
+
+    /**
+     * Effective node offline threshold returned to agents and used by the offline monitor.
+     *
+     * <p>The lower bound avoids a heartbeat interval that would hammer the server when the
+     * configuration is accidentally set to a few seconds.</p>
+     *
+     * @return offline threshold in seconds, at least 30
+     */
+    public int nodeOfflineSeconds() {
+        long configured = judgeProperties.getDispatch().getNodeOfflineSeconds();
+        return (int) Math.max(30, Math.min(Integer.MAX_VALUE, configured));
     }
 
     private String joinLanguages(List<Language> languages) {

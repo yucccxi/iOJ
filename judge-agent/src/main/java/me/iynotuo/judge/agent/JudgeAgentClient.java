@@ -2,6 +2,7 @@ package me.iynotuo.judge.agent;
 
 import me.iynotuo.judge.protocol.JudgeBootstrapConfig;
 import me.iynotuo.judge.protocol.JudgeHeartbeatResponse;
+import me.iynotuo.judge.protocol.JudgeNodeHeartbeatResponse;
 import me.iynotuo.judge.protocol.JudgeNodeInfo;
 import me.iynotuo.judge.protocol.JudgeResult;
 import me.iynotuo.judge.protocol.JudgeTask;
@@ -24,7 +25,7 @@ public interface JudgeAgentClient {
      */
     List<JudgeTestCase> fetchTestcases(Long taskId, String claimToken);
 
-    void heartbeatNode(JudgeNodeInfo info);
+    JudgeNodeHeartbeatResponse heartbeatNode(JudgeNodeInfo info);
 
     JudgeHeartbeatResponse heartbeatTask(Long taskId, String claimToken);
 

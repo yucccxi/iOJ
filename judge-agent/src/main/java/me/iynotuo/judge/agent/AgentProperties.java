@@ -48,14 +48,10 @@ public class AgentProperties {
     private int maxClaimBatch = 1;
 
     /**
-     * Task lease requested from the server.
+     * Initial node heartbeat interval, used until the first node heartbeat response provides the
+     * server's offline threshold. The effective interval is one third of that threshold.
      */
-    private int leaseSeconds = 300;
-
-    /**
-     * How often the agent renews its node and task leases.
-     */
-    private long heartbeatIntervalMs = 100_000;
+    private long nodeHeartbeatIntervalMs = 30_000;
 
     /**
      * HTTP timeout for one internal API request.
