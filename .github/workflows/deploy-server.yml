@@ -5,6 +5,12 @@ on:
     branches: [main]
     paths:
       - "server/**"
+      - "judge-protocol/**"
+      - "judge-core/**"
+      - "pom.xml"
+      - "mvnw"
+      - "mvnw.cmd"
+      - ".mvn/**"
       - ".github/workflows/deploy-server.yml"
   workflow_dispatch:
 
@@ -49,6 +55,7 @@ jobs:
             -o ServerAliveCountMax=3 \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "bash -se -- '$COMMIT_SHA'" <<'REMOTE'
+          set -euo pipefail
           COMMIT_SHA="$1"
 
           SOURCE_DIR=/home/deploy/ioj-source
@@ -64,13 +71,18 @@ jobs:
           git fetch origin main
           git checkout --detach "$COMMIT_SHA"
 
-          # 在服务器编译、测试和打包
-          cd server
-          mvn -B clean verify
+          # 从仓库根目录构建 server 及其依赖模块：
+          # judge-protocol、judge-core，否则 server 单独构建时找不到 SNAPSHOT。
+          if [ -x ./mvnw ]; then
+            MVN=./mvnw
+          else
+            MVN=mvn
+          fi
+          "$MVN" -B -pl server -am clean verify
 
           # 构建成功后才替换运行文件
-          test -f "target/$JAR_NAME"
-          cp "target/$JAR_NAME" "$DEPLOY_DIR/$JAR_NAME.next"
+          test -f "server/target/$JAR_NAME"
+          cp "server/target/$JAR_NAME" "$DEPLOY_DIR/$JAR_NAME.next"
           mv -f "$DEPLOY_DIR/$JAR_NAME.next" "$DEPLOY_DIR/$JAR_NAME"
 
           # 重启并检查同一个服务
