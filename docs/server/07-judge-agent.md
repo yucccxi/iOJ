@@ -211,7 +211,7 @@ Agent 启动失败时的退出码：
 | `POST /internal/judge/tasks/{id}/result` | 回报终态结果 |
 | `POST /internal/judge/tasks/{id}/release` | 优雅停机时释放未开始任务 |
 
-- 大数据任务通过 `Accept: application/zip, application/json` 下载；新服务端返回 ZIP，旧服务端返回 JSON，Agent 两者都支持
+- 大数据任务通过 `Accept: application/zip` 下载；服务端始终返回 ZIP，Agent 直接解压
 - ZIP bundle 只有一个 `testcases.json` 条目
 - 结果写入会校验 `claimToken` 和 `JUDGING` 状态
 - 同一 token 重复回报幂等

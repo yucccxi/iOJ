@@ -3,6 +3,7 @@ package me.iynotuo.judge;
 import me.iynotuo.judge.common.enums.UserRole;
 import me.iynotuo.judge.judge.service.JudgeLeaseReaper;
 import me.iynotuo.judge.protocol.JudgeTestCase;
+import me.iynotuo.judge.protocol.ProtocolVersion;
 import me.iynotuo.judge.user.entity.User;
 import me.iynotuo.judge.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -94,7 +95,7 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
                 "nodeId", "judge-1",
                 "maxTasks", 1,
                 "languages", List.of("JAVA"),
-                "protocolVersion", 1));
+                "protocolVersion", ProtocolVersion.CURRENT));
         assertThat(claim.path("code").asInt()).isZero();
         JsonNode tasks = claim.path("data").path("tasks");
         assertThat(tasks.size()).isEqualTo(1);
@@ -104,16 +105,11 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         assertThat(task.path("submissionId").asLong()).isEqualTo(submissionId);
         assertThat(task.path("testcases").size()).isZero();
         assertThat(task.path("testcaseBundleUrl").asString()).contains("/testcases");
-        JsonNode bundle = get("/internal/judge/tasks/" + submissionId
-                + "/testcases?claimToken=" + claimToken, judgeKey);
-        assertThat(bundle.path("data").size()).isEqualTo(1);
-        assertThat(bundle.path("data").get(0).path("input").asString()).isEqualTo("1 2\n");
 
-        // Agents that ask for ZIP receive a compressed bundle with one testcases.json entry.
+        // The bundle endpoint always returns ZIP with one testcases.json entry.
         HttpResponse<byte[]> zipResponse = client.send(request("/internal/judge/tasks/" + submissionId
                         + "/testcases?claimToken=" + claimToken)
                         .header("Authorization", "Bearer " + judgeKey)
-                        .header("Accept", "application/zip")
                         .GET()
                         .build(), HttpResponse.BodyHandlers.ofByteArray());
         assertThat(zipResponse.statusCode()).isEqualTo(200);
@@ -137,7 +133,7 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
                 "nodeId", "judge-1",
                 "claimToken", claimToken,
                 "runningTasks", 1,
-                "protocolVersion", 1));
+                "protocolVersion", ProtocolVersion.CURRENT));
         assertThat(taskHeartbeat.path("data").path("cancel").asBoolean()).isFalse();
         assertThat(taskHeartbeat.path("data").path("leaseSeconds").asInt()).isPositive();
 
@@ -170,7 +166,7 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         // A stale claim token is rejected.
         long secondSubmission = submitAcceptedJava(adminToken, problemId);
         JsonNode secondClaim = post("/internal/judge/tasks/claim", judgeKey, Map.of(
-                "nodeId", "judge-1", "maxTasks", 1, "languages", List.of("JAVA"), "protocolVersion", 1));
+                "nodeId", "judge-1", "maxTasks", 1, "languages", List.of("JAVA"), "protocolVersion", ProtocolVersion.CURRENT));
         String secondToken = secondClaim.path("data").path("tasks").get(0).path("claimToken").asString();
         Map<String, Object> staleResult = Map.of(
                 "claimToken", secondToken + "-stale",
@@ -187,7 +183,7 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         // Expired leases are requeued, not left in JUDGING forever.
         long thirdSubmission = submitAcceptedJava(adminToken, problemId);
         JsonNode thirdClaim = post("/internal/judge/tasks/claim", judgeKey, Map.of(
-                "nodeId", "judge-1", "maxTasks", 1, "languages", List.of("JAVA"), "protocolVersion", 1));
+                "nodeId", "judge-1", "maxTasks", 1, "languages", List.of("JAVA"), "protocolVersion", ProtocolVersion.CURRENT));
         assertThat(thirdClaim.path("data").path("tasks").size()).isEqualTo(1);
         jdbcTemplate.update("UPDATE submissions SET lease_expires_at = ? WHERE id = ?",
                 LocalDateTime.now().minusSeconds(5), thirdSubmission);

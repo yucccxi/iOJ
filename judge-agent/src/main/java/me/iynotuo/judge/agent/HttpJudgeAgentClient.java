@@ -83,7 +83,7 @@ public class HttpJudgeAgentClient implements JudgeAgentClient {
             HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + path))
                     .timeout(Duration.ofSeconds(Math.max(1, properties.getRequestTimeoutSeconds())))
                     .header("Authorization", "Bearer " + properties.getKey().trim())
-                    .header("Accept", "application/zip, application/json")
+                    .header("Accept", "application/zip")
                     .GET()
                     .build();
             HttpResponse<InputStream> response = httpClient.send(request,
@@ -94,16 +94,10 @@ public class HttpJudgeAgentClient implements JudgeAgentClient {
                             + new String(body.readAllBytes(), StandardCharsets.UTF_8));
                 }
                 String contentType = response.headers().firstValue("Content-Type").orElse("");
-                if (contentType.toLowerCase(Locale.ROOT).contains("zip")) {
-                    return readTestcaseZip(body);
+                if (!contentType.toLowerCase(Locale.ROOT).contains("zip")) {
+                    throw new AgentClientException("主服务器未返回 ZIP 测试数据: Content-Type=" + contentType);
                 }
-                JudgeApiResponse<List<JudgeTestCase>> envelope = json.readValue(body,
-                        new TypeReference<JudgeApiResponse<List<JudgeTestCase>>>() {
-                        });
-                if (envelope.code() != 0) {
-                    throw new AgentClientException("业务错误 " + envelope.code() + ": " + envelope.message());
-                }
-                return envelope.data() == null ? List.of() : envelope.data();
+                return readTestcaseZip(body);
             }
         } catch (AgentClientException ex) {
             throw ex;

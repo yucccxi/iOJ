@@ -317,7 +317,7 @@ sudo cp judge-agent/target/judge-agent-0.0.1-SNAPSHOT.jar /opt/ioj-agent/judge-a
 sudo systemctl start ioj-judge-agent
 ```
 
-> 升级顺序建议：主服务器兼容旧协议 → 逐台升级 Agent。协议不兼容时先看 `ProtocolVersion` 和发布说明。
+> 升级顺序建议：若协议版本变更则不兼容旧 Agent，需要同时升级主服务器和 Agent；未来协议保持兼容时，再按“主服务器兼容旧协议 → 逐台升级 Agent”的顺序。排障先看 `ProtocolVersion` 和发布说明。
 
 ## 10. 上线安全检查清单
 

@@ -65,9 +65,6 @@ class HttpJudgeAgentClientTest {
         server.createContext("/internal/judge/tasks/1/heartbeat", exchange ->
                 respond(exchange, JudgeApiResponse.class,
                         new JudgeApiResponse<>(0, "ok", new JudgeHeartbeatResponse(300, false))));
-        server.createContext("/internal/judge/tasks/1/testcases", exchange ->
-                respond(exchange, JudgeApiResponse.class,
-                        new JudgeApiResponse<>(0, "ok", List.of(new JudgeTestCase(1, "1 2\n", "3\n")))));
         server.createContext("/internal/judge/config", exchange -> {
             JudgeLanguageConfig language = new JudgeLanguageConfig(
                     "Main.java", "javac Main.java", "java Main", null, 2.0, 64, 256,
@@ -97,7 +94,6 @@ class HttpJudgeAgentClientTest {
             List<JudgeTask> tasks = client.claim(1, List.of(Language.JAVA));
             assertThat(tasks).hasSize(1);
             assertThat(tasks.get(0).claimToken()).isEqualTo("claim-token");
-            assertThat(client.fetchTestcases(1L, "claim-token")).hasSize(1);
 
             JudgeResult result = new JudgeResult("claim-token", SubmissionStatus.ACCEPTED,
                     5, 1024, null, null,

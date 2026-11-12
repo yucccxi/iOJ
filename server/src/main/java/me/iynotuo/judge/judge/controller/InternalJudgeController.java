@@ -20,21 +20,17 @@ import me.iynotuo.judge.protocol.JudgeTaskClaimResponse;
 import me.iynotuo.judge.protocol.JudgeTestCase;
 import me.iynotuo.judge.security.JudgePrincipal;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Internal API used by remote judge agents. Authentication is an API key handled by
@@ -44,8 +40,6 @@ import java.util.Locale;
 @RestController
 @RequestMapping("/internal/judge")
 public class InternalJudgeController {
-
-    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final JudgeTaskService judgeTaskService;
     private final JudgeResultService judgeResultService;
@@ -93,20 +87,13 @@ public class InternalJudgeController {
     @GetMapping("/tasks/{submissionId}/testcases")
     public void testcases(@PathVariable Long submissionId,
                           @RequestParam("claimToken") String claimToken,
-                          @RequestHeader(value = HttpHeaders.ACCEPT, required = false) String accept,
                           HttpServletResponse response) throws IOException {
         List<JudgeTestCase> testcases = judgeTaskService.testcases(submissionId, claimToken);
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-        response.setHeader(HttpHeaders.VARY, HttpHeaders.ACCEPT);
-        if (accept != null && accept.toLowerCase(Locale.ROOT).contains("application/zip")) {
-            response.setContentType("application/zip");
-            response.setHeader(HttpHeaders.CONTENT_DISPOSITION,
-                    "attachment; filename=\"testcases-" + submissionId + ".zip\"");
-            testcaseBundleWriter.write(response.getOutputStream(), testcases);
-            return;
-        }
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        JSON.writeValue(response.getOutputStream(), ApiResponse.ok(testcases));
+        response.setContentType("application/zip");
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"testcases-" + submissionId + ".zip\"");
+        testcaseBundleWriter.write(response.getOutputStream(), testcases);
     }
 
     @PostMapping("/tasks/{submissionId}/result")

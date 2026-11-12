@@ -111,7 +111,7 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 - `claim_token` 是 fencing token；结果写入时同时校验 token 和 `JUDGING` 状态。
 - Agent 启动时先拉取 `/internal/judge/config`，按 `requiredLanguages` 的 `probeCommands` 校验本机工具链；缺任何语言就拒绝启动，不会先发心跳或 claim。
 - 测试数据总量不超过 `ioj.judge.dispatch.inline-max-bytes`（默认 1 MiB）时直接内联在 claim 响应；超过时返回 `testcaseBundleUrl`，Agent 用同一个 `claimToken` 通过 GET 下载 ZIP bundle。
-- ZIP bundle 只有一个 `testcases.json` 条目。Agent 请求时发送 `Accept: application/zip, application/json`；服务端按 `Accept` 返回 ZIP 或旧的 JSON 格式，便于滚动升级。
+- ZIP bundle 只有一个 `testcases.json` 条目。Agent 发送 `Accept: application/zip`，服务端始终返回 ZIP；不再提供 JSON bundle 兼容格式。
 - `bundleSha256` 字段已预留但当前 ZIP 响应暂不填充；ZIP/DEFLATE 自带 CRC32，可用于发现传输损坏。
 - 任务租约由主服务器 `ioj.judge.dispatch.lease-seconds` 决定；Agent 任务心跳间隔为租约的 `1/3`。
 - 租约边界采用半开区间：`lease_expires_at > now` 时仍有效，`lease_expires_at <= now` 时回收器可以处理；心跳在等号时返回 `cancel=true`。
