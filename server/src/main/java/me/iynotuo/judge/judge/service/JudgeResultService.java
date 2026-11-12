@@ -8,8 +8,8 @@ import me.iynotuo.judge.protocol.JudgeResult;
 import me.iynotuo.judge.protocol.SubmissionStatus;
 import me.iynotuo.judge.submission.entity.Submission;
 import me.iynotuo.judge.submission.entity.SubmissionCase;
-import me.iynotuo.judge.submission.mapper.SubmissionCaseMapper;
 import me.iynotuo.judge.submission.mapper.SubmissionMapper;
+import me.iynotuo.judge.submission.service.SubmissionCaseWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,8 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Applies results reported by remote judge agents.
@@ -34,14 +36,14 @@ public class JudgeResultService {
     private static final int TEXT_LIMIT = 65_536;
 
     private final SubmissionMapper submissionMapper;
-    private final SubmissionCaseMapper submissionCaseMapper;
+    private final SubmissionCaseWriter submissionCaseWriter;
     private final ProblemMapper problemMapper;
 
     public JudgeResultService(SubmissionMapper submissionMapper,
-                              SubmissionCaseMapper submissionCaseMapper,
+                              SubmissionCaseWriter submissionCaseWriter,
                               ProblemMapper problemMapper) {
         this.submissionMapper = submissionMapper;
-        this.submissionCaseMapper = submissionCaseMapper;
+        this.submissionCaseWriter = submissionCaseWriter;
         this.problemMapper = problemMapper;
     }
 
@@ -86,21 +88,18 @@ public class JudgeResultService {
             throw BusinessException.of(ErrorCode.CONFLICT, "判题任务已被重新领取或已失效");
         }
 
-        submissionCaseMapper.deleteBySubmissionId(submissionId);
-        if (!result.cases().isEmpty()) {
-            List<SubmissionCase> rows = new ArrayList<>(result.cases().size());
-            for (JudgeCaseResult item : result.cases()) {
-                SubmissionCase row = new SubmissionCase();
-                row.setSubmissionId(submissionId);
-                row.setCaseOrdinal(item.ordinal());
-                row.setStatus(item.status());
-                row.setTimeUsedMs(item.timeUsedMs());
-                row.setMemoryUsedKb(item.memoryUsedKb());
-                row.setMessage(truncate(item.message(), CASE_MESSAGE_LIMIT));
-                rows.add(row);
-            }
-            submissionCaseMapper.insertBatch(rows);
+        List<SubmissionCase> rows = new ArrayList<>(result.cases().size());
+        for (JudgeCaseResult item : result.cases()) {
+            SubmissionCase row = new SubmissionCase();
+            row.setSubmissionId(submissionId);
+            row.setCaseOrdinal(item.ordinal());
+            row.setStatus(item.status());
+            row.setTimeUsedMs(item.timeUsedMs());
+            row.setMemoryUsedKb(item.memoryUsedKb());
+            row.setMessage(truncate(item.message(), CASE_MESSAGE_LIMIT));
+            rows.add(row);
         }
+        submissionCaseWriter.replace(submissionId, rows);
         if (status.isAccepted()) {
             problemMapper.increaseAcceptedCount(submission.getProblemId());
         }
@@ -109,9 +108,13 @@ public class JudgeResultService {
     }
 
     private void validateCases(List<JudgeCaseResult> cases) {
+        Set<Integer> ordinals = new HashSet<>();
         for (JudgeCaseResult item : cases) {
             if (item == null || item.ordinal() <= 0 || item.status() == null || !item.status().isFinished()) {
                 throw BusinessException.of(ErrorCode.BAD_REQUEST, "逐测试点结果不合法");
+            }
+            if (!ordinals.add(item.ordinal())) {
+                throw BusinessException.of(ErrorCode.BAD_REQUEST, "逐测试点序号不能重复");
             }
             if (item.timeUsedMs() != null && item.timeUsedMs() < 0) {
                 throw BusinessException.of(ErrorCode.BAD_REQUEST, "测试点耗时不能为负数");

@@ -2,13 +2,22 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="me.iynotuo.judge.submission.mapper.SubmissionCaseMapper">
 
-    <insert id="insertBatch">
+    <!--
+      VALUES(col) is deprecated in MySQL 8.0.20+ but still supported; H2's MySQL mode (used by the
+      integration tests) does not accept the row-alias form, so keep this form for both databases.
+    -->
+    <insert id="upsertBatch">
         INSERT INTO submission_cases (submission_id, case_ordinal, status, time_used_ms, memory_used_kb, message)
         VALUES
         <foreach collection="cases" item="item" separator=",">
             (#{item.submissionId}, #{item.caseOrdinal}, #{item.status}, #{item.timeUsedMs},
              #{item.memoryUsedKb}, #{item.message})
         </foreach>
+        ON DUPLICATE KEY UPDATE
+            status = VALUES(status),
+            time_used_ms = VALUES(time_used_ms),
+            memory_used_kb = VALUES(memory_used_kb),
+            message = VALUES(message)
     </insert>
 
     <select id="findBySubmissionId" resultType="me.iynotuo.judge.submission.entity.SubmissionCase">
@@ -20,6 +29,15 @@
 
     <delete id="deleteBySubmissionId">
         DELETE FROM submission_cases WHERE submission_id = #{submissionId}
+    </delete>
+
+    <delete id="deleteBySubmissionIdAndOrdinals">
+        DELETE FROM submission_cases
+        WHERE submission_id = #{submissionId}
+          AND case_ordinal IN
+        <foreach collection="ordinals" item="ordinal" open="(" separator="," close=")">
+            #{ordinal}
+        </foreach>
     </delete>
 
 </mapper>

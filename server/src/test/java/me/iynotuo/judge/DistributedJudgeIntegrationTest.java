@@ -143,17 +143,15 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
                 "status", "ACCEPTED",
                 "timeUsedMs", 5,
                 "memoryUsedKb", 1024,
-                "cases", List.of(Map.of(
-                        "ordinal", 1,
-                        "status", "ACCEPTED",
-                        "timeUsedMs", 5,
-                        "memoryUsedKb", 1024)));
+                "cases", List.of(
+                        Map.of("ordinal", 1, "status", "ACCEPTED", "timeUsedMs", 5, "memoryUsedKb", 1024),
+                        Map.of("ordinal", 2, "status", "ACCEPTED", "timeUsedMs", 6, "memoryUsedKb", 2048)));
         JsonNode reported = post("/internal/judge/tasks/" + submissionId + "/result", judgeKey, result);
         assertThat(reported.path("code").asInt()).isZero();
 
         JsonNode detail = get("/api/v1/submissions/" + submissionId, adminToken);
         assertThat(detail.path("data").path("status").asString()).isEqualTo("ACCEPTED");
-        assertThat(detail.path("data").path("cases").size()).isEqualTo(1);
+        assertThat(detail.path("data").path("cases").size()).isEqualTo(2);
         assertThat(get("/api/v1/problems/" + problemId, adminToken)
                 .path("data").path("acceptedCount").asInt()).isEqualTo(1);
 
@@ -162,6 +160,28 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         assertThat(duplicate.path("code").asInt()).isZero();
         assertThat(get("/api/v1/problems/" + problemId, adminToken)
                 .path("data").path("acceptedCount").asInt()).isEqualTo(1);
+
+        // A rejudge with fewer cases must update ordinal 1 and delete ordinal 2 without a delete-all.
+        jdbcTemplate.update("UPDATE submissions SET status = 'JUDGING', judged_at = NULL WHERE id = ?",
+                submissionId);
+        Map<String, Object> rejudge = Map.of(
+                "claimToken", claimToken,
+                "status", "WRONG_ANSWER",
+                "timeUsedMs", 3,
+                "cases", List.of(Map.of(
+                        "ordinal", 1,
+                        "status", "WRONG_ANSWER",
+                        "timeUsedMs", 3,
+                        "message", "rejudged")));
+        JsonNode rejudged = post("/internal/judge/tasks/" + submissionId + "/result", judgeKey, rejudge);
+        assertThat(rejudged.path("code").asInt()).isZero();
+        JsonNode rejudgedDetail = get("/api/v1/submissions/" + submissionId, adminToken);
+        assertThat(rejudgedDetail.path("data").path("status").asString()).isEqualTo("WRONG_ANSWER");
+        assertThat(rejudgedDetail.path("data").path("cases").size()).isEqualTo(1);
+        assertThat(rejudgedDetail.path("data").path("cases").get(0).path("status").asString())
+                .isEqualTo("WRONG_ANSWER");
+        assertThat(rejudgedDetail.path("data").path("cases").get(0).path("message").asString())
+                .isEqualTo("rejudged");
 
         // A stale claim token is rejected.
         long secondSubmission = submitAcceptedJava(adminToken, problemId);

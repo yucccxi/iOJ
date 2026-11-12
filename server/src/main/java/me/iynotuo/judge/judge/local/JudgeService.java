@@ -13,8 +13,8 @@ import me.iynotuo.judge.problem.mapper.ProblemMapper;
 import me.iynotuo.judge.problem.mapper.ProblemTestcaseMapper;
 import me.iynotuo.judge.submission.entity.Submission;
 import me.iynotuo.judge.submission.entity.SubmissionCase;
-import me.iynotuo.judge.submission.mapper.SubmissionCaseMapper;
 import me.iynotuo.judge.submission.mapper.SubmissionMapper;
+import me.iynotuo.judge.submission.service.SubmissionCaseWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -40,7 +40,7 @@ public class JudgeService {
     private static final Logger log = LoggerFactory.getLogger(JudgeService.class);
 
     private final SubmissionMapper submissionMapper;
-    private final SubmissionCaseMapper submissionCaseMapper;
+    private final SubmissionCaseWriter submissionCaseWriter;
     private final ProblemMapper problemMapper;
     private final ProblemTestcaseMapper testcaseMapper;
     private final JudgeEngine judgeEngine;
@@ -52,14 +52,14 @@ public class JudgeService {
     private final TransactionTemplate transactionTemplate;
 
     public JudgeService(SubmissionMapper submissionMapper,
-                        SubmissionCaseMapper submissionCaseMapper,
+                        SubmissionCaseWriter submissionCaseWriter,
                         ProblemMapper problemMapper,
                         ProblemTestcaseMapper testcaseMapper,
                         JudgeEngine judgeEngine,
                         JudgeProperties judgeProperties,
                         PlatformTransactionManager transactionManager) {
         this.submissionMapper = submissionMapper;
-        this.submissionCaseMapper = submissionCaseMapper;
+        this.submissionCaseWriter = submissionCaseWriter;
         this.problemMapper = problemMapper;
         this.testcaseMapper = testcaseMapper;
         this.judgeEngine = judgeEngine;
@@ -137,21 +137,18 @@ public class JudgeService {
     }
 
     private void doPersist(Submission submission, JudgeOutcome outcome) {
-        submissionCaseMapper.deleteBySubmissionId(submission.getId());
-        if (!outcome.cases().isEmpty()) {
-            List<SubmissionCase> rows = new ArrayList<>(outcome.cases().size());
-            for (JudgeOutcome.CaseResult result : outcome.cases()) {
-                SubmissionCase row = new SubmissionCase();
-                row.setSubmissionId(submission.getId());
-                row.setCaseOrdinal(result.ordinal());
-                row.setStatus(result.status());
-                row.setTimeUsedMs(result.timeUsedMs());
-                row.setMemoryUsedKb(result.memoryUsedKb());
-                row.setMessage(result.message());
-                rows.add(row);
-            }
-            submissionCaseMapper.insertBatch(rows);
+        List<SubmissionCase> rows = new ArrayList<>(outcome.cases().size());
+        for (JudgeOutcome.CaseResult result : outcome.cases()) {
+            SubmissionCase row = new SubmissionCase();
+            row.setSubmissionId(submission.getId());
+            row.setCaseOrdinal(result.ordinal());
+            row.setStatus(result.status());
+            row.setTimeUsedMs(result.timeUsedMs());
+            row.setMemoryUsedKb(result.memoryUsedKb());
+            row.setMessage(result.message());
+            rows.add(row);
         }
+        submissionCaseWriter.replace(submission.getId(), rows);
 
         Submission update = new Submission();
         update.setId(submission.getId());
