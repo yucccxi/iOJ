@@ -1,5 +1,15 @@
 # iOJ
 
+[![Java](https://img.shields.io/badge/Java-21-ED8B00?style=flat-square)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.9-6DB33F?style=flat-square)](https://spring.io/projects/spring-boot)
+[![MyBatis](https://img.shields.io/badge/MyBatis-4.0.1-1A1A1A?style=flat-square)](https://mybatis.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?style=flat-square)](https://www.mysql.com/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=flat-square)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square)](https://vite.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square)](https://tailwindcss.com/)
+[![Isolate](https://img.shields.io/badge/Isolate-Sandbox-4B5563?style=flat-square)](https://github.com/ioi/isolate)
+
 轻量级的在线评测系统（Online Judge），面向校内俱乐部和几十到几百人的小规模场景：支持题库共建、Isolate 沙箱异步评测、逐测试点结果、自定义判题器（Special Judge）和独立 Judge Agent 分布式评测。
 
 ## 快速开始
