@@ -59,6 +59,7 @@ java -jar server/target/server-0.0.1-SNAPSHOT.jar
   - [ ] 用户角色与封禁
   - [ ] 标签、scope 管理
   - [ ] 判题机 key 与节点状态
+- [ ] i18n
 - [ ] 前端质量
   - [ ] 组件与路由测试
   - [ ] 关键流程端到端测试
@@ -96,6 +97,7 @@ java -jar server/target/server-0.0.1-SNAPSHOT.jar
 - [ ] 运维与安全
   - [ ] 提交频率限制与防刷策略
   - [ ] 管理操作审计日志
+- [ ] i18n
 - [x] 文档与 CI
   - [x] API、后端、部署和运维文档
   - [x] GitHub Actions 服务端/前端部署工作流
