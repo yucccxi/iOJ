@@ -57,7 +57,7 @@ iOJ/                         # 父 POM，聚合 judge-protocol / judge-core / ju
 - **构造器注入**（不用 `@Autowired` 字段注入），便于单元测试。
 - 对外模型用 `record`；MyBatis 结果行用 `@Data` POJO（`*Row`、`TestcaseSummaryVO`），因为 MyBatis 对 record 构造器映射需要额外配置。
 - 数据库实体不直接序列化给前端；`UserVO` 里永远没有 `passwordHash`，`TestcaseDetailVO` 只给作者。
-- 异常统一抛 `BusinessException(ErrorCode.XXX)`，不要返回 `null` 让上层猜。
+- 异常统一抛 `BusinessException(ErrorCode.XXX)`，不得返回 `null` 让上层猜。
 
 ## 2. 新增一个接口（示例：题目统计）
 
@@ -98,7 +98,7 @@ public ApiResponse<ProblemStatsVO> stats(@PathVariable Long id) {
 }
 ```
 
-5. **Security**：`/api/v1/problems/*` 的 GET 已放行；如果新接口需要登录，在 `SecurityConfig` 里加规则，注意**放在通配规则之前**。
+5. **Security**：`GET /api/v1/problems/{id}` 由 `/api/v1/problems/*` 放行，但该规则只匹配单段路径；新增 `/api/v1/problems/{id}/stats` 这类两段接口时，必须在 `SecurityConfig` 显式加规则，并放在更宽的规则之前。否则该接口默认要求登录，匿名请求返回 `401`。
 
 6. **测试**：在 `ApiFlowIntegrationTest` 里加断言，或新建 `*Test` 类（见第 6 节）。
 
@@ -118,9 +118,15 @@ ioj:
         run-command: ./main
         run-wrapper: ulimit -v {memoryKb}; exec {command}
         time-multiplier: 1.5
+        isolate-processes: 1
+        isolate-memory-extra-mb: 16
+        probe-commands:
+          - go version
 ```
 
-3. 判题机安装 `go`，重启服务。`GET /meta/languages` 会自动出现新语言，前端无需改代码。
+3. 判题机安装 `go`，重启 Agent。`GET /meta/languages` 会自动出现新语言，前端无需改代码。
+
+`probe-commands` 是必填项：Agent 启动时逐条执行，每条退出码必须为 0；任意语言缺少探测命令或探测失败，Agent 都会以退出码 `78` 拒绝启动。`source-file` 和 `run-command` 也不得为空。
 
 ## 4. 新增/替换判题引擎
 
@@ -129,7 +135,7 @@ ioj:
 - 优先只写一个 `Sandbox` 实现（`me.iynotuo.judge.core.sandbox` 包）：把"起进程、加限额、读回输出"做完，然后复用现成的引擎流程。绝大多数新沙箱（Docker、nsjail）只需要替换这一层。
 - 真要替换整条流程时，实现 `JudgeEngine`（放在 `me.iynotuo.judge.core.engine` 包，与现有实现同级），用 `@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "docker")` 限定生效条件，避免两个实现同时注册。
 - 返回的 `JudgeOutcome` 语义要与现有引擎（`isolate` / `local`）一致：`status` 取第一个失败测试点的状态，`cases` 按执行顺序，失败即停。
-- **不要自己判断"答案对不对"**：把选手输出交给 `AnswerChecker`（由 `AnswerCheckerFactory` 创建），这样文本比对与作者判题器对新引擎自动生效。
+- **不得自己判断"答案对不对"**：把选手输出交给 `AnswerChecker`（由 `AnswerCheckerFactory` 创建），这样文本比对与作者判题器对新引擎自动生效。
 - `MEMORY_LIMIT_EXCEEDED` 通过沙箱的 `SandboxResult.outOfMemory()` 判定，同时写入 `memoryUsedKb`（`IsolateSandbox` 已提供参考实现）。
 - `Sandbox.supportsAuthorCode()` 返回 `false` 的沙箱不会执行作者判题器，`AnswerCheckerFactory` 会自动给它 `DisabledAnswerChecker`（判 `CHECKER_ERROR`）。
 - 在 `application.yaml` 中把 `ioj.judge.engine` 设为新实现对应的值，并确认启动日志/失败信息符合预期。
@@ -140,8 +146,8 @@ ioj:
   - 不用 `ENGINE/CHARSET/COMMENT`，索引用独立 `CREATE INDEX`；
   - 不用 `GROUP_CONCAT`、`JSON_*`、窗口函数等 MySQL 专有/较新的函数（SQL 里用得少，尽量用标准 SQL）；
   - 唯一约束用 `CONSTRAINT xxx UNIQUE (...)`。
-- 改表时同步更新 `schema.sql` 与 `02-database.md`；已有数据库的升级脚本放在 `db/migrate-*.sql`，不要修改 `schema.sql` 去重跑。
-- 判题抢占用了 `FOR UPDATE`（H2 支持）。**不要**在 mapper 里写 `SKIP LOCKED`，否则集成测试会失败；多主服务器再考虑方言或 Testcontainers。
+- 改表时同步更新 `schema.sql` 与 `02-database.md`；已有数据库的升级脚本放在 `db/migrate-*.sql`，不得修改 `schema.sql` 去重跑。
+- 判题抢占用了 `FOR UPDATE`（H2 支持）。**不得**在 mapper 里写 `SKIP LOCKED`，否则集成测试会失败；多主服务器再考虑方言或 Testcontainers。
 - Mapper 的 SQL 也要照顾 MySQL：`CAST(NULL AS BIGINT)` 在 H2 能过、**MySQL 会直接语法错误**（生产环境 500，而集成测试全绿）。需要占位空列时写 `NULL AS column_alias`，或 `CAST(NULL AS SIGNED)`；字符/整数类型可以正常用 `CAST(NULL AS CHAR(n))` / `CAST(NULL AS INTEGER)`。
 
 ## 6. 测试
@@ -213,7 +219,7 @@ pnpm dev
 
 Vite 开发服务器默认监听 `127.0.0.1:5173`，并把 `/api` 代理到 `IOJ_API_PROXY_TARGET`（见 `client/.env.example`）；后端默认只允许 `http://localhost:5173` 跨域，改端口时同步设置 `IOJ_CORS_ORIGINS`。
 
-`test-client/` 是旧版 Vue 手工测试客户端，功能覆盖账号、题库、提交和管理后台，可用于接口联调；它不是正式前端，不应作为发布产物。
+正式前端是 `client/`；仓库不把其他本地客户端作为发布产物或文档依据。
 
 外部题库同步脚本在 `scripts/sync_clist_problems.py`，使用方法见 [外部题库同步](09-catalog-sync.md)。
 
@@ -225,18 +231,18 @@ Vite 开发服务器默认监听 `127.0.0.1:5173`，并把 `/api` 代理到 `IOJ
 | Jackson 3 | Boot 4 默认使用 Jackson 3（包名 `tools.jackson.*`）。DTO 用 record 即可；`JsonNode.asString()` 替代了 `asText()` |
 | jjwt | `jjwt-jackson` 依赖 Jackson 2（`com.fasterxml.*`），与 Jackson 3 共存无冲突，只用于 JWT 内部序列化 |
 | Spring Security 7 | 无 `WebSecurityConfigurerAdapter`；用 `SecurityFilterChain` Bean。没有配 `UserDetailsService`，因此在 `ServerApplication` 里排除了 `UserDetailsServiceAutoConfiguration`，避免启动时打印随机密码 |
-| 枚举写入数据库 | MyBatis 默认 `EnumTypeHandler` 存 `name()`，读取按名字映射，所以枚举改名等于要重建数据，**不要随意重命名** |
+| 枚举写入数据库 | MyBatis 默认 `EnumTypeHandler` 存 `name()`，读取按名字映射，所以枚举改名等于要重建数据，**不得随意重命名** |
 | LocalDateTime | MyBatis 自动映射 `DATETIME`；Jackson 3 序列化为 ISO-8601，前端按字符串处理即可 |
 | 自增主键 | `<insert useGeneratedKeys="true" keyProperty="id">`，插入后实体 id 会被回填；但 **`insertBatch`（`<foreach>`）不会回填**，批量插入后需要按唯一键再查一次（参考 `TestcaseService#add`） |
-| H2 差异 | `OCTET_LENGTH`、`CONCAT`、`LIMIT ? OFFSET ?`、`FOR UPDATE` 均可用；`ON UPDATE CURRENT_TIMESTAMP`、`GROUP_CONCAT`、`SKIP LOCKED` 不要用 |
-| 事务 + 长任务 | 判题在事务外执行，`persist` 才开事务；不要在 `claimNext()` 事务里调用引擎。`judge()` 内部调用 `persist()` 属于自调用，`@Transactional` 不生效，所以那里改用 `TransactionTemplate` 显式控制事务 |
+| H2 差异 | `OCTET_LENGTH`、`CONCAT`、`LIMIT ? OFFSET ?`、`FOR UPDATE` 均可用；`ON UPDATE CURRENT_TIMESTAMP`、`GROUP_CONCAT`、`SKIP LOCKED` 不得用 |
+| 事务 + 长任务 | 判题在事务外执行，`persist` 才开事务；不得在 `claimNext()` 事务里调用引擎。`judge()` 内部调用 `persist()` 属于自调用，`@Transactional` 不生效，所以那里改用 `TransactionTemplate` 显式控制事务 |
 | 事务 + 抛异常 | 想让"失败也要留痕"的写入（例如验证码输错次数）不被外层事务回滚，必须走**另一个 Bean** 的 `@Transactional(propagation = REQUIRES_NEW)`（见 `EmailCodeAttemptRecorder`）。同一个类里自调用不会经过代理，`REQUIRES_NEW` 等于没写 |
 | 邮件 | `spring-boot-starter-mail` 只在设置了 `spring.mail.host` 时才会创建 `JavaMailSender`；`ioj.email-code.enabled=true` 的上下文必须有这个 Bean，否则启动即失败（有意的 fail-fast）。发信逻辑藏在 `EmailCodeSender` 接口后面，测试用假实现替换 |
 
 ## 9. 代码风格与协作
 
 - 4 空格缩进；类/方法命名用英文，注释与用户可见文案用中文。
-- 一个文件一个公开类；Controller 按资源聚合，不要一个接口一个类。
+- 一个文件一个公开类；Controller 按资源聚合，不得一个接口一个类。
 - 新增错误码加到 `ErrorCode`（业务号段：用户 2xxx、题目 3xxx、提交 4xxx）。
 - 提交前在仓库根目录跑 `./mvnw test`；改 SQL 时同时跑集成测试（它会真的执行所有 mapper）。
 - Git 提交信息建议：`feat(problem): 支持按标签筛选`、`fix(judge): 修复 Java 超时判定`。
@@ -246,7 +252,7 @@ Vite 开发服务器默认监听 `127.0.0.1:5173`，并把 `/api` 代理到 `IOJ
 
 | 简化 | 影响 | 改进 |
 | --- | --- | --- |
-| 正式前端尚未完成 | `client/` 目前只有题库等页面的骨架；`test-client/` 是旧的手工测试客户端 | 按 [前端 API 文档](../api/frontend/README.md) 对接，服务端契约保持稳定 |
+| 正式前端尚未完成 | `client/` 目前只有题库等页面的骨架 | 按 [前端 API 文档](../api/frontend/README.md) 对接，服务端契约保持稳定 |
 | 无 refresh token | 7 天后需重新登录 | 增加 refresh token + 轮换 |
 | 无提交频率限制 | 恶意用户可以刷提交 | 每用户每分钟限 N 次（Redis 或 DB 计数） |
 | 无比赛/榜单 | 只能练题 | 新增 contest 相关表与聚合查询 |

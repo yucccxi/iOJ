@@ -65,14 +65,14 @@
 2. 新题状态由服务端决定：管理员或 `auto-publish=true` 时为 `PUBLISHED`，否则为 `PENDING_REVIEW`。
 3. 用 `PUT /problems/{problemId}/testcases` 一次性上传全部隐藏测试点；空数组会清空。
 4. 题目没有测试点时可以打开题面，但提交返回 `3003`；管理员上架时也会被 `3003` 拒绝。
-5. 需要 Special Judge 时，单独调用 `PUT /problems/{id}/checker`，不要塞进题目整体更新。
+5. 需要 Special Judge 时，单独调用 `PUT /problems/{id}/checker`，不得塞进题目整体更新。
 
 ### 4.3 提交与轮询
 
 1. `POST /submissions` 创建提交，响应 `status=PENDING`。
 2. 轮询 `GET /submissions/{id}`，直到状态不再是 `PENDING` / `JUDGING`。
 3. 只有提交者本人、题目作者、管理员能看到 `code`、`compileMessage`、`judgeMessage` 和 `cases`；其他调用方看到 `null` / `[]`。
-4. 评测失败即停，`cases` 可能少于测试点总数；`CHECKER_ERROR` / `SYSTEM_ERROR` 是系统侧问题，应提示稍后重试或联系出题者。
+4. 评测失败即停，`cases` 可能少于测试点总数；`CHECKER_ERROR` / `SYSTEM_ERROR` 是系统侧问题，必须提示稍后重试或联系出题者。
 
 ## 5. 容易踩的契约点
 

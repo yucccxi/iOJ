@@ -66,13 +66,13 @@ curl -s -X POST '<server-url>/api/v1/admin/judge-keys' \
   -d '{"name":"judge-1"}'
 ```
 
-响应中的 `data.key` 只出现一次。把它保存到判题机的 `IOJ_JUDGE_KEY`，不要写进 Git。
+响应中的 `data.key` 只出现一次。把它保存到判题机的 `IOJ_JUDGE_KEY`，不得写进 Git。
 
 一个 Agent 一个 key；更换节点或怀疑泄露时，创建新 key、更新 Agent、禁用旧 key。
 
 ## 5. 配置
 
-> 以下只列 Agent 的关键配置，默认值以 `judge-agent/src/main/resources/application.yaml` 为准；环境变量总表见 [部署与运维 §3](04-deployment.md#3-配置项)。
+> 以下只列 Agent 的关键配置，默认值以 `judge-agent/src/main/resources/application.yaml` 为准；完整 Agent 环境变量表见 [部署与运维 §3.2](04-deployment.md#32-判题-agent-环境变量)。
 
 ```yaml
 spring:
@@ -131,6 +131,7 @@ ioj:
 
 - **源码文件名、编译命令、运行命令、时间系数、进程数、额外内存**：主服务器 `ioj.judge.languages`，随 claim 响应的 `languageConfig` 下发。
 - **Isolate 路径、box id、`extra-dirs`、编译限制、checker 编译命令**：Agent 本地配置。
+- **checker 执行开关与运行/编译限制**：由 Agent 本地 `ioj.judge.checker.*` 决定。主服务器只下发 `checkerEnabled` 和 checker 探针命令，不下发时限/内存；只改主服务器配置不会限制远程 Agent。
 - Agent 不再维护本地语言列表：启动时从主服务器拉取 `requiredLanguages` 和 `probeCommands`，全部探测通过才启动。
 - 主服务器为每种语言配置探测命令，例如 Java `javac -version` / `java -version`、C++ `g++ --version`、Python `python3 --version`；checker 单独配置 `g++ --version`。
 
@@ -145,7 +146,7 @@ Agent 启动失败时不会先发心跳或 claim；缺少工具链会打印具�
 - **节点离线阈值**：主服务器 `ioj.judge.dispatch.node-offline-seconds`，由节点心跳响应返回。
 - **节点心跳**：Agent 启动后立即发一次节点心跳；拿到响应前，后续间隔使用本地 `node-heartbeat-interval-ms`，之后改为 `offlineSeconds / 3`。
 - Agent 不再配置 `lease-seconds`；租约的唯一来源是主服务器。
-- 节点心跳和任务心跳共用一个心跳调度器，但按各自的到期时间执行，不要求相同频率。
+- 节点心跳和任务心跳共用一个心跳调度器，但按各自的到期时间执行，不得求相同频率。
 
 ## 6. systemd
 
@@ -259,7 +260,7 @@ Agent 启动失败时的退出码：
 
 - Agent 不需要 root；Isolate 自身 setuid
 - Agent 不连接 MySQL，不持有 JWT/SMTP 凭据
-- key 放在 `EnvironmentFile`，权限 0640（属主为运行用户）；不要写进 unit 文件或提交到 Git
-- 公网 Nginx 不要代理 `/internal/judge/**`；必须代理时限制来源 IP
+- key 放在 `EnvironmentFile`，权限 0640（属主为运行用户）；不得写进 unit 文件或提交到 Git
+- 公网 Nginx 不得代理 `/internal/judge/**`；必须代理时限制来源 IP
 - 判题机与主服务器之间使用内网/VPN；有条件的上 mTLS
-- 定期更新 Isolate 与系统，判题机不要存放数据库密码或证书
+- 定期更新 Isolate 与系统，判题机不得存放数据库密码或证书

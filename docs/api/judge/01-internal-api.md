@@ -4,7 +4,7 @@
 
 > 返回目录：[内部判题 API 索引](README.md)
 
-> **内部接口**：仅供内部调用方使用，不得暴露到公网或写进公开调用示例。生产部署应使用内网地址、VPN 或限制来源 IP。
+> **内部接口**：仅供内部调用方使用，不得暴露到公网或写进公开调用示例。生产部署必须使用内网地址、VPN 或限制来源 IP。
 
 ## 1. 认证与统一响应
 
@@ -53,7 +53,7 @@ key 失效条件：
 | v2 要求 | 测试数据 bundle 必须是 ZIP，归档内唯一入口为 `testcases.json`；旧 JSON bundle 已移除 |
 | 启动校验 | Agent 拉取 `/config` 后必须校验 `protocolVersion`；不一致时拒绝启动，退出码 `78` |
 | claim/heartbeat 字段 | 请求中的 `protocolVersion` 用于诊断；当前服务端不会因该字段不同而拒绝 claim，真正的兼容性由启动校验保证 |
-| 升级策略 | 不兼容变更必须递增版本，并同时升级主服务器与 Agent；不要用字段缺失来“兼容”旧 Agent |
+| 升级策略 | 不兼容变更必须递增版本，并同时升级主服务器与 Agent；不得用字段缺失来“兼容”旧 Agent |
 
 ## 2. 启动配置
 
@@ -61,7 +61,7 @@ key 失效条件：
 
 `GET /internal/judge/config` ｜ Bearer judge key
 
-Agent 启动时调用一次，获取协议版本、必须支持的语言、语言命令快照、checker 开关和工具链探测命令。
+Agent 启动时调用一次，获取协议版本、必须支持的语言、语言命令快照、checker 引导开关和工具链探测命令。checker 的实际执行开关和限制由 Agent 本地配置决定，不在此响应中。
 
 **请求**：无参数、无请求体。
 
@@ -133,8 +133,8 @@ Agent 启动时调用一次，获取协议版本、必须支持的语言、语�
 | `data.configVersion` | string | 语言/checker 配置的 SHA-256，十六进制，用于诊断 |
 | `data.requiredLanguages` | string[] | Agent 必须支持的全部语言；等于主服务器 `ioj.judge.languages` 的 key 集合 |
 | `data.languages` | object | 按语言名索引的命令快照，见 §9.2 |
-| `data.checkerEnabled` | boolean | 是否允许题目自带判题器 |
-| `data.checkerProbeCommands` | string[] | 校验 checker 编译器的命令；checker 关闭时为空数组 |
+| `data.checkerEnabled` | boolean | 主服务器是否声明 checker 可用并下发 checker 探针命令；**不是远程 Agent 的实际执行开关**。当前 Agent 实际是否执行 checker 由本地 `ioj.judge.checker.enabled` 决定 |
+| `data.checkerProbeCommands` | string[] | 校验 checker 编译器的命令；主服务器 checker 关闭时为空数组 |
 
 **失败情况**
 
@@ -146,10 +146,11 @@ Agent 启动时调用一次，获取协议版本、必须支持的语言、语�
 
 **行为说明**
 
-- `requiredLanguages` 是所有 Agent 的“同构”要求：主服务器支持的语言，每台 Agent 都必须具备对应工具链，不能只领部分语言。
-- Agent 必须在启动时逐条执行 `probeCommands`，全部退出码为 0 才算通过；缺任意语言应拒绝启动，而不是先发心跳或 claim。
+- `requiredLanguages` 是所有 Agent 的“同构”要求：主服务器支持的语言，每台 Agent 都必须具备对应工具链，不得只领部分语言。
+- Agent 必须在启动时逐条执行 `probeCommands`，全部退出码为 0 才算通过；缺任意语言必须拒绝启动，而不是先发心跳或 claim。
 - `configVersion` 只用于日志/诊断，不参与权限判断。
 - 语言命令的权威来源是主服务器；Agent 本地只配置 Isolate 路径、box id、额外挂载目录等机器参数。
+- `checkerEnabled` 只表示主服务器的引导开关，不是远程 Agent 的执行开关；`judge` 配置不包含 checker 的时限、内存或编译限制，远程 Agent 使用本地 `ioj.judge.checker.*`。
 
 ## 3. 节点心跳
 
@@ -294,7 +295,7 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 }
 ```
 
-空数组表示当前没有工作；Agent 应退避后重试，而不是忙轮询。
+空数组表示当前没有工作；Agent 必须退避后重试，而不是忙轮询。
 
 **字段说明**
 
@@ -326,7 +327,7 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 **行为说明**
 
 - 只领取 `status=PENDING` 的提交，按 id 升序；每条领取成功后变为 `JUDGING`，写入 `judge_key_id`、`judge_node_id`、`claim_token`、`claimed_at`、`lease_expires_at`，并递增 `attempt_count`。
-- 服务端把 `maxTasks` 截断到 `ioj.judge.dispatch.max-claim-batch`（默认 10）且至少 1；Agent 侧还应受自身并发限制。
+- 服务端把 `maxTasks` 截断到 `ioj.judge.dispatch.max-claim-batch`（默认 10）且至少 1；Agent 侧还必须受自身并发限制。
 - 测试数据总 UTF-8 字节数超过 `ioj.judge.dispatch.inline-max-bytes`（默认 1 MiB）时，`testcases` 为空并返回 `testcaseBundleUrl`；否则内联。
 - 领取时如果题目、语言或测试数据已不可用，该提交会被标记为 `SYSTEM_ERROR`，不会返回给 Agent，循环继续尝试下一条。
 - 测试数据 bundle URL 是相对路径（`/internal/judge/tasks/{submissionId}/testcases`），Agent 用同一个 base URL 和 `claimToken` 下载。
@@ -380,7 +381,7 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `data.leaseSeconds` | integer | 续期后的租约秒数；claim 无效时为 `0` |
-| `data.cancel` | boolean | `true` 表示 Agent 应放弃该任务 |
+| `data.cancel` | boolean | `true` 表示 Agent 必须放弃该任务 |
 
 **失败情况**
 
@@ -393,8 +394,8 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 
 - 只有在 `claim_token` 匹配、提交仍为 `JUDGING`、且 `lease_expires_at > now` 时才续租；否则返回 `leaseSeconds=0, cancel=true`。
 - 租约边界是半开区间：`lease_expires_at > now` 仍有效，`lease_expires_at <= now` 可被回收器处理。
-- `nodeId`、`runningTasks`、`protocolVersion` 当前不参与服务端判断；Agent 仍应发送，便于日志和后续扩展。
-- 收到 `cancel=true` 时，Agent 应停止执行并丢弃本地结果；不要再调用 result。
+- `nodeId`、`runningTasks`、`protocolVersion` 当前不参与服务端判断；建议 Agent 继续发送，便于日志和后续扩展。
+- 收到 `cancel=true` 时，Agent 必须停止执行并丢弃本地结果；不得再调用 result。
 
 ## 6. 测试数据 Bundle
 
@@ -443,9 +444,9 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 **行为说明**
 
 - 下载必须使用 claim 时拿到的同一个 `claimToken`；租约过期或被重领后返回 `409`。
-- Agent 应校验 HTTP 状态和 `Content-Type`，不要把 HTML 错误页当 ZIP 解压。
-- ZIP 只有一个 `testcases.json` 条目；不要按“一题一文件”实现。
-- `bundleSha256` 当前为 `null`，Agent 不应依赖它做完整性校验。
+- Agent 必须校验 HTTP 状态和 `Content-Type`，不得把 HTML 错误页当 ZIP 解压。
+- ZIP 只有一个 `testcases.json` 条目；不得按“一题一文件”实现。
+- `bundleSha256` 当前为 `null`，Agent 不得依赖它做完整性校验。
 - 响应不缓存；重复下载是安全的，但会增加带宽。
 
 ## 7. 结果回报
@@ -480,8 +481,8 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 | --- | --- | --- | --- | --- |
 | `ordinal` | integer | 是 | — | 测试点编号，必须 > 0 且不重复 |
 | `status` | string | 是 | — | 终态（不含 `PENDING` / `JUDGING`） |
-| `timeUsedMs` | integer / null | 否 | `null` | 该点耗时，不能为负数 |
-| `memoryUsedKb` | integer / null | 否 | `null` | 该点内存，不能为负数 |
+| `timeUsedMs` | integer / null | 否 | `null` | 该点耗时，不得为负数 |
+| `memoryUsedKb` | integer / null | 否 | `null` | 该点内存，不得为负数 |
 | `message` | string / null | 否 | `null` | 失败原因，最多 1024 字符 |
 
 ```json
@@ -531,7 +532,7 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 - `status=ACCEPTED` 时，只有真正写入成功才把 `problems.accepted_count` +1。
 - `compileMessage` / `judgeMessage` 最多保留 65536 字符，`cases[].message` 最多 1024 字符；超长由服务端截断。
 - `cases` 是本次评测的完整结果：服务端按 `(submission_id, case_ordinal)` upsert，并删除本次结果中不存在的旧序号，所以重判结果更少时不会残留旧点。
-- 结果里的 `cases[].message` 不应包含隐藏测试数据或标准答案。
+- 结果里的 `cases[].message` 不得包含隐藏测试数据或标准答案。
 - 失败即停是 Agent/引擎的行为：可以只回报已执行的测试点，`cases` 允许少于题目测试点总数。
 
 ## 8. 任务释放
@@ -583,7 +584,7 @@ Agent 优雅停机或没有空闲并发时，把尚未开始执行的任务交�
 
 - 只释放 `claim_token` 匹配且状态为 `JUDGING` 的任务；不匹配时静默成功，不会报错。
 - 释放后提交回到 `PENDING`，清空 `judge_key_id` / `judge_node_id` / `claim_token` / `claimed_at` / `lease_expires_at`；`attempt_count` 不重置。
-- 已经执行过的任务不要 release 后再次回报结果；租约已失效，结果会被 `409` 拒绝。
+- 已经执行过的任务不得 release 后再次回报结果；租约已失效，结果会被 `409` 拒绝。
 - Agent 正常停机时会等待执行中的任务最多 30 秒；未完成的任务会尝试 release，再强制结束。
 
 ## 9. 数据模型
@@ -660,32 +661,32 @@ Agent 优雅停机或没有空闲并发时，把尚未开始执行的任务交�
   - `lease_expires_at <= now` 且 `attempt_count >= max-attempts`：改判 `SYSTEM_ERROR`，`judge_message` 为“判题机多次领取任务后未回报结果，任务已终止”。
 - `attempt_count` 在每次成功 claim 时 +1，release / 重新排队不会清零；因此坏任务不会无限重试。
 - 节点超过 `offlineSeconds` 没有心跳会被标记 `OFFLINE`；任务不会因节点离线立即失败，仍由租约回收器处理。
-- 所有租约时间以主服务器时钟为准；Agent 应开启 NTP，不要用本地时钟判断任务是否过期。
+- 所有租约时间以主服务器时钟为准；Agent 必须开启 NTP，不得用本地时钟判断任务是否过期。
 
 ## 11. 重试与异常处理
 
 | 场景 | 建议 |
 | --- | --- |
-| 空 claim | 退避 1-5 秒并加随机抖动，不要忙轮询 |
+| 空 claim | 退避 1-5 秒并加随机抖动，不得忙轮询 |
 | 节点心跳失败 | 记录日志，按本地间隔重试；网络恢复后节点重新上线 |
-| 任务心跳返回 `cancel=true` | 立即停止执行，丢弃本地结果，不要调用 result |
+| 任务心跳返回 `cancel=true` | 立即停止执行，丢弃本地结果，不得调用 result |
 | 任务心跳网络失败 | 按租约的 1/3 重试；若租约即将过期，优先停止并等待回收 |
 | bundle 下载失败 | 用同一 token 重试；收到 `409` 时放弃任务 |
 | result 网络失败 | 用同一 token 重试，建议 1 s / 2 s / 5 s；同一 token 幂等 |
-| result 返回 `409` | 租约已失效或被重领，不要继续重试 |
+| result 返回 `409` | 租约已失效或被重领，不得继续重试 |
 | result 返回 `400` | 检查终态、ordinal 是否重复、耗时是否为负；修正后重试 |
 | 配置拉取失败 | 启动阶段按 `config-fetch-retries` 重试；key 认证失败直接退出 `78` |
 | 工具链缺失 | 不启动；安装对应工具链后重启 Agent |
 
 ## 12. 安全要求
 
-- 只通过内网、VPN 或来源 IP 白名单暴露 `/internal/judge/**`；公网 Nginx 不应转发该前缀。
+- 只通过内网、VPN 或来源 IP 白名单暴露 `/internal/judge/**`；公网 Nginx 不得转发该前缀。
 - key 放在权限 `0600` 的环境文件或密钥管理系统中，不写进 unit 文件、不提交 Git、不打印到日志。
 - 一个 Agent 一个 key、一个唯一 `nodeId`；怀疑泄露时创建新 key、切换 Agent、禁用旧 key。
 - 删除 key 会级联删除节点记录，并把历史提交的 `judge_key_id` 置为 `NULL`；不会删除历史提交。
 - Agent 以非 root 用户运行；Isolate 的 setuid 位由官方包/系统配置管理。
 - 判题机不保存数据库密码、JWT 密钥、SMTP 凭据或证书；它只需要出站访问主服务器。
-- 主服务器与判题机之间建议使用 TLS 或受控内网；不要用明文 HTTP 穿越不可信网络。
+- 主服务器与判题机之间建议使用 TLS 或受控内网；不得用明文 HTTP 穿越不可信网络。
 
 ## 相关文档
 

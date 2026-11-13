@@ -67,7 +67,7 @@ erDiagram
 | `submissions.language` | `JAVA` / `CPP` / `C` / `PYTHON3` | 与 `ioj.judge.languages` 的 key 一致 |
 | `submissions.status` | `PENDING` / `JUDGING` / `ACCEPTED` / `WRONG_ANSWER` / `TIME_LIMIT_EXCEEDED` / `MEMORY_LIMIT_EXCEEDED` / `OUTPUT_LIMIT_EXCEEDED` / `RUNTIME_ERROR` / `COMPILATION_ERROR` / `CHECKER_ERROR` / `SYSTEM_ERROR` | 提交总状态 |
 | `submission_cases.status` | 同上（不含 `PENDING`/`JUDGING`） | 单测试点状态 |
-| `email_verification_codes.purpose` | `REGISTER` / `RESET_PASSWORD` | 发码用途：注册 / 找回密码。**码与用途绑定**，注册码不能用于重置，反之亦然 |
+| `email_verification_codes.purpose` | `REGISTER` / `RESET_PASSWORD` | 发码用途：注册 / 找回密码。**码与用途绑定**，注册码不得用于重置，反之亦然 |
 | `captcha_challenges.purpose` | `LOGIN` / `EMAIL_SENDING` | 图形验证码用途：登录 / 发送邮箱验证码 |
 | `judge_nodes.status` | `ONLINE` / `OFFLINE` | 判题节点心跳状态 |
 
@@ -97,7 +97,7 @@ erDiagram
 
 ### 4.2 scopes —— 题目 scope
 
-外部 OJ 平台/比赛 scope 由管理员维护；此外有一行系统保留 scope `LOCAL`，所有本地题都引用它，上传/编辑题目时客户端不能指定 scope。`LOCAL` 由 `schema.sql`（新库）与 `seed.sql`（旧库补建）写入，不能改名或删除。
+外部 OJ 平台/比赛 scope 由管理员维护；此外有一行系统保留 scope `LOCAL`，所有本地题都引用它，上传/编辑题目时客户端不得指定 scope。`LOCAL` 由 `schema.sql`（新库）与 `seed.sql`（旧库补建）写入，不得改名或删除。
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -132,7 +132,7 @@ erDiagram
 `checker_code` 的几条约定：
 
 - 判题器是**出题者上传的 C++ 源码**，判题时在沙箱里用 `g++` 编译后逐测试点运行（见 `03-judge.md` §10）。
-- 判题器的时限与内存**不在数据库里**，而是配置项 `ioj.judge.checker.*`。原因是判题器需要的内存通常比选手程序大一个量级，而"某道题需要更久的判题器"这种需求在俱乐部规模下可以直接整体调大。
+- 判题器的时限与内存**不在数据库里**，而由运行判题器的进程配置：远程判题使用 Agent 本地 `ioj.judge.checker.*`，主服务器只下发 checker 源码和引导开关。原因是判题器需要的内存通常比选手程序大一个量级，而“某道题需要更久的判题器”这种需求在俱乐部规模下可以直接整体调大。
 - 该列**不会**出现在 `ProblemMapper.findById` 的查询里：公开的 `GET /problems/{id}` 与判题取数是两条不同的查询，避免判题逻辑通过公开接口泄漏。列表接口同样不返回，详情接口只返回 `hasChecker` 布尔值。
 - 修改判题器走独立端点 `PUT /problems/{id}/checker`，**不并入** `PUT /problems/{id}`：后者是整体替换，客户端漏传一次就会静默退回内置比对。
 
@@ -225,7 +225,7 @@ erDiagram
 | --- | --- | --- | --- |
 | id | BIGINT | PK, AUTO_INCREMENT | |
 | scope_id | BIGINT | NOT NULL, FK → scopes.id | scope（OJ 平台或比赛），**与本地题共用同一张 scope 表**；scope 名由 `JOIN scopes` 取得 |
-| code | VARCHAR(32) | NULL, UNIQUE | 原站题目的短标识，如 `CF_2278G`、`AT_ABC482_G`；用于导入去重和排查，无法推导题号时可为 `NULL` |
+| code | VARCHAR(32) | NULL, UNIQUE | 原站题目的短标识，如 `CF_2278G`、`AT_ABC482_G`；用于导入去重和排查。数据库允许 `NULL` 以兼容历史/人工导入；当前同步脚本遇到无法推导题号的行会跳过，不写入 `NULL` |
 | title | VARCHAR(200) | NOT NULL | 题目名称（`LIKE` 搜索） |
 | rating | INT | NULL | 该平台的难度分（刻度随来源不同，跨平台不可比）；为 `NULL` 时接口返回 `-1` |
 | difficulty | VARCHAR(16) | NOT NULL DEFAULT 'UNKNOWN' | 由 rating 推导的档位：Codeforces `<1400` / `1400–1999` / `≥2000`，AtCoder `<800` / `800–1599` / `≥1600`；rating 为空归为 `UNKNOWN` |
@@ -237,8 +237,8 @@ erDiagram
 
 `code` 由 `scripts/sync_clist_problems.py` 从 clist 的 `url` / `short` 推导后写入，规则见脚本文件头注释。它既是导入查重标识，也会通过 `GET /catalog` 返回给前端（本地题为 `null`）；外部题的定位仍以 `id` + `url` 为准。两个唯一键分工如下：
 
-- `uk_external_problems_url`：同一链接不能重复导入；
-- `uk_external_problems_code`：同一原站题号（如 `CF_2278G`）不能重复；`NULL` 不参与唯一性冲突，无法推导题号的行可以留空。
+- `uk_external_problems_url`：同一链接不得重复导入；
+- `uk_external_problems_code`：同一原站题号（如 `CF_2278G`）不得重复；`NULL` 不参与唯一性冲突。当前同步脚本不会写入 `NULL`，历史或人工导入行可以为空。
 
 ### 4.10 external_problem_tags —— 外部题目标签
 
@@ -310,9 +310,9 @@ erDiagram
 | --- | --- | --- | --- |
 | id | BIGINT | PK, AUTO_INCREMENT | |
 | name | VARCHAR(128) | NOT NULL | 节点名/备注 |
-| key_prefix | VARCHAR(16) | NOT NULL | 展示用前缀，如 `jsk_3f9a2c` |
+| key_prefix | VARCHAR(16) | NOT NULL | 展示用前缀，如 `jsk_3f9a2c7e` |
 | key_hash | VARCHAR(64) | NOT NULL, UNIQUE | SHA-256 hex |
-| enabled | BOOLEAN | NOT NULL DEFAULT TRUE | 禁用后不能 claim/result |
+| enabled | BOOLEAN | NOT NULL DEFAULT TRUE | 禁用后不得 claim/result |
 | expires_at | DATETIME | NULL | 可选过期时间 |
 | last_used_at | DATETIME | NULL | 仅在成功领取到任务时更新；空轮询不会刷新 |
 | created_by | BIGINT | FK → users.id, SET NULL | 创建者 |

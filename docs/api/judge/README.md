@@ -4,7 +4,7 @@
 
 > 返回目录：[API 通用约定](../README.md) ｜ [文档总索引](../../README.md)
 
-> **内部接口**：仅供内部调用方使用，不得暴露到公网或写进公开调用示例。生产部署应使用内网地址、VPN 或限制来源 IP；不要给公网 Nginx 增加 `/internal/judge/` 的转发。
+> **内部接口**：仅供内部调用方使用，不得暴露到公网或写进公开调用示例。生产部署必须使用内网地址、VPN 或限制来源 IP；不得给公网 Nginx 增加 `/internal/judge/` 的转发。
 
 ## 1. 文档
 
@@ -25,7 +25,7 @@
 | 暴露范围 | 可公网 | 仅判题网络 |
 | 版本 | `/api/v1` | `ProtocolVersion.CURRENT`，当前 `2` |
 
-两类凭据不能混用：用户 JWT 不能访问 `/internal/judge/**`，judge key 也不能访问 `/api/v1/**`。
+两类凭据不得混用：用户 JWT 不得访问 `/internal/judge/**`，judge key 也不得访问 `/api/v1/**`。
 
 ## 3. 一次调用的生命周期
 

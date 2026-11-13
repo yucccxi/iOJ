@@ -33,7 +33,7 @@ stateDiagram-v2
 
 - 使用 `engine=isolate` 时，内存超限由 cgroup OOM 事件可靠判定；`engine=local` 回退模式一般只表现为运行时错误。
 - 所有终态都会写入 `judged_at`；`SYSTEM_ERROR` 会写 `judge_message`。`CHECKER_ERROR` 在判题器准备阶段失败时写 `judgeMessage`，在运行阶段失败时写对应 `cases[].message`。
-- `CHECKER_ERROR` 表示**题目自带的判题器**出错（编译失败、超时、崩溃、返回非法退出码），不是选手的问题；选手代码本身可能完全正确，运维应把它当作需要重跑的系统故障。
+- `CHECKER_ERROR` 表示**题目自带的判题器**出错（编译失败、超时、崩溃、返回非法退出码），不是选手的问题；选手代码本身可能完全正确，运维必须把它当作需要重跑的系统故障。
 - 判题采用 fail-fast：某个测试点失败后不再执行后续测试点。
 
 ## 2. 判题引擎选择
@@ -98,7 +98,7 @@ server/judge/
 
 | 接口 | 作用 |
 | --- | --- |
-| `GET /internal/judge/config` | Agent 启动时拉取语言、探测命令、checker 和协议版本 |
+| `GET /internal/judge/config` | Agent 启动时拉取语言、探测命令、checker 引导开关和协议版本；不下发 checker 运行时限/内存 |
 | `POST /internal/judge/nodes/heartbeat` | 节点注册/心跳，上报语言、并发、版本 |
 | `POST /internal/judge/tasks/claim` | 领取 1~N 个 PENDING 任务 |
 | `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载 ZIP bundle（含 `testcases.json`） |
@@ -158,7 +158,7 @@ AgentRunner.execute(task)
 - **编译也在沙箱内**，不把宿主机当作可信环境。
 - 每个测试点使用**独立 box 与独立工作目录**，前一个测试点无法留下文件或修改程序。
 - 工作目录通过 `--dir=/box=<host_dir>:rw` 绑定，worker 不需要写 Isolate 的 box 根目录。
-- 外层还有 `Process.waitFor` 看门狗，Isolate 自身挂起时会被强制结束。
+- 外层还有 `Process.waitFor` 看门狗，Isolate 自身挂起时会被强制结束。该路径在 `classifyExecution` 中先按 `!finished` 判为 `TIME_LIMIT_EXCEEDED`；只有 Isolate `status=XX` 才判 `SYSTEM_ERROR`。
 - **判题器与选手程序跑在两个不同的目录里**：`answer.txt` 只出现在判题器的目录，选手程序的目录里永远没有答案文件，因此选手无法 `cat` 到标准答案，也无法覆写判题器二进制。
 - 沙箱把程序输出写进自己管理的 `stdout.txt` / `stderr.txt`，因此判题器目录里可以放心地放一份名为 `output.txt` 的选手输出副本而不会被覆盖。
 
@@ -201,28 +201,28 @@ AgentRunner.execute(task)
 | 服务 | `systemctl status isolate.service` 为 active（cgroup 委派） |
 | cgroup | cgroup v2（`stat -fc %T /sys/fs/cgroup` 输出 `cgroup2fs`），内存统计需要 Linux 5.19+ |
 | 权限 | 运行后端的用户能执行 `/usr/bin/isolate`（通常在 `isolate` 组，`sudo usermod -aG isolate <user>` 后重新登录） |
-| box id | 同一台机器上唯一；不要与 root 手工测试留下的 box 冲突（本项目默认从 1 开始） |
+| box id | 同一台机器上唯一；不得与 root 手工测试留下的 box 冲突（本项目默认从 1 开始） |
 | 额外目录 | Debian JDK 需要只读绑定 `/etc/java-21-openjdk`（`java.security`） |
 
 命令与安装步骤见 [06-isolate.md](06-isolate.md)。
 
 ### 5.2 配置项
 
-> 以下只列与沙箱行为直接相关的参数，默认值以 `application.yaml` 为准；完整环境变量表见 [部署与运维 §3](04-deployment.md#3-配置项)。
+> 以下只列与沙箱行为直接相关的参数，默认值以 `application.yaml` 为准；主服务器和 Agent 的完整环境变量表见 [部署与运维 §3](04-deployment.md#3-配置项)。
 
-| 配置 | 默认 | 说明 |
-| --- | --- | --- |
-| `ioj.judge.isolate.binary` | `/usr/bin/isolate` | 可执行文件路径 |
-| `ioj.judge.isolate.box-id-start` / `box-id-count` | `1` / `8` | 本实例可用的 box 编号区间；应不小于并发数 |
-| `ioj.judge.isolate.check-on-startup` | `true` | 启动时检查 binary 可执行，失败直接终止 |
-| `ioj.judge.isolate.compile-processes` | `64` | 编译阶段进程/线程上限（javac 需要较多） |
-| `ioj.judge.isolate.compile-time-seconds` / `compile-wall-time-seconds` | `10` / `30` | 编译 CPU / 墙钟上限 |
-| `ioj.judge.isolate.compile-cg-mem-kb` | `524288` | 编译内存上限（512 MB） |
-| `ioj.judge.isolate.compile-fsize-kb` | `16384` | 编译阶段文件大小上限（16 MB） |
-| `ioj.judge.isolate.wall-time-extra-seconds` | `3` | 运行阶段墙钟 = CPU 限制 + 该值 |
-| `ioj.judge.isolate.extra-dirs` | `/etc/java-21-openjdk` | 只读绑定进沙箱的宿主机目录 |
-| `ioj.judge.isolate.resolve-executables` | `true` | 把命令第一个词解析成真实路径 |
-| `ioj.judge.isolate.setup-timeout-ms` | `10000` | init/cleanup 的超时 |
+| 配置 | 类型 | 必填 | 默认值 | 说明 |
+| --- | --- | --- | --- | --- |
+| `ioj.judge.isolate.binary` | string | 否 | `/usr/bin/isolate` | 可执行文件路径 |
+| `ioj.judge.isolate.box-id-start` / `box-id-count` | integer | 否 | 主服务器 `1` / `8`；Agent `1` / `1` | 本实例可用的 box 编号区间；`box-id-count` 必须不小于 Agent 并发数 |
+| `ioj.judge.isolate.check-on-startup` | boolean | 否 | `true` | 启动时检查 binary 可执行，失败直接终止 |
+| `ioj.judge.isolate.compile-processes` | integer | 否 | `64` | 编译阶段进程/线程上限（javac 需要较多） |
+| `ioj.judge.isolate.compile-time-seconds` / `compile-wall-time-seconds` | integer | 否 | `10` / `30` | 编译 CPU / 墙钟上限 |
+| `ioj.judge.isolate.compile-cg-mem-kb` | integer | 否 | `524288` | 编译内存上限（512 MB） |
+| `ioj.judge.isolate.compile-fsize-kb` | integer | 否 | `16384` | 编译阶段文件大小上限（16 MB） |
+| `ioj.judge.isolate.wall-time-extra-seconds` | integer | 否 | `3` | 运行阶段墙钟 = CPU 限制 + 该值 |
+| `ioj.judge.isolate.extra-dirs` | string[] | 否 | `/etc/java-21-openjdk` | 只读绑定进沙箱的宿主机目录 |
+| `ioj.judge.isolate.resolve-executables` | boolean | 否 | `true` | 把命令第一个词解析成真实路径 |
+| `ioj.judge.isolate.setup-timeout-ms` | integer | 否 | `10000` | init/cleanup 的超时 |
 
 每次运行传给 Isolate 的限制：
 
@@ -247,7 +247,8 @@ AgentRunner.execute(task)
 | `cg-oom-killed` 存在 | `MEMORY_LIMIT_EXCEEDED` |
 | 输出文件达到 `max-output-bytes` | `OUTPUT_LIMIT_EXCEEDED` |
 | `status=SG` / `status=RE` / `exitcode≠0` | `RUNTIME_ERROR` |
-| `status=XX` 或外层看门狗超时 | `SYSTEM_ERROR` |
+| `status=XX` | `SYSTEM_ERROR` |
+| 外层看门狗超时（`!finished`） | `TIME_LIMIT_EXCEEDED` |
 | 输出一致 | `ACCEPTED` |
 
 `time`（CPU 秒）与 `cg-mem`（KB）会写入 `submissions` 与 `submission_cases`，所以使用 isolate 后 `memoryUsedKb` 不再是 `null`。
@@ -261,25 +262,25 @@ AgentRunner.execute(task)
 | 超时 | `Process.waitFor(timeLimit)`，超时 `destroyForcibly` |
 | 内存 | C/C++/Python 使用 `ulimit -v`，Java 使用 `-Xmx`；**无法精确统计峰值** |
 | 输出 | 读取线程限流，超出上限停止保存 |
-| 文件 | `ulimit -f`（C/C++） |
+| 文件 | 未设置 `ulimit -f`；运行命令的 `run-wrapper` 只包含 `ulimit -v` / `ulimit -s`，文件大小由输出上限间接约束 |
 
-限制：无法阻止 fork bomb、网络访问、提权；内存超限通常表现为运行时错误而不是 MLE。因此**仅适合校内/可信用户**，生产环境应使用 isolate。
+限制：无法阻止 fork bomb、网络访问、提权；内存超限通常表现为运行时错误而不是 MLE。因此**仅适合校内/可信用户**，生产环境必须使用 isolate。
 
 ## 7. 并发与调参
 
-| 配置 | 作用 | 建议 |
-| --- | --- | --- |
-| `ioj.agent.concurrency` | 单个 Agent 同时评测的提交数 | CPU 核数 - 1 |
-| `ioj.judge.isolate.box-id-count` | 单个 Agent 可用 box 数 | ≥ 并发数；同一台机器多个 Agent 时用 `box-id-start` 分段 |
-| `ioj.judge.isolate.compile-processes` | 编译阶段进程/线程上限 | 保持 64，javac 需要较多线程 |
-| 语言的 `isolate-processes` | 运行阶段线程上限 | Java 64；C/C++/Python 1 |
-| 语言的 `isolate-memory-extra-mb` | 运行时额外内存 | Java 256；其余按需 |
+| 配置 | 类型 | 必填 | 默认值 | 作用 | 建议 |
+| --- | --- | --- | --- | --- | --- |
+| `ioj.agent.concurrency` | integer | 否 | `1` | 单个 Agent 同时评测的提交数 | CPU 核数 - 1 |
+| `ioj.judge.isolate.box-id-count` | integer | 否 | Agent `1` | 单个 Agent 可用 box 数 | 必须 ≥ 并发数；同一台机器多个 Agent 时用 `box-id-start` 分段 |
+| `ioj.judge.isolate.compile-processes` | integer | 否 | `64` | 编译阶段进程/线程上限 | 保持 64，javac 需要较多线程 |
+| 语言的 `isolate-processes` | integer | 否 | Java `64`；C/C++/Python `1` | 运行阶段线程上限 | 按语言设置 |
+| 语言的 `isolate-memory-extra-mb` | integer | 否 | Java `256`；其余 `16`/`64` | 运行时额外内存 | 按语言设置 |
 
 注意：
 
-- 同一台机器上 box id 不能冲突。两个 Agent 进程要么共用一段 id（会互相冲突），要么用不同的 `box-id-start` 区间。
-- 逐任务的 Isolate 限制不能替代整机容量管理：给系统、数据库和 Agent 留出余量。
-- 编译器与运行库版本应固定，避免不同节点产生差异；Agent 启动时上报版本，主服务器只分配语言能力匹配的任务。
+- 同一台机器上 box id 不得冲突。两个 Agent 进程要么共用一段 id（会互相冲突），要么用不同的 `box-id-start` 区间。
+- 逐任务的 Isolate 限制不得替代整机容量管理：给系统、数据库和 Agent 留出余量。
+- 编译器与运行库版本建议固定，避免不同节点产生差异；Agent 启动时上报版本，主服务器只分配语言能力匹配的任务。
 
 ## 8. 常见问题
 
@@ -313,8 +314,10 @@ AgentRunner.execute(task)
 
 | 项 | 位置 | 说明 |
 | --- | --- | --- |
-| 判题器源码 | `problems.checker_code`（`MEDIUMTEXT NULL`） | `NULL` 或空白 = 用内置 `OutputComparator` |
-| 判题器时限/内存/编译参数 | `application.yaml` 的 `ioj.judge.checker.*` | 全局配置，不入库 |
+| 判题器源码 | `problems.checker_code`（`MEDIUMTEXT NULL`） | `NULL` 或空白 = 用内置 `OutputComparator`；非空源码会随 claim 任务下发给 Agent |
+| 主服务器 checker 开关/探针 | `server/src/main/resources/application.yaml` 的 `ioj.judge.checker.enabled` / `probe-commands` | 主服务器自身运行 `engine=isolate` 时作为本地开关；远程调度时只决定 bootstrap 中的 `checkerEnabled` 和探针命令，**不控制远程 Agent 是否执行** |
+| 主服务器 checker 运行限制 | `server/src/main/resources/application.yaml` 的 `ioj.judge.checker.time-limit-ms` 等 | 仅主服务器自身运行 `engine=isolate` 时使用；默认 `engine=none` 和远程 Agent 不使用这些值，也不会随任务下发 |
+| Agent checker 开关/限制 | `judge-agent/src/main/resources/application.yaml` 的 `ioj.judge.checker.*` | 远程 Agent 实际执行开关和时限/内存/编译限制；必须逐台配置 |
 | 源码读写接口 | `GET/PUT /problems/{id}/checker` | 仅作者与管理员 |
 
 `checker_code` 是**故意不放进** `ProblemMapper.findById` 的：公开的题目详情接口走那条查询，把判题器源码带出去等于泄漏判题规则。详情接口只返回 `hasChecker`。
@@ -373,13 +376,13 @@ int main() {
 
 ### 10.4 配置项
 
-> 以下只列与判题器直接相关的参数，默认值以 `application.yaml` 为准；完整环境变量表见 [部署与运维 §3](04-deployment.md#3-配置项)。
+> 以下只列与判题器直接相关的参数。远程判题必须修改 **Agent** 的 `judge-agent/src/main/resources/application.yaml`；主服务器同名配置只在自身运行 `engine=isolate` 时执行，或仅用于 bootstrap 引导，不会下发运行时限/内存。完整环境变量表见 [部署与运维 §3](04-deployment.md#3-配置项)。
 
 ```yaml
 ioj:
   judge:
     checker:
-      enabled: true                    # 关闭后，带 checker 的题目一律判 CHECKER_ERROR
+      enabled: true                    # Agent 本地实际执行开关；false 时带 checker 的题返回 CHECKER_ERROR
       time-limit-ms: 2000              # 单次判题器运行的 CPU 时间
       memory-limit-mb: 512             # 单次判题器运行的内存
       compile-timeout-ms: 30000        # 判题器编译的墙钟超时
@@ -390,8 +393,9 @@ ioj:
 ```
 
 - 判题器的限制**独立于题目的 `time_limit_ms` / `memory_limit_mb`**：判题器通常要读整个输出，比选手程序更吃资源；反过来，判题器超时必须判成 `CHECKER_ERROR` 而不是选手 TLE。
-- `compile-command` 必须产出名为 `checker` 的可执行文件，否则判题时会报"the checker compile command did not produce a file named checker"。
+- `compile-command` 必须产出名为 `checker` 的可执行文件，否则判题时会报“the checker compile command did not produce a file named checker”。
 - 判题器**每次提交编译一次**，每个测试点运行一次；编译产物不跨提交缓存（俱乐部规模下每次约 0.2 秒，可以接受）。
+- 主服务器的 `IOJ_JUDGE_CHECKER_ENABLED` / `IOJ_JUDGE_CHECKER_*` 不会修改已启动 Agent 的执行策略；必须逐台修改 Agent 配置并重启 Agent。
 
 ### 10.5 隔离边界
 
@@ -405,8 +409,8 @@ ioj:
 | --- | --- | --- |
 | 所有提交都是 `CHECKER_ERROR`，`judgeMessage` 里是 `g++: ...` | 判题器编译失败 | 用 `GET /problems/{id}/checker` 取回源码，本地 `g++ -std=c++17 -o checker checker.cpp` 复现 |
 | `judgeMessage` 是 "the checker compile command did not produce a file named checker" | 编译命令改了输出名 | 保持 `-o checker` |
-| `submission_cases.message` 出现 "the checker exceeded the time limit" | 判题器太慢 | 提高 `time-limit-ms`（这是系统侧失败，不是选手 TLE） |
+| `submission_cases.message` 出现 "the checker exceeded the time limit" | 判题器太慢 | 提高对应 Agent 本地 `ioj.judge.checker.time-limit-ms` 后重启 Agent（这是系统侧失败，不是选手 TLE） |
 | 明明答案正确却 WA，且 `message` 是判题器打印的内容 | 判题器逻辑/退出码写错 | 判题器退出码必须是 0/1/2，其余按系统错误处理 |
-| `engine=local` 环境下全题都是 `CHECKER_ERROR` | 本机进程引擎不支持判题器 | 测试环境正常现象；生产请用 `engine=isolate` |
+| `engine=local` 环境下全题都是 `CHECKER_ERROR` | 本机进程引擎不支持判题器 | 测试环境正常现象；生产必须使用 `engine=isolate` |
 
 

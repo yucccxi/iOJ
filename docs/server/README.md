@@ -27,7 +27,6 @@ iOJ/
 ├── judge-agent/            # 独立判题进程：claim、Isolate 执行、结果回报
 ├── server/                 # 主服务器：REST API、数据库、调度
 ├── client/                 # 正式前端（React，开发中）
-├── test-client/            # 旧版 Vue 手工测试客户端
 ├── scripts/                # clist.by 外部题库同步脚本
 └── docs/                   # 项目文档
 ```
@@ -93,7 +92,7 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
 
 `seed.sql` 会创建默认管理员 **admin / admin123456**、10 个常用标签和保留 scope `LOCAL`，**首次登录后请立即修改密码**。
 
-已有数据库升级到分布式判题时，不要重跑 `schema.sql`，在仓库根目录先备份再执行一次迁移脚本：
+已有数据库升级到分布式判题时，不得重跑 `schema.sql`，在仓库根目录先备份再执行一次迁移脚本：
 
 ```bash
 mysqldump -uioj -p --single-transaction ioj > ioj-before-distributed-judge.sql
@@ -120,11 +119,7 @@ IOJ_JWT_SECRET="$(openssl rand -base64 48)" \
 java -jar server/target/server-0.0.1-SNAPSHOT.jar
 ```
 
-使用部署 profile 时端口为 `8082`，且普通用户上传的题目默认进入待审核：
-
-```bash
-java -jar server/target/server-0.0.1-SNAPSHOT.jar --spring.profiles.active=deployment
-```
+默认端口为 `8080`。需要改端口时使用 `SERVER_PORT` 或 `--server.port`，并同步调整前端代理与 Nginx。
 
 启动时会先做一次数据库连通性检查，成功打印 `数据库连接正常: ...`；失败会打印实际生效的 JDBC URL 与用户名（不打印密码）并终止启动。
 
@@ -189,9 +184,9 @@ curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
 - 初始数据：`server/src/main/resources/db/seed.sql`（幂等）。
 - 分布式判题迁移：`server/src/main/resources/db/migrate-distributed-judge.sql`（只用于已有数据库，`ALTER TABLE` 部分不可重复执行）。
 - 表结构、索引、容量估算与备份说明见 [数据库设计](02-database.md)。
-- 完整环境变量与默认值见 [部署与运维 §3](04-deployment.md#3-配置项)；配置文件是 `server/src/main/resources/application.yaml`，部署 profile 是 `application-deployment.yml`。
+- 完整环境变量与默认值见 [部署与运维 §3](04-deployment.md#3-配置项)；受版本控制的配置文件是 `server/src/main/resources/application.yaml`。
 
-> `ioj.problem.auto-publish=true` 时，`POST /problems` 会直接返回 `PUBLISHED`，**即使题目还没有测试点**；此时题面可访问，但提交会返回 `3003`。只有管理员通过 `PATCH /admin/problems/{id}/status` 上架时才强制要求至少一个测试点。若希望“有测试点才可见”，应关闭自动发布或在上传后补测试点。
+> `ioj.problem.auto-publish=true` 时，`POST /problems` 会直接返回 `PUBLISHED`，**即使题目还没有测试点**；此时题面可访问，但提交会返回 `3003`。只有管理员通过 `PATCH /admin/problems/{id}/status` 上架时才强制要求至少一个测试点。若希望“有测试点才可见”，建议关闭自动发布或在上传后补测试点。
 
 ## 5. 评测概览
 

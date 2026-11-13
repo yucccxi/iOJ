@@ -21,7 +21,7 @@
 │   ├── isolate --init
 │   ├── isolate --run -- <javac/g++/gcc ...>
 │   └── isolate --cleanup
-├── 判题器编译（仅当题目带 checker_code）
+├── 判题器编译（仅当题目带 checker_code 且 Agent 本地 checker.enabled=true）
 │   ├── isolate --init
 │   ├── isolate --run -- g++ -o checker checker.cpp
 │   └── isolate --cleanup
@@ -57,8 +57,8 @@
 | 工具链 | `g++`（C++17）、`gcc`（C11）、`python3` | 已安装 |
 | 资源 | 至少能给编译器留出 1 核 + 512 MB | 20 核 / 16 GB |
 
-Isolate 与宿主机**共享内核**，不是虚拟机级隔离：面向公网时应使用独立判题机、及时更新系统与 Isolate，
-并且不要在该机器上存放数据库凭据或证书。详见 §11。
+Isolate 与宿主机**共享内核**，不是虚拟机级隔离：面向公网时必须使用独立判题机、及时更新系统与 Isolate，
+并且不得在该机器上存放数据库凭据或证书。详见 §11。
 
 ## 3. 安装
 
@@ -83,7 +83,7 @@ sudo apt install -y isolate
 sudo systemctl enable --now isolate.service
 ```
 
-安装后三条自检，输出应与下面一致：
+安装后三条自检，输出必须与下面一致：
 
 ```console
 isolate --version
@@ -119,7 +119,7 @@ ls -l /usr/bin/isolate
 ```
 
 `-rwsr-xr-x` 即 **4755 + setuid root**：无论哪个用户执行，进程都以 root 建沙箱、再降权到隔离 UID。
-所以 Debian 官方包**不要求**把运行用户加进 `isolate` 组——实测运行用户不在 `isolate` 组时，
+所以 Debian 官方包**不得求**把运行用户加进 `isolate` 组——实测运行用户不在 `isolate` 组时，
 `isolate --cg --box-id=N --init` 依然成功。
 
 | 打包方式 | 是否需要 `isolate` 组 |
@@ -153,7 +153,7 @@ grep '^isolate:' /etc/subuid /etc/subgid
 | `/tmp/ioj-isolate-*` | 本项目的工作目录（见 §4.3），通过绑定挂载给沙箱使用 |
 
 沙箱内 UID 与宿主机用户不同，因此本项目把工作目录**放开为 `777`**，否则沙箱写不进去。
-这只适用于“只放源码 / 输入 / 输出”的临时目录，不要往里面放敏感文件。
+这只适用于“只放源码 / 输入 / 输出”的临时目录，不得往里面放敏感文件。
 
 ### 4.3 启动自检与工作目录
 
@@ -175,7 +175,7 @@ Add the service user to the 'isolate' group and log in again: sudo usermod -aG i
 
 ## 5. Agent 配置
 
-> 以下只列与沙箱行为直接相关的参数，默认值以 `judge-agent/src/main/resources/application.yaml` 为准；完整环境变量表见 [部署与运维 §3](04-deployment.md#3-配置项) 和 [判题 Agent 部署与运维](07-judge-agent.md)。
+> 以下只列与沙箱行为直接相关的参数，默认值以 `judge-agent/src/main/resources/application.yaml` 为准；完整 Agent 环境变量表见 [部署与运维 §3.2](04-deployment.md#32-判题-agent-环境变量) 和 [判题 Agent 部署与运维](07-judge-agent.md)。
 
 ```yaml
 ioj:
@@ -198,7 +198,7 @@ ioj:
     isolate:
       binary: /usr/bin/isolate
       box-id-start: ${IOJ_ISOLATE_BOX_ID_START:1}  # 避开 root 手工测试留下的 box 0
-      box-id-count: ${IOJ_ISOLATE_BOX_ID_COUNT:1}  # 应不小于本机 Agent 并发
+      box-id-count: ${IOJ_ISOLATE_BOX_ID_COUNT:1}  # 必须不小于本机 Agent 并发
       check-on-startup: true
       compile-processes: 64                  # javac 需要大量线程
       compile-time-seconds: 10
@@ -214,19 +214,20 @@ ioj:
 
 > 语言命令（`source-file` / `compile-command` / `run-command` / `time-multiplier`）由主服务器随 claim 响应下发，不在 Agent 本地配置；Agent 启动时从 `/internal/judge/config` 拉取 `requiredLanguages` 与探测命令。
 
-| 配置 | 作用 | 调整建议 |
-| --- | --- | --- |
-| `engine` | Agent 固定 `isolate` | 生产不要用 `local` |
-| `ioj.agent.concurrency` | 本机同时评测的提交数 | ≤ 核数 - 1，见 §9 |
-| `box-id-start` / `box-id-count` | 本实例独占的 box 编号区间 | `count ≥ concurrency`；同机多 Agent 分段 |
-| `compile-processes` | 编译期 `--processes` | 保持 64，否则 javac 报 `pthread_create failed` |
-| `compile-cg-mem-kb` | 编译期 `--cg-mem` | 512 MB 起，编译大项目可上调 |
-| `wall-time-extra-seconds` | 运行期墙钟 = CPU 限制 + 该值 | 死循环程序靠它兜底 |
-| `extra-dirs` | 只读绑定进沙箱的宿主目录 | 见 §6.3 |
-| `resolve-executables` | 把命令首词解析成真实路径 | 保持 `true` |
-| `setup-timeout-ms` | init/cleanup 的宿主超时 | 机器很慢时上调 |
-| `checker.time-limit-ms` / `checker.memory-limit-mb` | 判题器单次运行的 CPU / 内存 | 判题器要读整个输出，通常比题限宽；见 §6.5 |
-| `checker.compile-command` | 判题器编译命令 | 必须产出名为 `checker` 的可执行文件 |
+| 配置 | 类型 | 必填 | 默认值 | 作用 | 调整建议 |
+| --- | --- | --- | --- | --- | --- |
+| `engine` | string | 否 | `isolate` | Agent 固定 `isolate` | 生产不得使用 `local` |
+| `ioj.agent.concurrency` | integer | 否 | `1` | 本机同时评测的提交数 | ≤ 核数 - 1，见 §9 |
+| `box-id-start` / `box-id-count` | integer | 否 | `1` / `1` | 本实例独占的 box 编号区间 | `count` 必须 ≥ `concurrency`；同机多 Agent 必须分段 |
+| `compile-processes` | integer | 否 | `64` | 编译期 `--processes` | 保持 64，否则 javac 报 `pthread_create failed` |
+| `compile-cg-mem-kb` | integer | 否 | `524288` | 编译期 `--cg-mem` | 512 MB 起，编译大项目可上调 |
+| `wall-time-extra-seconds` | integer | 否 | `3` | 运行期墙钟 = CPU 限制 + 该值 | 死循环程序靠它兜底 |
+| `extra-dirs` | string[] | 否 | `/etc/java-21-openjdk` | 只读绑定进沙箱的宿主目录 | 见 §6.3 |
+| `resolve-executables` | boolean | 否 | `true` | 把命令首词解析成真实路径 | 保持 `true` |
+| `setup-timeout-ms` | integer | 否 | `10000` | init/cleanup 的宿主超时 | 机器很慢时上调 |
+| `checker.enabled` | boolean | 否 | `true` | Agent 本地实际执行开关 | 主服务器的 `checkerEnabled` 不会覆盖此值 |
+| `checker.time-limit-ms` / `checker.memory-limit-mb` | integer | 否 | `2000` / `512` | 判题器单次运行的 CPU / 内存 | 判题器要读整个输出，通常比题限宽；见 §6.5 |
+| `checker.compile-command` | string | 否 | `g++ -O2 -std=c++17 -pipe -o checker checker.cpp` | 判题器编译命令 | 必须产出名为 `checker` 的可执行文件 |
 
 box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停在 `boxIds.take()` 等别人归还，
 不会报错也不会丢任务。所以 `box-id-count` 小于并发时，表现是判题变慢，而不是失败。
@@ -335,7 +336,7 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
 
 ### 6.5 判题器阶段（Special Judge）
 
-题目带 `problems.checker_code` 时，每个测试点会多跑一次 isolate：先跑选手程序（6.2），再在**另一个目录**里跑判题器。
+题目带 `problems.checker_code` 且 Agent 本地 `ioj.judge.checker.enabled=true` 时，每个测试点会多跑一次 isolate：先跑选手程序（6.2），再在**另一个目录**里跑判题器。
 
 判题器目录（`/tmp/ioj-isolate-XXXX/check-1`，绑定为 `/box`）内容：
 
@@ -350,7 +351,7 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
 ```bash
 /usr/bin/isolate --cg --box-id=1 \
   --processes=1 --time=2.00 --wall-time=5.00 \
-  --cg-mem=524288 --fsize=16448 \
+  --cg-mem=524288 --fsize=16384 \
   --env=PATH=/usr/bin:/bin --env=TMPDIR=/box --env=LANG=C.UTF-8 \
   --dir=/box=/tmp/ioj-isolate-XXXX/check-1:rw \
   --dir=/etc/java-21-openjdk=/etc/java-21-openjdk \
@@ -367,6 +368,7 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
 | 时间 | 题限 × 语言系数 | 固定的 `ioj.judge.checker.time-limit-ms` |
 | 内存 | 题限 + 语言额外内存 | 固定的 `ioj.judge.checker.memory-limit-mb` |
 | 进程数 | 语言的 `isolate-processes` | `1` |
+| `--fsize` | `max(1024, max-output-bytes / 1024 + 64)` | 固定 `16384` KB（`ProgramAnswerChecker.FSIZE_KB`） |
 | 被执行的程序 | `java` / `./main` / `python3` | `/box/checker`（已是沙箱内绝对路径，不做 PATH 解析） |
 | 结论来源 | meta + 输出内容 | **退出码**（0/1/2/其他） |
 
@@ -486,7 +488,7 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | `timeUsedMs` | 非空，来自 meta 的 `time` |
 | `memoryUsedKb` | **非空**，来自 meta 的 `cg-mem`（这是"真的跑在 Isolate 里"的直接证据） |
 | 日志 | 无 `Isolate judging failed for submission`、无 `isolate --cleanup failed` |
-| 宿主机 | `ls /var/lib/isolate` 在判题结束后应为空 |
+| 宿主机 | `ls /var/lib/isolate` 在判题结束后必须为空 |
 
 如果 `memoryUsedKb` 一直是 `null`，先确认 Agent 的 `ioj.judge.engine` 为 `isolate`：
 回退引擎不读 cgroup，本来就没有内存统计。
@@ -535,15 +537,15 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | 事实 | 含义 |
 | --- | --- |
 | 与宿主机共享内核 | 沙箱依赖命名空间 + cgroup + seccomp，内核漏洞可以逃逸；公网场景请用独立判题机并保持系统更新 |
-| 二进制是 setuid root | 任何本机用户都能建沙箱；不要把判题机当作多租户共享机器 |
-| 默认无网络（实测 `Errno 101`） | 用户程序无法外联，也拿不到数据库；除排障外不要加 `--share-net` |
+| 二进制是 setuid root | 任何本机用户都能建沙箱；不得把判题机当作多租户共享机器 |
+| 默认无网络（实测 `Errno 101`） | 用户程序无法外联，也拿不到数据库；除排障外不得加 `--share-net` |
 | 沙箱 UID 来自 `/etc/subuid` | 与宿主机用户不同，因此工作目录被放开为 `777`；该目录只放源码/输入/输出 |
 | 判题器是出题者上传的代码 | 同样是不可信代码，因此只在沙箱里编译与运行，独立时限；`answer.txt` 只出现在判题器目录，选手目录里没有（见 §6.5） |
 | 资源限制是逐次的 | `--cg-mem`、`--time`、`--processes` 只约束单次运行，整机容量靠 `concurrency` 控制 |
 
 其它约定：
 
-- Agent **不要用 root 运行**；需要 root 的部分由 setuid 的 `isolate` 自己完成。
-- 不要把数据库密码、JWT 密钥、证书放进判题机的工作目录或 `/tmp`。
+- Agent **不得用 root 运行**；需要 root 的部分由 setuid 的 `isolate` 自己完成。
+- 不得把数据库密码、JWT 密钥、证书放进判题机的工作目录或 `/tmp`。
 - 提交的代码只允许在沙箱内编译与执行，宿主机上的 `javac`/`g++` 只作为沙箱内可执行文件存在。
 - 上线前用 §7 的失败场景（TLE / MLE / RE / 只读挂载）各跑一遍，确认分类符合预期。

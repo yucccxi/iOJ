@@ -11,7 +11,7 @@
 
 | 项 | 说明 |
 | --- | --- |
-| 前端 Base URL | `http://<host>:8080/api/v1`；部署 profile 默认端口为 `8082` |
+| 前端 Base URL | `http://<host>:8080/api/v1` |
 | 内部判题 Base URL | `http://<host>:8080/internal/judge`；不经过 `/api/v1` |
 | 请求格式 | 有请求体时使用 `Content-Type: application/json`，UTF-8 |
 | 字段命名 | JSON 使用 camelCase，大小写敏感；请求体里多传的字段会被忽略 |
@@ -46,7 +46,7 @@ Authorization: Bearer <judge-key>
 
 - key 的明文只在创建响应中出现一次；服务端只保存 SHA-256 哈希和前 12 位前缀。
 - key 可以设置过期时间，也可以被禁用或删除；失效后 claim/result 返回 `401`。
-- 用户 JWT 不能访问 `/internal/judge/**`，判题 key 也不能访问 `/api/v1/**`；两类凭据不得混用。
+- 用户 JWT 不得访问 `/internal/judge/**`，判题 key 也不得访问 `/api/v1/**`；两类凭据不得混用。
 - 一个 key 只对应一个判题节点。
 
 > **内部接口**：`/internal/judge/**` 仅供判题 Agent 使用，不得暴露到公网或写进公开调用示例。部署时用内网地址或限制来源 IP。
@@ -69,7 +69,7 @@ Authorization: Bearer <judge-key>
 | `message` | string | 成功固定 `ok`；失败为可直接展示给用户的提示 |
 | `data` | object / array / null | 业务数据；无返回值的接口为 `null` |
 
-判断成功与否只看 `code == 0`，不要只看 HTTP 状态码。错误示例：
+判断成功与否只看 `code == 0`，不得只看 HTTP 状态码。错误示例：
 
 ```json
 {
@@ -156,7 +156,7 @@ Authorization: Bearer <judge-key>
 | `4002` | 400 | 语言不受支持 |
 | `4003` | 400 | 代码长度超出限制 |
 
-> 同一个业务错误可能由不同 HTTP 状态承载，例如 `1000` 可能配 `400`、`405` 或 `415`。前端应以 `code` 为准，HTTP 状态只用于网络层判断。
+> 同一个业务错误可能由不同 HTTP 状态承载，例如 `1000` 可能配 `400`、`405` 或 `415`。前端必须以 `code` 为准，HTTP 状态只用于网络层判断。
 
 ## 6. 枚举速查
 
@@ -164,11 +164,11 @@ Authorization: Bearer <judge-key>
 | --- | --- | --- |
 | 用户角色 | `USER` / `ADMIN` | 用户资料、管理后台、权限判断 |
 | 用户状态 | `ACTIVE` / `BANNED` | 管理后台封禁/解封 |
-| 难度 | `EASY` / `MEDIUM` / `HARD` / `UNKNOWN` | 题目、统一题库；本地题不能创建 `UNKNOWN` |
+| 难度 | `EASY` / `MEDIUM` / `HARD` / `UNKNOWN` | 题目、统一题库；本地题不得创建 `UNKNOWN` |
 | 题目状态 | `DRAFT` / `PENDING_REVIEW` / `PUBLISHED` / `HIDDEN` | 我的题目、审核列表、题目详情 |
 | 语言 | `JAVA` / `CPP` / `C` / `PYTHON3` | 提交、语言列表 |
 | 图形验证码用途 | `LOGIN` / `EMAIL_SENDING` | `POST /api/v1/captcha` 的 `purpose` |
-| 邮箱验证码用途 | `REGISTER` / `RESET_PASSWORD` | 服务端内部；注册码与重置码不能混用 |
+| 邮箱验证码用途 | `REGISTER` / `RESET_PASSWORD` | 服务端内部；注册码与重置码不得混用 |
 | 标签匹配模式 | `ANY` / `ALL` | 统一题库的 `tagMatch` |
 | 排序方向 | `ASC` / `DESC` | 统一题库的 `order` |
 | 统一题库排序 | `DEFAULT` / `RATING` / `ACCEPTED` / `SUBMISSIONS` / `ACCEPTANCE_RATE` | 统一题库的 `sort` |
@@ -206,7 +206,7 @@ Authorization: Bearer <judge-key>
 - 方法级：管理员 Controller 上的 `@PreAuthorize("hasRole('ADMIN')")`。
 - 资源级：`ProblemService#assertCanManage`、`SubmissionService#canSeePrivate`、`TestcaseService`。
 
-> `GET /api/v1/submissions` 不按题目可见性过滤：未发布题目的提交摘要也可能被公开列出。未发布题目的“不可见”只约束题面详情；如果业务要求更严格的隔离，需要在服务端补过滤，前端不要依赖列表为空来判断题目未发布。
+> `GET /api/v1/submissions` 不按题目可见性过滤：未发布题目的提交摘要也可能被公开列出。未发布题目的“不可见”只约束题面详情；如果业务要求更严格的隔离，需要在服务端补过滤，前端不得依赖列表为空来判断题目未发布。
 
 ## 8. 跨域、限流与幂等
 
@@ -227,18 +227,19 @@ Authorization: Bearer <judge-key>
 | `POST /api/v1/auth/email-codes` | 同邮箱重发冷却、每小时上限 | `429` + `2008` |
 | `POST /api/v1/auth/password-reset-codes` | 同上，与注册验证码共用配额 | `429` + `2008` |
 
-提交代码目前没有用户级频率限制，前端应做防重复点击。
+提交代码目前没有用户级频率限制，前端必须做防重复点击。
 
 ### 8.3 幂等
 
 - 普通创建接口不幂等：重复提交会创建多条记录（例如重复提交代码）。
 - 判题结果回报按 `claimToken` 幂等：同一 token 重复回报成功但不重复写；旧 token 返回 `409`。
-- 删除接口重复调用可能返回 `404`，调用方应把“已不存在”视为目标状态。
+- 删除接口重复调用可能返回 `404`，调用方必须把“已不存在”视为目标状态。
 
 ## 9. 版本策略
 
 - 前端接口使用 `/api/v1` 前缀；新增可选字段视为兼容变更，删除字段、改变字段含义或枚举取值视为不兼容变更。
-- 不兼容变更必须新增版本前缀或提供迁移期；当前没有废弃接口清单。
+- 不兼容变更必须新增版本前缀或提供迁移期。
+- 已废弃：`GET /api/v1/problems`（题目列表）。登录状态下返回 `405` + `1000`，未登录时可能先返回 `401`；替代接口为 `GET /api/v1/catalog`。
 - 内部判题协议使用独立版本号（当前 `2`），详见 [内部判题 API](judge/README.md)。协议版本不兼容时 Agent 拒绝启动，而不是带着不匹配的字段继续运行。
 
 ## 10. 相关文档
