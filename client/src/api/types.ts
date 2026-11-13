@@ -1,4 +1,4 @@
-// Hand-written from docs/shared/api until the backend publishes an OpenAPI schema.
+// Hand-written from docs/api/frontend until the backend publishes an OpenAPI schema.
 
 export type Page<T> = { items: T[]; total: number; page: number; size: number };
 

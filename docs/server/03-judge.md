@@ -1,12 +1,16 @@
 # 判题设计
 
+本文说明评测状态机、判题引擎与沙箱分层、分布式任务协议、语言配置、资源限制和 Special Judge 行为，读者为后端开发、判题机运维和出题者。接口字段以 [内部判题 API](../api/judge/README.md) 为准，本文重点解释实现与取舍。
+
+> 返回目录：[后端文档索引](README.md)
+
 ## 1. 状态机
 
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING: 用户提交
     PENDING --> JUDGING: Agent 领取（claim_token + lease）
-    JUDGING --> PENDING: 租约过期，重新排队
+    JUDGING --> PENDING: Agent 主动释放 / 租约过期
     JUDGING --> ACCEPTED: 全部测试点通过
     JUDGING --> WRONG_ANSWER: 输出不一致
     JUDGING --> TIME_LIMIT_EXCEEDED: 超过 CPU/墙钟限制
@@ -28,7 +32,7 @@ stateDiagram-v2
 ```
 
 - 使用 `engine=isolate` 时，内存超限由 cgroup OOM 事件可靠判定；`engine=local` 回退模式一般只表现为运行时错误。
-- 所有终态都会写入 `judged_at`；`SYSTEM_ERROR` 与 `CHECKER_ERROR` 同时写 `judge_message`。
+- 所有终态都会写入 `judged_at`；`SYSTEM_ERROR` 会写 `judge_message`。`CHECKER_ERROR` 在判题器准备阶段失败时写 `judgeMessage`，在运行阶段失败时写对应 `cases[].message`。
 - `CHECKER_ERROR` 表示**题目自带的判题器**出错（编译失败、超时、崩溃、返回非法退出码），不是选手的问题；选手代码本身可能完全正确，运维应把它当作需要重跑的系统故障。
 - 判题采用 fail-fast：某个测试点失败后不再执行后续测试点。
 
@@ -55,10 +59,10 @@ stateDiagram-v2
 | 层 | 包 | 职责 | 不知道什么 |
 | --- | --- | --- | --- |
 | 引擎 | `judge-core/engine` | 算限额、串流程（编译 → 逐点运行 → 判定 → 聚合） | 不知道 isolate 命令行，也不知道判题器 |
-| 沙箱 | `judge-core/sandbox` | `Sandbox.compile/run` 两个原语：起进程、加限额、回收 box、把输出读回来 | 不知道"提交""答案""判定" |
+| 沙箱 | `judge-core/sandbox` | `Sandbox.exec` 原语：起进程、加限额、回收 box、把输出读回来 | 不知道"提交""答案""判定" |
 | 判定 | `judge-core/answer` | `AnswerChecker`：内置比对、作者判题器、不可用时的 `CHECKER_ERROR` | 不知道用的是哪个引擎 |
 
-```
+```text
 judge-protocol/
 ├── SubmissionStatus / Language
 └── JudgeTask / JudgeResult 等内部协议 DTO
@@ -90,7 +94,7 @@ server/judge/
 
 ### 2.2 分布式任务协议
 
-主服务器通过 `/internal/judge/**` 向 Agent 提供：
+主服务器通过 `/internal/judge/**` 向 Agent 提供以下接口。完整的请求/响应字段、错误码和调用示例见 [内部判题 API](../api/judge/README.md)，本节只列出职责。
 
 | 接口 | 作用 |
 | --- | --- |
@@ -122,20 +126,20 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 
 ## 3. 一次判题做了什么（isolate）
 
-```
+```text
 AgentRunner.execute(task)
 ├── AgentTaskMapper.toContext(task)
 ├── IsolateJudgeEngine.judge(context)
 │   ├── 从 box-id 池取一个编号，创建临时工作目录
+│   ├── 判题器准备（仅当题目带 checker_code）
+│   │   ├── 把 checker.cpp 写进独立目录，isolate --run -- g++ ... -o checker
+│   │   └── 编译失败/超时/未产出 checker → CHECKER_ERROR（写 judge_message）
 │   ├── 编译阶段
 │   │   ├── isolate --init（新 box）
 │   │   ├── 把工作目录挂到 /box，写入源码
 │   │   ├── isolate --run -- javac/g++ ...（受限 CPU/墙钟/内存/进程数）
 │   │   ├── 读取 meta 与编译输出；失败 → COMPILATION_ERROR
 │   │   └── isolate --cleanup
-│   ├── 判题器编译（仅当题目带 checker_code）
-│   │   ├── 把 checker.cpp 写进独立目录，isolate --run -- g++ ... -o checker
-│   │   └── 编译失败/超时/未产出 checker → CHECKER_ERROR（写 judge_message）
 │   ├── 每个测试点
 │   │   ├── 选手阶段：isolate --init → 复制编译产物与 input.txt → isolate --run → 解析 meta
 │   │   ├── 执行异常（TLE/MLE/OLE/RE）直接定状态，不再跑判题器
@@ -173,14 +177,14 @@ AgentRunner.execute(task)
 
 | Language | 源码文件 | 编译命令 | 运行命令 | 时间系数 | 进程数 | 额外内存 |
 | --- | --- | --- | --- | --- | --- | --- |
-| JAVA | Main.java | `javac -encoding UTF-8 -d . Main.java` | `java -Xmx{memoryMb}m -Xss64m -XX:+UseSerialGC Main` | 2.0 | 64 | +256MB |
-| CPP | main.cpp | `g++ -O2 -std=c++17 -pipe -o main main.cpp` | `./main` | 1.0 | 1 | +16MB |
-| C | main.c | `gcc -O2 -std=c11 -pipe -o main main.c` | `./main` | 1.0 | 1 | +16MB |
-| PYTHON3 | main.py | `python3 -m py_compile main.py` | `python3 main.py` | 3.0 | 1 | +64MB |
+| JAVA | Main.java | `javac -encoding UTF-8 -d . Main.java` | `java -Xmx{memoryMb}m -Xss64m -XX:+UseSerialGC Main` | 2.0 | 64 | +256 MB |
+| CPP | main.cpp | `g++ -O2 -std=c++17 -pipe -o main main.cpp` | `./main` | 1.0 | 1 | +16 MB |
+| C | main.c | `gcc -O2 -std=c11 -pipe -o main main.c` | `./main` | 1.0 | 1 | +16 MB |
+| PYTHON3 | main.py | `python3 -m py_compile main.py` | `python3 main.py` | 3.0 | 1 | +64 MB |
 
 - **时间系数**：抵消 JVM/Python 启动的固定开销，只作用于运行阶段。
 - **进程数**：Isolate 的 `--processes` 统计的是任务/线程数。JVM 需要大量线程，因此 Java 设为 64；C/C++/Python 用 1。
-- **额外内存**：JVM 需要 metaspace、code cache、线程栈等，`--cg-mem` 在题目限制上另加 256MB；C++/Python 留少量余量。
+- **额外内存**：JVM 需要 metaspace、code cache、线程栈等，`--cg-mem` 在题目限制上另加 256 MB；C++/Python 留少量余量。
 - 命令的第一个词会解析成**宿主机真实路径**（例如 `javac` → `/usr/lib/jvm/.../bin/javac`），避免沙箱内跟随 `/etc/alternatives` 符号链接失败。
 - Python 这类解释型语言没有编译产物，运行阶段会把源文件复制到运行目录。
 - Python 的 `py_compile` 只是语法检查，必须同时设置 `copy-source-to-run: true`，否则 isolate 引擎会跳过源文件复制，运行时找不到 `main.py`。这样语法错误会判 `COMPILATION_ERROR`，合法代码仍然执行源文件。
@@ -204,6 +208,8 @@ AgentRunner.execute(task)
 
 ### 5.2 配置项
 
+> 以下只列与沙箱行为直接相关的参数，默认值以 `application.yaml` 为准；完整环境变量表见 [部署与运维 §3](04-deployment.md#3-配置项)。
+
 | 配置 | 默认 | 说明 |
 | --- | --- | --- |
 | `ioj.judge.isolate.binary` | `/usr/bin/isolate` | 可执行文件路径 |
@@ -211,8 +217,8 @@ AgentRunner.execute(task)
 | `ioj.judge.isolate.check-on-startup` | `true` | 启动时检查 binary 可执行，失败直接终止 |
 | `ioj.judge.isolate.compile-processes` | `64` | 编译阶段进程/线程上限（javac 需要较多） |
 | `ioj.judge.isolate.compile-time-seconds` / `compile-wall-time-seconds` | `10` / `30` | 编译 CPU / 墙钟上限 |
-| `ioj.judge.isolate.compile-cg-mem-kb` | `524288` | 编译内存上限（512MB） |
-| `ioj.judge.isolate.compile-fsize-kb` | `16384` | 编译阶段文件大小上限（16MB） |
+| `ioj.judge.isolate.compile-cg-mem-kb` | `524288` | 编译内存上限（512 MB） |
+| `ioj.judge.isolate.compile-fsize-kb` | `16384` | 编译阶段文件大小上限（16 MB） |
 | `ioj.judge.isolate.wall-time-extra-seconds` | `3` | 运行阶段墙钟 = CPU 限制 + 该值 |
 | `ioj.judge.isolate.extra-dirs` | `/etc/java-21-openjdk` | 只读绑定进沙箱的宿主机目录 |
 | `ioj.judge.isolate.resolve-executables` | `true` | 把命令第一个词解析成真实路径 |
@@ -225,7 +231,7 @@ AgentRunner.execute(task)
 | `--time` | `题限 × 语言系数`（秒，CPU） |
 | `--wall-time` | 上式向上取整 + `wall-time-extra-seconds` |
 | `--cg-mem` | `(题目内存 + 语言额外内存) × 1024` KB |
-| `--fsize` | `max-output-bytes / 1024 + 64` KB |
+| `--fsize` | `max(1024, max-output-bytes / 1024 + 64)` KB |
 | `--processes` | 语言的 `isolate-processes` |
 | `--dir` | 工作目录挂到 `/box`（rw），`extra-dirs` 原路径只读 |
 | `--chdir` | `/box` |
@@ -299,7 +305,7 @@ AgentRunner.execute(task)
 
 ## 10. 自定义判题器（Special Judge）
 
-多解题、浮点误差题、构造题需要"只要满足条件就算对"，单靠逐行文本比对做不到。iOJ 的做法是：**题目可选地携带一段 C++ 判题器源码**，判题时在沙箱里编译并逐测试点运行。
+多解题、浮点误差题、构造题需要“只要满足条件就算对”，单靠逐行文本比对做不到。iOJ 的做法是：**题目可选地携带一段 C++ 判题器源码**，判题时在沙箱里编译并逐测试点运行。出题者视角的完整编写指南、示例和本地测试方法见 [自定义判题器](08-special-judge.md)；本节只说明实现与运行限制。
 
 > 判题器只在 `engine=isolate` 下执行。`local` 引擎（本机进程回退、测试环境）遇到带判题器的题目会直接判 `CHECKER_ERROR`，原因见 §2。
 
@@ -366,6 +372,8 @@ int main() {
 写成 C 风格（`printf` / `scanf` / `fopen`）或 C++ 风格（`std::cin` / `std::ifstream`）都可以，两者都用 `g++ -std=c++17` 编译。注意 `printf` 的格式化、`<stdatomic.h>`、C99 指定初始化器等纯 C 构造在 C++17 下可能不合法。
 
 ### 10.4 配置项
+
+> 以下只列与判题器直接相关的参数，默认值以 `application.yaml` 为准；完整环境变量表见 [部署与运维 §3](04-deployment.md#3-配置项)。
 
 ```yaml
 ioj:

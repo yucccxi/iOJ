@@ -1,11 +1,18 @@
 # 数据库设计
 
+本文说明 iOJ 的数据库文件、ER 关系、表结构、枚举、索引、事务边界、容量估算和初始化方式，读者为后端开发与运维人员。表结构以 `server/src/main/resources/db/schema.sql` 为准。
+
+> 返回目录：[后端文档索引](README.md)
+
 ## 1. 文件与初始化
 
 | 文件 | 用途 |
 | --- | --- |
 | `server/src/main/resources/db/schema.sql` | 建表脚本。使用可移植语法，MySQL 8 与 H2(MySQL 模式) 都能直接执行（测试就是这么跑的） |
 | `server/src/main/resources/db/seed.sql` | 初始管理员（admin / admin123456）、常用标签与保留 scope `LOCAL` |
+| `server/src/main/resources/db/migrate-distributed-judge.sql` | 已有数据库升级到分布式判题的迁移脚本，只执行一次 |
+
+以下命令在**仓库根目录**执行：
 
 ```bash
 mysql -uroot -p -e "CREATE DATABASE ioj DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
@@ -15,8 +22,9 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
 
 > `schema.sql` 里没有 `ENGINE/CHARSET` 子句，是为了让 H2 也能执行。生产库请在 `CREATE DATABASE` 时指定 `utf8mb4`。
 >
-> `seed.sql` 使用 `INSERT IGNORE`，可以重复执行；`schema.sql` 不是幂等的（重复执行会报 "Table already exists"）。
-> 需要重建时先 `DROP DATABASE ioj;` 再重新 `CREATE DATABASE ioj ...`，然后依次执行两个脚本。
+> `seed.sql` 使用 `INSERT IGNORE`，可以重复执行；`schema.sql` 与 `migrate-distributed-judge.sql` 的 `ALTER TABLE` 部分不是幂等的（重复执行会报列/索引已存在）。
+>
+> **破坏性操作**：需要重建时先 `DROP DATABASE ioj;` 再重新 `CREATE DATABASE ioj ...`，然后依次执行两个脚本。该操作会删除库中的用户、题目、测试数据、提交和判题 key，影响范围是整个 `ioj` 数据库；执行前必须备份。
 
 ## 2. ER 图
 
@@ -34,7 +42,7 @@ erDiagram
     tags ||--o{ external_problem_tags : "tag_id"
     problems ||--o{ submissions : "problem_id"
     submissions ||--o{ submission_cases : "submission_id"
-    judge_keys ||--o{ judge_nodes : "key_id"
+    judge_keys ||--o| judge_nodes : "key_id"
     judge_keys ||--o{ submissions : "judge_key_id"
     judge_nodes ||--o{ submissions : "judge_node_id"
     email_verification_codes {
@@ -45,6 +53,8 @@ erDiagram
         DATETIME expires_at
     }
 ```
+
+> `judge_nodes` 与 `submissions` 之间只有逻辑关联（`judge_node_id`），没有外键：节点可能被删除或改名，而历史提交仍要保留当时的节点标识。`submissions.judge_key_id` 指向 `judge_keys`，删除 key 时置为 `NULL`。
 
 ## 3. 枚举取值（均为 VARCHAR，取值由 Java 枚举保证）
 
@@ -167,7 +177,7 @@ erDiagram
 
 `problem_tags`：联合主键 `(problem_id, tag_id)`，两个外键均 `ON DELETE CASCADE`，额外索引 `idx_problem_tags_tag (tag_id)` 支持"按标签找题"。
 
-上传/编辑题目时 `tagIds` 传**已存在**的标签 id（≤10 个）：服务端先按 id 批量校验，全部存在才写关联表；不存在返回 `400/1001`，**不会**自动创建标签。标签字典只由管理员通过 `POST/PUT/DELETE /admin/tags` 维护。
+上传/编辑题目时 `tagIds` 传**已存在**的标签 id（≤10 个）：服务端先按 id 批量校验，全部存在才写关联表；不存在返回 `400/1000`，**不会**自动创建标签。标签字典只由管理员通过 `POST/PUT/DELETE /admin/tags` 维护。
 
 ### 4.7 submissions —— 提交记录
 
@@ -177,7 +187,7 @@ erDiagram
 | problem_id | BIGINT | FK → problems.id, CASCADE | |
 | user_id | BIGINT | FK → users.id, CASCADE | |
 | language | VARCHAR(16) | NOT NULL | `JAVA`/`CPP`/`C`/`PYTHON3` |
-| code | MEDIUMTEXT | NOT NULL | 源代码（≤ 64KB，服务层校验） |
+| code | MEDIUMTEXT | NOT NULL | 源代码（≤ 64 KB，服务层校验） |
 | status | VARCHAR(24) | NOT NULL DEFAULT 'PENDING' | 判题状态 |
 | time_used_ms | INT | NULL | 已执行测试点的最大耗时 |
 | memory_used_kb | INT | NULL | 内存峰值（Isolate 引擎写入 `cg-mem`；本机进程回退模式下为 null，见 03-judge.md） |
@@ -204,7 +214,7 @@ erDiagram
 | memory_used_kb | INT | NULL | |
 | message | VARCHAR(1024) | NULL | 运行错误信息等，**不记录期望输出** |
 
-唯一键 `uk_submission_cases_ordinal (submission_id, case_ordinal)`，重判时先删后插，天然幂等。
+唯一键 `uk_submission_cases_ordinal (submission_id, case_ordinal)`。`SubmissionCaseWriter` 使用“按 `(submission_id, case_ordinal)` upsert + 删除本次结果中不存在的旧序号”的方式写入，避免重判时先删后插产生的间隙锁死锁；重复回报或重判都幂等。
 
 ### 4.9 external_problems —— 外部 OJ 题目（仅元数据）
 
@@ -278,7 +288,7 @@ erDiagram
 | --- | --- | --- | --- |
 | id | VARCHAR(32) | PK | 128 位随机值，作为对外 `captchaId` |
 | purpose | VARCHAR(16) | NOT NULL | `LOGIN` / `EMAIL_SENDING` |
-| code_hash | VARCHAR(64) | NOT NULL | 验证码答案的 SHA-256/HMAC，不存明文 |
+| code_hash | VARCHAR(64) | NOT NULL | 验证码答案的 SHA-256，不存明文 |
 | attempts | INT | NOT NULL DEFAULT 0 | 已输错次数；达到 `ioj.captcha.max-attempts` 后作废 |
 | expires_at | DATETIME | NOT NULL | 过期时间 |
 | consumed_at | DATETIME | NULL | 成功使用或达到错误上限后写入，非空即不可用 |
@@ -304,7 +314,7 @@ erDiagram
 | key_hash | VARCHAR(64) | NOT NULL, UNIQUE | SHA-256 hex |
 | enabled | BOOLEAN | NOT NULL DEFAULT TRUE | 禁用后不能 claim/result |
 | expires_at | DATETIME | NULL | 可选过期时间 |
-| last_used_at | DATETIME | NULL | 仅在成功领取/写入结果时更新 |
+| last_used_at | DATETIME | NULL | 仅在成功领取到任务时更新；空轮询不会刷新 |
 | created_by | BIGINT | FK → users.id, SET NULL | 创建者 |
 | created_at | DATETIME | NOT NULL | |
 
@@ -387,7 +397,7 @@ COMMIT;
 - 创建/更新题目：`problems` + `problem_samples` + `problem_tags` 在同一个事务内完成。
 - 提交：插入 `submissions` 与 `problems.submit_count + 1` 同一事务；这里允许计数多 1（提交成功但事务回滚的概率极低），计数仅用于展示。
 - 领取任务：`SELECT ... FOR UPDATE` + `UPDATE submissions SET status='JUDGING', claim_token=..., lease_expires_at=...` 在同一个短事务里完成。
-- 判题落库：条件更新 `submissions`（校验 `claim_token` 和 `JUDGING`）→ 删除旧 `submission_cases` → 插入新结果 → 通过时 `accepted_count + 1`，同一事务。
+- 判题落库：条件更新 `submissions`（校验 `claim_token` 和 `JUDGING`）→ upsert `submission_cases` 并删除本次结果中不存在的旧序号 → 通过时 `accepted_count + 1`，同一事务。
 - 租约回收：过期任务先改回 `PENDING`；超过最大尝试次数改判 `SYSTEM_ERROR`。所有时间使用服务器时间。
 - 删除题目：外键 `ON DELETE CASCADE` 自动清理样例、测试点、标签关联与提交记录，避免留下孤儿数据。
 - 注册时验证码与建号的关系：`verify` 只读校验，`users` 插入与 `markConsumed` 在**同一个事务**里，所以插库失败时验证码仍可用、成功时不可能被重放；而“输错次数 +1”走 `REQUIRES_NEW`（`EmailCodeAttemptRecorder`），否则它会随注册事务的回滚一起丢失，尝试次数上限就永远触发不了。
@@ -396,15 +406,15 @@ COMMIT;
 
 | 表 | 估算行数 | 单行大小 | 总量 |
 | --- | --- | --- | --- |
-| users | 200 | < 1KB | < 1MB |
-| judge_keys / judge_nodes | 几~几十 | < 1KB | 可忽略 |
-| problems | 500 | 题面 5~50KB | 5~25MB |
-| problem_testcases | 5000（每题 10 个） | 1~20KB | 10~100MB |
-| submissions | 50000 | 代码 1~5KB | 50~250MB |
-| submission_cases | 500000 | < 200B | < 100MB |
-| email_verification_codes | 每天几十行，保留 24 小时 | < 200B | 可忽略 |
+| users | 200 | < 1 KB | < 1 MB |
+| judge_keys / judge_nodes | 几~几十 | < 1 KB | 可忽略 |
+| problems | 500 | 题面 5~50 KB | 5~25 MB |
+| problem_testcases | 5000（每题 10 个） | 1~20 KB | 10~100 MB |
+| submissions | 50000 | 代码 1~5 KB | 50~250 MB |
+| submission_cases | 500000 | < 200 B | < 100 MB |
+| email_verification_codes | 每天几十行，保留 24 小时 | < 200 B | 可忽略 |
 
-总计 < 500MB，单机 MySQL 轻松承载。日常备份 `mysqldump --single-transaction` 即可（见 04-deployment.md）。
+总计 < 500 MB，单机 MySQL 轻松承载。日常备份 `mysqldump --single-transaction` 即可（见 04-deployment.md）。
 
 ## 8. 后续扩展建议
 

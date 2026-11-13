@@ -1,5 +1,9 @@
 # 判题 Agent 部署与运维
 
+本文说明判题 Agent 的启动校验、构建、key、配置、systemd、多节点部署和排障，读者为判题机运维与后端开发人员。内部接口的完整字段见 [内部判题 API](../api/judge/README.md)，判题状态机见 [判题设计](03-judge.md)。
+
+> 返回目录：[后端文档索引](README.md)
+
 主服务器默认不再执行用户代码。每台判题机运行一个 `judge-agent` 进程，通过主服务器的内部 API 领取任务、在 Isolate 中判题并回报结果。
 
 ## 1. 拓扑
@@ -56,7 +60,7 @@ ls judge-agent/target/judge-agent-0.0.1-SNAPSHOT.jar
 管理员登录后调用：
 
 ```bash
-curl -s -X POST https://oj.example.com/api/v1/admin/judge-keys \
+curl -s -X POST '<server-url>/api/v1/admin/judge-keys' \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"judge-1"}'
@@ -68,7 +72,7 @@ curl -s -X POST https://oj.example.com/api/v1/admin/judge-keys \
 
 ## 5. 配置
 
-Agent 的配置在 `judge-agent/src/main/resources/application.yaml`，生产环境建议用环境变量覆盖：
+> 以下只列 Agent 的关键配置，默认值以 `judge-agent/src/main/resources/application.yaml` 为准；环境变量总表见 [部署与运维 §3](04-deployment.md#3-配置项)。
 
 ```yaml
 spring:
@@ -81,25 +85,26 @@ ioj:
     key: ${IOJ_JUDGE_KEY:}
     node-id: ${IOJ_JUDGE_NODE_ID:judge-1}
     concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
-    poll-interval-ms: 1000
-    max-poll-interval-ms: 5000
-    max-claim-batch: 1
+    poll-interval-ms: ${IOJ_JUDGE_POLL_INTERVAL_MS:1000}
+    max-poll-interval-ms: ${IOJ_JUDGE_MAX_POLL_INTERVAL_MS:5000}
+    max-claim-batch: ${IOJ_JUDGE_MAX_CLAIM_BATCH:1}
     # 首次节点心跳使用该默认值；之后按节点心跳响应中的 offlineSeconds / 3 调整
-    node-heartbeat-interval-ms: 30000
+    node-heartbeat-interval-ms: ${IOJ_JUDGE_NODE_HEARTBEAT_INTERVAL_MS:30000}
     # 心跳调度器的检查间隔；实际节点/任务心跳由各自的到期时间决定
-    heartbeat-tick-ms: 1000
-    request-timeout-seconds: 30
-    config-fetch-retries: 5
-    config-fetch-retry-delay-ms: 2000
-    probe-timeout-ms: 5000
+    heartbeat-tick-ms: ${IOJ_JUDGE_HEARTBEAT_TICK_MS:1000}
+    request-timeout-seconds: ${IOJ_JUDGE_REQUEST_TIMEOUT_SECONDS:30}
+    config-fetch-retries: ${IOJ_JUDGE_CONFIG_FETCH_RETRIES:5}
+    config-fetch-retry-delay-ms: ${IOJ_JUDGE_CONFIG_FETCH_RETRY_DELAY_MS:2000}
+    probe-timeout-ms: ${IOJ_JUDGE_PROBE_TIMEOUT_MS:5000}
+    version: ${IOJ_JUDGE_AGENT_VERSION:0.0.1}
 
   judge:
     mode: agent
     engine: isolate
     isolate:
-      binary: /usr/bin/isolate
-      box-id-start: 1
-      box-id-count: 1
+      binary: ${IOJ_ISOLATE_BINARY:/usr/bin/isolate}
+      box-id-start: ${IOJ_ISOLATE_BOX_ID_START:1}
+      box-id-count: ${IOJ_ISOLATE_BOX_ID_COUNT:1}
       check-on-startup: true
       compile-processes: 64
       compile-time-seconds: 10
@@ -112,7 +117,7 @@ ioj:
         - /etc/java-21-openjdk
       resolve-executables: true
     checker:
-      enabled: true
+      enabled: ${IOJ_JUDGE_CHECKER_ENABLED:true}
       time-limit-ms: 2000
       memory-limit-mb: 512
       compile-timeout-ms: 30000
@@ -150,27 +155,39 @@ Agent 启动失败时不会先发心跳或 claim；缺少工具链会打印具�
 Description=iOJ judge agent
 After=network.target isolate.service
 Requires=isolate.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
 User=judge
 WorkingDirectory=/opt/ioj-agent
-Environment=IOJ_JUDGE_SERVER_URL=http://10.0.0.10:8080
-Environment=IOJ_JUDGE_KEY=jsk_...
-Environment=IOJ_JUDGE_NODE_ID=judge-1
-Environment=IOJ_JUDGE_CONCURRENCY=2
-Environment=IOJ_ISOLATE_BOX_ID_START=1
-Environment=IOJ_ISOLATE_BOX_ID_COUNT=2
+EnvironmentFile=/etc/ioj/judge-agent.env
 ExecStart=/usr/bin/java -Xms128m -Xmx512m -jar /opt/ioj-agent/judge-agent.jar
 Restart=on-failure
 RestartPreventExitStatus=78
-StartLimitIntervalSec=300
-StartLimitBurst=5
 RestartSec=5
 LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target
+```
+
+`/etc/ioj/judge-agent.env`（权限 `0640`，属主为运行 Agent 的用户/组）：
+
+```bash
+sudo install -d -m 0755 /etc/ioj
+sudo install -m 0640 -o root -g judge /dev/null /etc/ioj/judge-agent.env
+sudo editor /etc/ioj/judge-agent.env
+```
+
+```bash
+IOJ_JUDGE_SERVER_URL=http://<server-ip>:8080
+IOJ_JUDGE_KEY=<judge-key>
+IOJ_JUDGE_NODE_ID=judge-1
+IOJ_JUDGE_CONCURRENCY=2
+IOJ_ISOLATE_BOX_ID_START=1
+IOJ_ISOLATE_BOX_ID_COUNT=2
 ```
 
 ```bash
@@ -201,6 +218,8 @@ Agent 启动失败时的退出码：
 
 ## 8. 任务协议
 
+完整请求/响应字段、错误码和时序图见 [内部判题 API](../api/judge/README.md)。本节只列职责：
+
 | 接口 | 说明 |
 | --- | --- |
 | `GET /internal/judge/config` | 启动时拉取语言、探测命令、checker 和协议版本 |
@@ -224,7 +243,7 @@ Agent 启动失败时的退出码：
 | --- | --- |
 | `ioj.agent.key 未配置` | 设置 `IOJ_JUDGE_KEY` |
 | claim 返回 `401` | key 错误/禁用/过期；重新创建或启用 |
-| claim 返回 `409` | `nodeId` 已绑定其他 key；换 nodeId 或删除旧节点 |
+| claim 返回 `409` | `nodeId` 已绑定其他 key；换一个 `IOJ_JUDGE_NODE_ID`，或删除旧 key（会级联删除旧节点）后重建 |
 | 启动失败 `判题机能力校验失败` | 本机缺少主服务器要求的语言工具链；按日志中的探测命令安装后重启 |
 | 启动失败 `主服务器协议版本不匹配` | 主服务器与 Agent 版本不兼容；先升级 Agent 或回滚主服务器 |
 | 启动失败 `无法从主服务器获取判题配置` | 检查 `IOJ_JUDGE_SERVER_URL`、网络和主服务器状态；Agent 会按 `config-fetch-retries` 重试 |
@@ -240,7 +259,7 @@ Agent 启动失败时的退出码：
 
 - Agent 不需要 root；Isolate 自身 setuid
 - Agent 不连接 MySQL，不持有 JWT/SMTP 凭据
-- key 放在 `EnvironmentFile`，权限 0600
-- 公网 Nginx 不要代理 `/internal/judge/**`
+- key 放在 `EnvironmentFile`，权限 0640（属主为运行用户）；不要写进 unit 文件或提交到 Git
+- 公网 Nginx 不要代理 `/internal/judge/**`；必须代理时限制来源 IP
 - 判题机与主服务器之间使用内网/VPN；有条件的上 mTLS
 - 定期更新 Isolate 与系统，判题机不要存放数据库密码或证书

@@ -1,10 +1,12 @@
 # Isolate 沙箱运维
 
-本文只讲**机器侧**的事：Isolate 怎么装、权限怎么给、判题 Agent 传了哪些参数、怎么手工复现一次评测、出问题怎么查。
+本文只讲**机器侧**的事：Isolate 怎么装、权限怎么给、判题 Agent 传了哪些参数、怎么手工复现一次评测、出问题怎么查，读者为判题机运维与后端开发人员。
 
-- 判题状态机、引擎选择、meta → 状态的映射：见 [03-judge.md](03-judge.md)
-- 整机部署、systemd、Nginx：见 [04-deployment.md](04-deployment.md)
-- 接口契约（前端视角）：见 [../shared/api/README.md](../shared/api/README.md)
+> 返回目录：[后端文档索引](README.md)
+
+- 判题状态机、引擎选择、meta → 状态的映射：见 [判题设计](03-judge.md)
+- 整机部署、systemd、Nginx：见 [部署与运维](04-deployment.md)
+- 接口契约（前端视角）：见 [前端 API 文档](../api/frontend/README.md)
 
 > 文中命令与输出均已在 **Debian 13 (trixie) + Isolate 2.7 + OpenJDK 21.0.11 + 内核 6.12.94** 上逐条执行（2026-10-30）。
 > 换发行版请先核对 cgroup v2、内核版本与包来源。
@@ -13,8 +15,8 @@
 
 判题 Agent **不链接任何 Isolate 库**，只通过命令行调用 `/usr/bin/isolate`。一次评测的生命周期：
 
-```
-从 box id 池取一个编号（默认 1..8）
+```text
+从 box id 池取一个编号（区间由 `box-id-start` / `box-id-count` 决定）
 ├── 编译（仅编译型语言）
 │   ├── isolate --init
 │   ├── isolate --run -- <javac/g++/gcc ...>
@@ -53,7 +55,7 @@
 | Isolate | 2.7 | 2.7 |
 | JDK | 21（判 Java 题，同时用于运行 Agent） | OpenJDK 21.0.11 |
 | 工具链 | `g++`（C++17）、`gcc`（C11）、`python3` | 已安装 |
-| 资源 | 至少能给编译器留出 1 核 + 512MB | 20 核 / 16GB |
+| 资源 | 至少能给编译器留出 1 核 + 512 MB | 20 核 / 16 GB |
 
 Isolate 与宿主机**共享内核**，不是虚拟机级隔离：面向公网时应使用独立判题机、及时更新系统与 Isolate，
 并且不要在该机器上存放数据库凭据或证书。详见 §11。
@@ -84,15 +86,15 @@ sudo systemctl enable --now isolate.service
 安装后三条自检，输出应与下面一致：
 
 ```console
-$ isolate --version
+isolate --version
 The process isolator 2.7
 (c) 2012--2026 Martin Mares and Bernard Blackham
 
-$ isolate --check-config          # 无输出即通过
-$ echo $?
+isolate --check-config          # 无输出即通过
+echo $?
 0
 
-$ systemctl is-active isolate.service
+systemctl is-active isolate.service
 active
 ```
 
@@ -100,7 +102,7 @@ active
 它把根 cgroup 路径写进 `/run/isolate/cgroup`，而 `/etc/isolate` 里是 `cg_root = auto:/run/isolate/cgroup`：
 
 ```console
-$ cat /run/isolate/cgroup
+cat /run/isolate/cgroup
 /sys/fs/cgroup/isolate.slice/isolate.service
 ```
 
@@ -112,12 +114,12 @@ $ cat /run/isolate/cgroup
 ### 4.1 二进制权限
 
 ```console
-$ ls -l /usr/bin/isolate
+ls -l /usr/bin/isolate
 -rwsr-xr-x 1 root isolate 59824 Aug 24 06:43 /usr/bin/isolate
 ```
 
 `-rwsr-xr-x` 即 **4755 + setuid root**：无论哪个用户执行，进程都以 root 建沙箱、再降权到隔离 UID。
-所以 Debian 官方包**不要求**把运行用户加进 `isolate` 组——本机 `yuchenxi` 不在 `isolate` 组，
+所以 Debian 官方包**不要求**把运行用户加进 `isolate` 组——实测运行用户不在 `isolate` 组时，
 `isolate --cg --box-id=N --init` 依然成功。
 
 | 打包方式 | 是否需要 `isolate` 组 |
@@ -131,14 +133,14 @@ $ ls -l /usr/bin/isolate
 ### 4.2 沙箱目录与 UID 区间
 
 ```console
-$ isolate --cg --box-id=12 --init
+isolate --cg --box-id=12 --init
 /var/lib/isolate/12
 
-$ ls -ld /var/lib/isolate/12 /var/lib/isolate/12/box
+ls -ld /var/lib/isolate/12 /var/lib/isolate/12/box
 drwxr-xr-x 3 root     root     4096 /var/lib/isolate/12
-drwx------ 2 yuchenxi yuchenxi 4096 /var/lib/isolate/12/box
+drwx------ 2 <user> <user> 4096 /var/lib/isolate/12/box
 
-$ grep '^isolate:' /etc/subuid /etc/subgid
+grep '^isolate:' /etc/subuid /etc/subgid
 /etc/subuid:isolate:165536:65536
 /etc/subgid:isolate:165536:65536
 ```
@@ -173,7 +175,7 @@ Add the service user to the 'isolate' group and log in again: sudo usermod -aG i
 
 ## 5. Agent 配置
 
-`application.yaml` 中与沙箱相关的默认值（带 `${}` 的项可用环境变量覆盖）：
+> 以下只列与沙箱行为直接相关的参数，默认值以 `judge-agent/src/main/resources/application.yaml` 为准；完整环境变量表见 [部署与运维 §3](04-deployment.md#3-配置项) 和 [判题 Agent 部署与运维](07-judge-agent.md)。
 
 ```yaml
 ioj:
@@ -182,7 +184,7 @@ ioj:
   judge:
     mode: agent
     engine: isolate                          # Agent 固定使用 isolate
-    max-output-bytes: 16777216               # 16MB，同时决定 --fsize
+    max-output-bytes: 16777216               # 16 MB，同时决定 --fsize
     compile-timeout-ms: 30000
     checker:                                 # 题目自带的 C++ 判题器（Special Judge）
       enabled: true
@@ -195,13 +197,13 @@ ioj:
       message-limit-bytes: 1024
     isolate:
       binary: /usr/bin/isolate
-      box-id-start: 1                        # 避开 root 手工测试留下的 box 0
-      box-id-count: 2                        # 应不小于本机 Agent 并发
+      box-id-start: ${IOJ_ISOLATE_BOX_ID_START:1}  # 避开 root 手工测试留下的 box 0
+      box-id-count: ${IOJ_ISOLATE_BOX_ID_COUNT:1}  # 应不小于本机 Agent 并发
       check-on-startup: true
       compile-processes: 64                  # javac 需要大量线程
       compile-time-seconds: 10
       compile-wall-time-seconds: 30
-      compile-cg-mem-kb: 524288              # 编译期内存上限 512MB
+      compile-cg-mem-kb: 524288              # 编译期内存上限 512 MB
       compile-fsize-kb: 16384
       wall-time-extra-seconds: 3
       setup-timeout-ms: 10000                # init/cleanup 的宿主侧超时
@@ -218,7 +220,7 @@ ioj:
 | `ioj.agent.concurrency` | 本机同时评测的提交数 | ≤ 核数 - 1，见 §9 |
 | `box-id-start` / `box-id-count` | 本实例独占的 box 编号区间 | `count ≥ concurrency`；同机多 Agent 分段 |
 | `compile-processes` | 编译期 `--processes` | 保持 64，否则 javac 报 `pthread_create failed` |
-| `compile-cg-mem-kb` | 编译期 `--cg-mem` | 512MB 起，编译大项目可上调 |
+| `compile-cg-mem-kb` | 编译期 `--cg-mem` | 512 MB 起，编译大项目可上调 |
 | `wall-time-extra-seconds` | 运行期墙钟 = CPU 限制 + 该值 | 死循环程序靠它兜底 |
 | `extra-dirs` | 只读绑定进沙箱的宿主目录 | 见 §6.3 |
 | `resolve-executables` | 把命令首词解析成真实路径 | 保持 `true` |
@@ -233,7 +235,7 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
 
 ### 6.1 编译阶段
 
-以 Java、题目 256MB 内存为例（`resolve-executables` 已把 `javac` 换成真实路径）：
+以 Java、题目 256 MB 内存为例（`resolve-executables` 已把 `javac` 换成真实路径）：
 
 ```bash
 /usr/bin/isolate --cg --box-id=1 \
@@ -252,7 +254,7 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
 
 ### 6.2 运行阶段
 
-题目 1000ms、Java 系数 2.0、内存 256MB：
+题目 1000 ms、Java 系数 2.0、内存 256 MB：
 
 ```bash
 /usr/bin/isolate --cg --box-id=1 \
@@ -284,9 +286,9 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
 
 1. **`--cg-mem` 必须配 `--cg`**。少了 `--cg` 时 isolate 直接拒绝：
    ```console
-   $ isolate --box-id=8 --cg-mem=102400 ... --run -- /usr/bin/python3 main.py
+   isolate --box-id=8 --cg-mem=102400 ... --run -- /usr/bin/python3 main.py
    Options related to control groups require --cg to be set.
-   $ echo $?
+   echo $?
    2
    ```
 2. **stdio 文件必须事先存在**。`--stdout` 指向不存在的文件时 isolate 不报错，而是**静默丢弃输出**
@@ -298,7 +300,7 @@ box id 是**阻塞式资源**：池里没有空闲编号时，判题线程会停
    需要写就加 `:rw`，本项目不需要。
 4. **Debian 上 `/etc/java-21-openjdk` 是必需的**。JDK 里的 `conf/security/java.security` 只是一个软链：
    ```console
-   $ readlink -f /usr/lib/jvm/java-21-openjdk-amd64/conf/security/java.security
+   readlink -f /usr/lib/jvm/java-21-openjdk-amd64/conf/security/java.security
    /etc/java-21-openjdk/security/java.security
    ```
    而沙箱默认**不挂载 `/etc`**（下节有挂载可见性实测），软链因此悬空，`javac` / `java` 一启动就失败：
@@ -437,7 +439,7 @@ exitcode:0
 | 场景 | 命令关键参数 | 实测输出 |
 | --- | --- | --- |
 | 死循环（TLE） | `--time=1 --wall-time=3` | `status:TO`、`message:Time limit exceeded`、`killed:1`、`time:1.097`，rc=1 |
-| 申请 300MB、限额 64MB（MLE） | `--cg-mem=65536` | `cg-mem:65536`、`cg-oom-killed:1`、`exitsig:9`、`status:SG`，rc=1 |
+| 申请 300 MB、限额 64 MB（MLE） | `--cg-mem=65536` | `cg-mem:65536`、`cg-oom-killed:1`、`exitsig:9`、`status:SG`，rc=1 |
 | Java 用 `--processes=1` | `--processes=1` | JVM 起不来线程：`status:RE`、`exitcode:1`，stderr 可能为空 |
 | 往只读挂载目录写 | `--dir=/etc/java-21-openjdk=...`（无 `rw`） | `OSError: [Errno 30] Read-only file system`，rc=1 |
 
@@ -496,14 +498,14 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | `ioj.agent.concurrency` | 4–8（20 核机器） | 每个评测会占满 1 核跑用户程序，同时还要跑编译 |
 | `box-id-count` | ≥ `ioj.agent.concurrency` | 小于并发只会让判题排队，不会报错 |
 | `compile-processes` | 64 不动 | `javac` 线程多 |
-| `compile-cg-mem-kb` | 512MB 起 | 实测一个 `Main.java` 编译峰值约 64MB，大工程更高 |
-| Java 的 `isolate-memory-extra-mb` | 256 | 实测空跑的 JVM `cg-mem` 就有 61–66MB，还要留 metaspace/线程栈 |
+| `compile-cg-mem-kb` | 512 MB 起 | 实测一个 `Main.java` 编译峰值约 64 MB，大工程更高 |
+| Java 的 `isolate-memory-extra-mb` | 256 | 实测空跑的 JVM `cg-mem` 就有 61–66 MB，还要留 metaspace/线程栈 |
 | 磁盘 | `/tmp` 与 `/var/lib/isolate` 同盘时留足空间 | 每次评测会复制产物到每个测试点目录 |
 
 多实例（同一台机器跑两个 Agent）时 `box-id-start` 必须分段，例如 A 实例 `1..8`、B 实例 `9..16`；
 重叠会互相抢同一个 box，表现为 `isolate --init` 失败或结果串台。跨机器则无需分段。
 
-`--cg-mem` 是按**单次运行**限制的，不是整机配额：并发 8 且每题 512MB 时，峰值可能吃掉 4GB，
+`--cg-mem` 是按**单次运行**限制的，不是整机配额：并发 8 且每题 512 MB 时，峰值可能吃掉 4 GB，
 要给数据库和系统留出余量。
 
 ## 10. 排障

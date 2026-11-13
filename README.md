@@ -1,97 +1,34 @@
 # iOJ
 
-轻量级的在线评测系统（Online Judge）
-
-## 项目特点
-
-- **题库共建**：任何登录用户都能上传题目（题面、样例、隐藏测试数据），管理员可审核、上下架。
-- **规模友好**：面向几十到几百人、每天几百次提交，单机即可运行，备份简单。
-- **评测反馈明确**：AC / WA / TLE / OLE / RE / CE / CHE / SE，并显示每个测试点的耗时与失败原因。
-- **特殊题型**：答案不唯一的题目可以由出题者上传一段 C++ 判题器（Special Judge），判题时在沙箱里编译执行。
-- **对接友好**：统一响应结构、分页与错误码，并提供面向前端的接口文档。
-- **注册可信**：注册需先通过 SMTP 发送到邮箱的 6 位验证码，带冷却、每小时上限与输错作废。
-
-## 使用流程
-
-1. 注册（先向邮箱索取验证码）/ 登录（用户名或邮箱）。
-2. 上传题目：填写题面与样例 → 上传隐藏测试数据 → 题目发布（部分场景需管理员审核）。
-3. 做题：浏览题库 → 打开题目 → 提交代码 → 等待评测 → 查看逐测试点结果。
-4. 管理：管理员审核题目、上下架、修改用户角色、封禁用户。
-
-## 角色与权限
-
-| 角色 | 能做什么 |
-| --- | --- |
-| 访客（未登录） | 浏览题库与已发布题目、查看公开的提交记录（不含代码） |
-| 普通用户 | 提交代码、上传题目、维护自己的题目与测试数据、查看自己的代码与结果 |
-| 题目作者 | 管理自己题目的题面、测试数据，删除自己的题目 |
-| 管理员 | 额外拥有题目审核/上下架、用户角色与封禁管理权限 |
-
-## 功能一览
-
-| 模块 | 内容 |
-| --- | --- |
-| 账号 | 注册（邮箱验证码）、登录、找回密码（邮箱验证码）、个人主页、修改昵称、修改密码 |
-| 题库 | 列表（标题搜索、难度、标签）、题目详情、题面样例 |
-| 出题 | 上传 / 编辑 / 删除题目、标签、隐藏测试数据、自定义判题器（Special Judge）、草稿/待审核/已发布/已下架 |
-| 评测 | Java、C++、C、Python 3；Isolate 沙箱异步评测；逐测试点结果；可选 C++ 判题器 |
-| 管理 | 题目审核与上下架、用户角色、封禁与解封 |
-
-## 仓库结构
-
-```
-iOJ/
-├── client/         # 前端（已预留，尚未开始）
-├── judge-protocol/ # 判题协议：主服务器与判题 Agent 共用的 DTO / 枚举
-├── judge-core/     # 判题核心：引擎、沙箱、输出比对、Special Judge
-├── judge-agent/    # 独立判题进程：claim、Isolate 执行、结果回报
-├── server/         # 主服务器：接口 + 调度 + 数据库
-├── docs/           # 文档：接口文档 + 后端技术文档（索引见 docs/README.md）
-├── LICENSE
-└── README.md
-```
+轻量级的在线评测系统（Online Judge），面向校内俱乐部和几十到几百人的小规模场景：支持题库共建、Isolate 沙箱异步评测、逐测试点结果、自定义判题器（Special Judge）和独立 Judge Agent 分布式评测。
 
 ## 快速开始
 
-- **只想对接接口**：见 [docs/shared/api/README.md](docs/shared/api/README.md)，包含每个接口的参数含义、字段含义与登录/未登录差异。
-- **想启动后端**：见 [docs/server/README.md](docs/server/README.md) 的「快速开始」（建库 + 环境变量 + 启动 + 测试）。
-- **想了解设计**：见 [docs/server/01-architecture.md](docs/server/01-architecture.md)（架构）、[docs/server/02-database.md](docs/server/02-database.md)（数据库）、[docs/server/03-judge.md](docs/server/03-judge.md)（评测）。
+- **对接接口**：见 [docs/api/README.md](docs/api/README.md) 与 [前端 API 索引](docs/api/frontend/README.md)。
+- **启动后端**：见 [docs/server/README.md](docs/server/README.md) 的「快速开始」（建库 + 环境变量 + 启动 + 测试）。
+- **了解设计**：见 [架构设计](docs/server/01-architecture.md)、[数据库设计](docs/server/02-database.md)、[判题设计](docs/server/03-judge.md)。
+- **部署与判题机**：见 [部署与运维](docs/server/04-deployment.md)、[Isolate 沙箱运维](docs/server/06-isolate.md)、[判题 Agent 部署与运维](docs/server/07-judge-agent.md)。
+
+最小启动命令（在仓库根目录执行，详细配置见 [部署文档](docs/server/04-deployment.md)）：
+
+```bash
+./mvnw -B -pl server -am clean package
+IOJ_DB_USER=ioj IOJ_DB_PASSWORD='<db-password>' \
+IOJ_JWT_SECRET="$(openssl rand -base64 48)" \
+java -jar server/target/server-0.0.1-SNAPSHOT.jar
+```
+
+默认管理员为 `admin / admin123456`，**首次登录后请立即修改密码**。
 
 ## 文档
 
-完整文档在 [`docs/`](docs/README.md)：
+完整文档在 [`docs/`](docs/README.md)，包含：
 
-| 文档 | 内容 |
-| --- | --- |
-| [docs/README.md](docs/README.md) | 文档索引与阅读建议 |
-| [docs/shared/api/](docs/shared/api/README.md) | 面向前端的接口文档（按章节拆分）：参数/字段含义、权限可见性、错误码、页面接口对照 |
-| [docs/server/README.md](docs/server/README.md) | 后端总览：启动、配置、数据库初始化、测试、常见问题 |
-| [docs/server/01-architecture.md](docs/server/01-architecture.md) | 架构、模块划分、请求链路、评测流程、权限矩阵、设计取舍 |
-| [docs/server/02-database.md](docs/server/02-database.md) | ER 图、表结构、枚举、索引、容量估算、备份 |
-| [docs/server/03-judge.md](docs/server/03-judge.md) | 评测状态机、引擎选择、Isolate 沙箱与限额、语言配置、生产环境加固 |
-| [docs/server/04-deployment.md](docs/server/04-deployment.md) | 建库、配置项、systemd/Nginx、备份、上线检查清单 |
-| [docs/server/05-development.md](docs/server/05-development.md) | 分层规范、扩展方式、测试说明、踩坑记录 |
-| [docs/server/06-isolate.md](docs/server/06-isolate.md) | Isolate 安装、cgroup 服务、手动验证、接入说明 |
-| [docs/server/07-judge-agent.md](docs/server/07-judge-agent.md) | 判题 Agent 构建、key、配置、systemd、多节点与排障 |
-
-## 项目状态
-
-**当前阶段：后端可用正在迭代，正式版前端、高级题型与分布式判题仍在开发中。**
-
-- [x] **后端接口**：账号、题库、测试数据、提交、评测、管理后台
-- [x] **评测引擎**：Isolate 沙箱（默认）、Java / C++ / C / Python 3、逐测试点结果、异步执行
-- [x] **特殊题型**：Special Judge：出题者上传 C++ 判题器，沙箱内编译执行，独立时限与内存
-- [x] **评测机**：Isolate 2.7 接入完成：编译/运行隔离、MLE 判定、内存统计
-- [x] **文档**：接口文档（前端视角）+ 后端技术文档（架构、数据库、评测、部署、开发）
-- [x] **预览版前端**：`preview-client/`，By NuxusAurora and ChatGPT（已弃用）
-- [ ] **分布式判题器**：主服务器调度 + 独立 Judge Agent，API key、租约、心跳、结果幂等、过期回收
-- [ ] **正式版前端**：`client/`
-- [ ] **Interactive、Run-Twice 题型**：需要扩展评测引擎与题目模型
-
-## 部署提示
-
-- 生产环境必须修改默认管理员密码与登录令牌密钥（见 [docs/server/README.md](docs/server/README.md)）。
-- 判题由独立 Judge Agent 使用 Isolate 沙箱执行，判题机需要安装 Isolate、保持 `isolate.service` 运行并给运行用户 `isolate` 组权限（见 [docs/server/06-isolate.md](docs/server/06-isolate.md)）。只有测试/可信开发环境才建议用 `engine=local`。
+- [文档总索引](docs/README.md)
+- [API 通用约定](docs/api/README.md)
+- [前端 API 索引](docs/api/frontend/README.md)
+- [内部判题 API](docs/api/judge/README.md)
+- [后端技术文档](docs/server/README.md)
 
 ## License
 

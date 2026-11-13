@@ -1,5 +1,9 @@
 # 开发指南
 
+本文说明 iOJ 的模块与分层约定、扩展方式、测试方法和常见踩坑，读者为后端、判题模块和前端开发人员。运行环境与配置见 [部署与运维](04-deployment.md)，接口契约见 [前端 API 文档](../api/frontend/README.md)。
+
+> 返回目录：[后端文档索引](README.md)
+
 ## 1. 代码结构
 
 ```text
@@ -198,7 +202,22 @@ class MyFeatureTest {
 }
 ```
 
-## 7. 框架注意事项
+## 7. 前端与辅助工具
+
+正式前端在 `client/`（React 19 + Vite + TanStack Router/Query + Tailwind）。开发时在 `client/` 下执行：
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Vite 开发服务器默认监听 `127.0.0.1:5173`，并把 `/api` 代理到 `IOJ_API_PROXY_TARGET`（见 `client/.env.example`）；后端默认只允许 `http://localhost:5173` 跨域，改端口时同步设置 `IOJ_CORS_ORIGINS`。
+
+`test-client/` 是旧版 Vue 手工测试客户端，功能覆盖账号、题库、提交和管理后台，可用于接口联调；它不是正式前端，不应作为发布产物。
+
+外部题库同步脚本在 `scripts/sync_clist_problems.py`，使用方法见 [外部题库同步](09-catalog-sync.md)。
+
+## 8. 框架注意事项
 
 | 主题 | 说明 |
 | --- | --- |
@@ -214,19 +233,20 @@ class MyFeatureTest {
 | 事务 + 抛异常 | 想让"失败也要留痕"的写入（例如验证码输错次数）不被外层事务回滚，必须走**另一个 Bean** 的 `@Transactional(propagation = REQUIRES_NEW)`（见 `EmailCodeAttemptRecorder`）。同一个类里自调用不会经过代理，`REQUIRES_NEW` 等于没写 |
 | 邮件 | `spring-boot-starter-mail` 只在设置了 `spring.mail.host` 时才会创建 `JavaMailSender`；`ioj.email-code.enabled=true` 的上下文必须有这个 Bean，否则启动即失败（有意的 fail-fast）。发信逻辑藏在 `EmailCodeSender` 接口后面，测试用假实现替换 |
 
-## 8. 代码风格与协作
+## 9. 代码风格与协作
 
 - 4 空格缩进；类/方法命名用英文，注释与用户可见文案用中文。
 - 一个文件一个公开类；Controller 按资源聚合，不要一个接口一个类。
 - 新增错误码加到 `ErrorCode`（业务号段：用户 2xxx、题目 3xxx、提交 4xxx）。
 - 提交前在仓库根目录跑 `./mvnw test`；改 SQL 时同时跑集成测试（它会真的执行所有 mapper）。
 - Git 提交信息建议：`feat(problem): 支持按标签筛选`、`fix(judge): 修复 Java 超时判定`。
-- 前端字段变更属于破坏性变更，需同步更新 `../shared/api/README.md`。
+- 前端字段变更属于破坏性变更，需同步更新 [前端 API 文档](../api/frontend/README.md)。
 
-## 9. 已知简化与后续方向
+## 10. 已知简化与后续方向
 
 | 简化 | 影响 | 改进 |
 | --- | --- | --- |
+| 正式前端尚未完成 | `client/` 目前只有题库等页面的骨架；`test-client/` 是旧的手工测试客户端 | 按 [前端 API 文档](../api/frontend/README.md) 对接，服务端契约保持稳定 |
 | 无 refresh token | 7 天后需重新登录 | 增加 refresh token + 轮换 |
 | 无提交频率限制 | 恶意用户可以刷提交 | 每用户每分钟限 N 次（Redis 或 DB 计数） |
 | 无比赛/榜单 | 只能练题 | 新增 contest 相关表与聚合查询 |

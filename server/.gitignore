@@ -4,8 +4,6 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-agent.md
-
 src/main/resources/application-deployment.yml
 
 ### STS ###

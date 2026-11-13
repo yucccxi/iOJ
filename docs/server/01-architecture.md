@@ -1,5 +1,9 @@
 # 架构设计
 
+本文说明 iOJ 的目标约束、模块边界、请求链路、分布式评测架构、权限模型和关键设计取舍，读者为后端开发与运维人员。阅读前建议先浏览 [后端总览](README.md)。
+
+> 返回目录：[后端文档索引](README.md)
+
 ## 1. 目标与约束
 
 - 用户自行上传题目，所有登录用户（甚至匿名访客）都能浏览、提交。
@@ -55,7 +59,7 @@ flowchart LR
 
 ## 3. 代码分层
 
-```
+```text
 iOJ/
 ├── judge-protocol/  SubmissionStatus、Language、JudgeTask / JudgeResult 等内部协议 DTO
 ├── judge-core/      JudgeContext、JudgeOutcome、JudgeProperties、engine / sandbox / answer
@@ -140,7 +144,7 @@ sequenceDiagram
 
 ## 6. 权限模型
 
-角色只有两个：`USER`、`ADMIN`。资源级权限在 Service 中判断。
+用户角色只有 `USER`、`ADMIN`，资源级权限在 Service 中判断。判题 Agent 不是用户角色，它使用独立的 judge key，在安全上下文中映射为 `ROLE_JUDGE`，只能访问 `/internal/judge/**`。
 
 | 操作 | 匿名 | 登录用户 | 题目作者 | 管理员 |
 | --- | --- | --- | --- | --- |
@@ -165,7 +169,7 @@ sequenceDiagram
 
 - 密码：BCrypt（strength 10），只存哈希；登录失败统一提示"用户名或密码错误"。
 - JWT：HS256，密钥必须 ≥ 32 字节（启动时校验，太短直接启动失败）；默认 7 天过期；校验 `iss` 与签名。
-- 隐藏数据：测试点内容、他人代码、编译信息都不出现在公共响应里（详见 ../shared/api/README.md）。
+- 隐藏数据：测试点内容、他人代码、编译信息都不出现在公共响应里（详见 [前端 API 文档](../api/frontend/README.md)）。
 - 判题：在独立 Judge Agent 的 Isolate 沙箱内编译与运行（独立 box、cgroup 限制、CPU/墙钟/内存/文件大小/进程数）；主服务器不执行用户代码。详见 03-judge.md。
 - 判题 Agent 认证：管理员创建的 API key；数据库只存 SHA-256 hash；`/internal/judge/**` 使用独立认证过滤器，不接触用户 JWT。
 - 判题 Agent 网络：只需要出站访问主服务器内部 API，不需要公网入站端口，也不连接 MySQL。
@@ -180,7 +184,7 @@ sequenceDiagram
 | 主服务器与判题 Agent 分离 | 判题峰值不抢 Web/数据库 CPU；判题机可横向扩展 | 多一个进程和内部网络；需要 key、租约和结果幂等 |
 | 判题 Agent 主动拉取 | 判题机可以位于 NAT/内网，不需要入站端口 | 空闲时有轮询开销；当前用退避控制，量大再改长轮询 |
 | 数据库当任务队列 | 少一个组件，天然持久化、可观测 | 吞吐上限低（每秒几十次抢占）；量大了换 MQ |
-| 测试点存 MySQL | 备份/事务/权限最简单 | 单点上限受 `max_allowed_packet` 限制（默认 64MB，足够）；超大测试集改对象存储 |
+| 测试点存 MySQL | 备份/事务/权限最简单 | 单点上限受 `max_allowed_packet` 限制（默认 64 MB，足够）；超大测试集改对象存储 |
 | 每次请求查用户表 | 封禁/提权立即生效 | 多一次主键查询；QPS 上千再考虑缓存 |
-| 提交异步、前端轮询 | 无需 WebSocket | 前端每隔 500ms~1s 查一次详情即可 |
+| 提交异步、前端轮询 | 无需 WebSocket | 前端每隔 500 ms~1 s 查一次详情即可 |
 | 输出比对忽略行尾空格与文末空行 | 减少"格式错误"类无效 WA | 需要严格/自定义判定的题，作者上传 C++ 判题器（Special Judge，见 03-judge.md §10） |

@@ -4,7 +4,7 @@ type Envelope<T> = { code: number; message: string; data: T };
 type QueryValue = string | number;
 type Query = Record<string, QueryValue | readonly QueryValue[] | undefined>;
 
-/** A failed request; `code` is the backend business code from docs/shared/api/01-conventions.md. */
+/** A failed request; `code` is the backend business code from docs/api/README.md. */
 export class ApiError extends Error {
   readonly code: number;
 
