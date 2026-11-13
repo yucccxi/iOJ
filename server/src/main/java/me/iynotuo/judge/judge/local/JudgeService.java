@@ -83,7 +83,9 @@ public class JudgeService {
     }
 
     /**
-     * Judges a submission and persists the result. Any exception becomes SYSTEM_ERROR so a submission never stays in JUDGING forever.
+     * Judges a submission and persists the result. Exceptions from the engine become SYSTEM_ERROR;
+     * other failures propagate to the worker, and leftover JUDGING rows are recovered on the next
+     * startup.
      */
     public void judge(Long submissionId) {
         Submission submission = submissionMapper.findById(submissionId);

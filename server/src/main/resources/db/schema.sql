@@ -210,7 +210,7 @@ CREATE TABLE submission_cases (
 
 -- Email verification codes. One row per send request: the newest row for an (email, purpose)
 -- pair is the one that can be used, and consumed_at marks a code as no longer usable.
--- Purpose is REGISTER today; a password reset flow can reuse the same table.
+-- Purpose is REGISTER or RESET_PASSWORD; registration and password reset share this table.
 CREATE TABLE email_verification_codes (
     id          BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
     email       VARCHAR(128) NOT NULL,

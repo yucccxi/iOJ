@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * Reference-data endpoints used to bootstrap the front end.
  *
- * <p>Both endpoints are public, so the submission form and the problem editor can be
+ * <p>All three endpoints are public, so the submission form, problem editor and filters can be
  * rendered before a user logs in. The language list is derived from the
  * {@code ioj.judge.languages} configuration map, which means enabling a new language
  * never requires a change in this class.</p>

@@ -21,9 +21,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Registration and login endpoints.
+ * Registration, login and password-reset endpoints.
  *
- * <p>Email code requests, register and login are the only fully public POST endpoints of the API.
+ * <p>Registration, login, the email-code/password-reset POSTs and CAPTCHA issuance are the fully
+ * public POST endpoints of the API.
  * Login issues a stateless JWT that the client sends back as {@code Authorization: Bearer <token>};
  * the server keeps no session, and the authorities of every request are reloaded from
  * the database.</p>

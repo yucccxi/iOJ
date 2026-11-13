@@ -3,8 +3,9 @@ package me.iynotuo.judge.protocol;
 /**
  * Version of the internal judge protocol.
  *
- * <p>The server and a judge agent exchange this value when claiming work and sending heartbeats. A
- * mismatch is rejected instead of letting two incompatible versions disagree about the payload.</p>
+ * <p>The server returns this value in the startup bootstrap config, and the agent rejects a mismatch
+ * before claiming any work. The {@code protocolVersion} fields in claim and heartbeat requests are
+ * currently diagnostic; the server does not enforce them.</p>
  */
 public final class ProtocolVersion {
 

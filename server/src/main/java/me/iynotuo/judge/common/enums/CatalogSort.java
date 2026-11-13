@@ -10,7 +10,7 @@ public enum CatalogSort {
     DEFAULT,
 
     /**
-     * Numeric difficulty ({@code rating}); highest first, unrated treated as 0.
+     * Numeric difficulty ({@code rating}); highest first, unrated treated as -1.
      */
     RATING,
 

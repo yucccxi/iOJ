@@ -119,7 +119,7 @@ public class JudgeTaskService {
     }
 
     /**
-     * Returns an unstarted task to the queue during a graceful agent shutdown.
+     * Returns an unstarted task to the queue when the agent cannot execute it or shuts down.
      */
     @Transactional
     public void release(Long submissionId, String claimToken) {

@@ -27,7 +27,7 @@ ioj:
 
   judge:
     # Language source-file/compile-command/run-command come from the main server in each claim.
-    # This value only selects the execution engine.
+    # "engine" selects the execution engine; "mode" is a server-side role and is unused by the agent.
     mode: agent
     engine: isolate
     max-output-bytes: 16777216

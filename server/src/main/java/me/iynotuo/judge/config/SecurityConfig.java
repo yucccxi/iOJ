@@ -28,8 +28,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Stateless JWT authentication. Public endpoints (problem browsing, problem detail, public submission list) allow anonymous access;
- * all other endpoints require authentication, and /api/v1/admin/** requires the ADMIN role.
+ * Stateless JWT authentication. Anonymous access covers auth/CAPTCHA, problem browsing and detail,
+ * catalog, meta, public user profiles and public submission GETs; every other endpoint requires
+ * authentication, and /api/v1/admin/** requires the ADMIN role.
  */
 @Configuration
 @EnableWebSecurity

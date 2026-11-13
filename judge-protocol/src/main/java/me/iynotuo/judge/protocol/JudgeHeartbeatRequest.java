@@ -1,13 +1,13 @@
 package me.iynotuo.judge.protocol;
 
 /**
- * Heartbeat sent by a judge agent.
+ * Task heartbeat sent by a judge agent.
  *
- * <p>With a {@code claimToken} it renews the lease of that task. Without one it only reports that the
- * node is alive and how many tasks it is currently running.</p>
+ * <p>Renews the lease of one claimed task. A blank token is rejected with {@code cancel=true}; node
+ * liveness is reported separately through {@link JudgeNodeInfo} on the node heartbeat endpoint.</p>
  *
  * @param nodeId          unique id of the judge agent instance
- * @param claimToken      task lease to renew, or {@code null} for a node-only heartbeat
+ * @param claimToken      task lease to renew; must match the current claim
  * @param runningTasks    number of tasks currently executing on the agent
  * @param protocolVersion protocol version understood by the agent
  */

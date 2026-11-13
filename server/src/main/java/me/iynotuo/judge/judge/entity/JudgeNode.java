@@ -30,7 +30,7 @@ public class JudgeNode {
     private String isolateVersion;
 
     /**
-     * ONLINE / OFFLINE / DRAINING.
+     * ONLINE or OFFLINE; the offline monitor is the only writer of the latter.
      */
     private String status;
 

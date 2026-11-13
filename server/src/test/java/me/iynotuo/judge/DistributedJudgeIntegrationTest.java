@@ -90,7 +90,7 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         assertThat(heartbeat.path("code").asInt()).isZero();
         assertThat(heartbeat.path("data").path("offlineSeconds").asInt()).isPositive();
 
-        // Claim one task. The response must include the code, testcases and a fencing token.
+        // Claim one task. The response must include the code, a fencing token and a testcase bundle URL.
         JsonNode claim = post("/internal/judge/tasks/claim", judgeKey, Map.of(
                 "nodeId", "judge-1",
                 "maxTasks", 1,

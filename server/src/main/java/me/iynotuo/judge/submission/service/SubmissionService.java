@@ -61,7 +61,8 @@ public class SubmissionService {
     }
 
     /**
-     * Submits code. The row is stored as PENDING and picked up asynchronously by the judge worker.
+     * Submits code. The row is stored as PENDING and picked up asynchronously by a remote judge agent
+     * (default) or by the local judge worker when {@code ioj.judge.mode=local}.
      */
     @Transactional
     public SubmissionDetailVO submit(LoginUser current, SubmitRequest request) {

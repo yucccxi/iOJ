@@ -62,8 +62,9 @@ public class UserService {
             throw BusinessException.of(ErrorCode.EMAIL_TAKEN);
         }
         // Verify before writing anything: a rejected code must not create a row, and a taken
-        // username must not burn a code. verify() runs in its own transaction so a wrong code is
-        // still counted as an attempt when this transaction rolls back with the exception below.
+        // username must not burn a code. The failed-attempt counter is written by
+        // EmailCodeAttemptRecorder in its own REQUIRES_NEW transaction, so a wrong code is still
+        // counted when this transaction rolls back with the exception below.
         Long codeId = emailCodeService.isEnabled()
                 ? emailCodeService.verify(email, EmailCodePurpose.REGISTER, request.emailCode())
                 : null;

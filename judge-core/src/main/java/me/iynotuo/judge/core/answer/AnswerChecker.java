@@ -12,7 +12,8 @@ import java.nio.file.Path;
  * <p>This is the policy layer of judging and it is engine agnostic: the built-in comparator needs
  * nothing but the two strings, while a custom checker compiles and runs author supplied code through a
  * {@link me.iynotuo.judge.core.sandbox.Sandbox}. Which implementation is used is decided once per
- * submission by {@link AnswerCheckerFactory}, so judge engines never mention checkers at all.</p>
+ * submission by {@link AnswerCheckerFactory}, so judge engines interact with checkers only through
+ * this abstraction.</p>
  */
 public interface AnswerChecker {
 

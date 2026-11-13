@@ -24,7 +24,8 @@ import java.util.Map;
 public class JudgeProperties {
 
     /**
-     * Whether the judge worker is enabled. When disabled, submissions stay PENDING; intended for API-only debugging.
+     * Whether the server-side local JudgeWorker polls. Only used in local mode; remote agents ignore
+     * it, so disabling it in remote mode does not keep submissions PENDING.
      */
     private boolean enabled = true;
 
@@ -57,12 +58,15 @@ public class JudgeProperties {
     private int maxOutputBytes = 16 * 1024 * 1024;
 
     /**
-     * Maximum number of bytes kept from compile output (stdout and stderr).
+     * Maximum number of bytes kept from compiler stderr and from each run's stderr. The local engine
+     * also truncates the compile message to this many characters; isolate compile stdout is capped by
+     * {@link #maxOutputBytes} instead.
      */
     private int maxCompileOutputBytes = 64 * 1024;
 
     /**
-     * Compile timeout in milliseconds.
+     * Compile timeout for the local engine, in milliseconds. The isolate engine uses
+     * {@code ioj.judge.isolate.compile-time-seconds} instead.
      */
     private long compileTimeoutMs = 30_000;
 
@@ -159,7 +163,8 @@ public class JudgeProperties {
     }
 
     /**
-     * Settings for the Isolate sandbox engine; ignored when another engine is selected.
+     * Settings for the Isolate sandbox engine. The agent bootstrap probes {@code binary} at every
+     * startup regardless of the selected engine, so it must exist even when {@code engine=local}.
      */
     private Isolate isolate = new Isolate();
 
@@ -301,8 +306,8 @@ public class JudgeProperties {
         private int maxClaimBatch = 10;
 
         /**
-         * Test cases larger than this many UTF-8 bytes are downloaded from the bundle endpoint instead
-         * of being inlined in the claim response.
+         * When the combined UTF-8 size of a task's test data exceeds this many bytes, the claim
+         * response omits the inline test cases and points at the ZIP bundle endpoint instead.
          */
         private int inlineMaxBytes = 1_048_576;
     }
@@ -327,12 +332,15 @@ public class JudgeProperties {
         private int boxIdStart = 1;
 
         /**
-         * Number of box ids reserved for this instance; should be at least the judge concurrency.
+         * Number of box ids reserved for this instance. Should be at least the number of concurrently
+         * judged submissions: {@code ioj.agent.concurrency} on an agent, or
+         * {@code ioj.judge.concurrency} in the server's local mode.
          */
         private int boxIdCount = 8;
 
         /**
-         * Whether to fail fast at startup when the isolate binary cannot be executed.
+         * Whether the IsolateSandbox constructor fails fast when the binary is not executable. The
+         * agent bootstrap probes isolate independently, regardless of this flag.
          */
         private boolean checkOnStartup = true;
 
@@ -421,7 +429,8 @@ public class JudgeProperties {
         private int memoryLimitMb = 512;
 
         /**
-         * Wall-clock timeout for compiling the checker on the host, in milliseconds.
+         * CPU time limit for compiling the checker inside the isolate sandbox, in milliseconds. The
+         * wall-clock limit is this value plus a few seconds.
          */
         private long compileTimeoutMs = 30_000;
 
@@ -441,8 +450,8 @@ public class JudgeProperties {
         private String compileCommand = "g++ -O2 -std=c++17 -pipe -o checker checker.cpp";
 
         /**
-         * Maximum number of bytes kept from the checker output, matching the width of
-         * {@code submission_cases.message}.
+         * Maximum number of characters kept from the checker output, matching the
+         * {@code VARCHAR(1024)} width of {@code submission_cases.message}.
          */
         private int messageLimitBytes = 1_024;
 

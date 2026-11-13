@@ -10,13 +10,14 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Local process sandbox: runs the command on the host with a temporary working directory, bash
- * {@code ulimit} and a wall-clock timeout.
+ * Local process sandbox: runs the command on the host in a temporary working directory with a
+ * wall-clock timeout. Optional shell limits such as {@code ulimit} come from the configured run
+ * wrapper, not from this class.
  *
- * <p>It exists only for machines without isolate (development, CI) and is <strong>not</strong> a security
- * boundary: a hostile program can still exhaust the CPU, fork bomb or reach the network, and it runs with
- * the judge user's privileges. Because of that {@link #supportsAuthorCode()} is {@code false}, so custom
- * checkers are never executed here.</p>
+ * <p>It exists for the server's local mode (development, tests, CI) and is <strong>not</strong> a
+ * security boundary: a hostile program can still exhaust the CPU, fork bomb or reach the network,
+ * and it runs with the judge user's privileges. Because of that {@link #supportsAuthorCode()} is
+ * {@code false}, so custom checkers are never executed here.</p>
  */
 public class LocalSandbox implements Sandbox {
 
@@ -26,7 +27,7 @@ public class LocalSandbox implements Sandbox {
     private final JudgeProperties properties;
 
     /**
-     * Creates the fallback sandbox.
+     * Creates the local sandbox.
      *
      * @param properties judge configuration; supplies the output size cap. Never {@code null}
      */

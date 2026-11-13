@@ -2,7 +2,8 @@ package me.iynotuo.judge.common.enums;
 
 /**
  * Problem publication status.
- * DRAFT: visible to the author only; PENDING_REVIEW: waiting for review; PUBLISHED: live; HIDDEN: taken down or rejected.
+ * DRAFT: visible to the author and administrators only; PENDING_REVIEW: waiting for review;
+ * PUBLISHED: live; HIDDEN: taken down or rejected.
  */
 public enum ProblemStatus {
     DRAFT,

@@ -30,7 +30,8 @@ ioj:
 # Existing flow tests do not need to solve images; CaptchaIntegrationTest turns this back on.
     enabled: false
   judge:
-# Integration tests call JudgeService directly instead of relying on the scheduled worker.
+# Most integration tests call JudgeService directly instead of relying on the scheduled worker; the
+# distributed-judge test overrides mode to remote.
     enabled: false
     mode: local
     engine: local

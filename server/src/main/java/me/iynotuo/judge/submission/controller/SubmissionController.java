@@ -40,9 +40,9 @@ public class SubmissionController {
     /**
      * Submits code for judging.
      *
-     * <p>The submission is stored in PENDING state and judged asynchronously by the
-     * judge worker, so the client should poll the detail endpoint until the status is no
-     * longer PENDING or JUDGING.</p>
+     * <p>The submission is stored in PENDING state and judged asynchronously by a remote judge agent
+     * (default) or by the local judge worker, so the client should poll the detail endpoint until the
+     * status is no longer PENDING or JUDGING.</p>
      *
      * @param current the authenticated user, recorded as the submitter
      * @param request problem id, language and source code

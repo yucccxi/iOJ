@@ -103,8 +103,8 @@ public class JudgeKeyService {
     }
 
     /**
-     * Updates the diagnostic last-used timestamp. Called only when work is actually claimed or a result
-     * is accepted, never on an empty poll.
+     * Updates the diagnostic last-used timestamp. Called only when work is actually claimed, never on
+     * an empty poll or when a result is reported.
      */
     @Transactional
     public void touch(Long id) {

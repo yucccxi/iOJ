@@ -13,7 +13,8 @@ public enum EmailCodePurpose {
     REGISTER,
 
     /**
-     * Reserved for a password reset flow; not issued by any endpoint yet.
+     * Password reset flow; issued by {@code POST /auth/password-reset-codes} and verified by
+     * {@code POST /auth/password-resets}.
      */
     RESET_PASSWORD
 }

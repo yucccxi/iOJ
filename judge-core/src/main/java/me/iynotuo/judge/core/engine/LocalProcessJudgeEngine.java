@@ -26,12 +26,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Local process judge engine: compiles the code and runs every test case on the host.
+ * Local process judge engine: compiles the code and runs test cases on the host, stopping at the
+ * first failure.
  *
- * <p>Owns the judging flow only; process execution lives in {@link LocalSandbox} and answer comparison in
- * an {@link AnswerChecker}. The sandbox is a temporary directory plus bash {@code ulimit} and a wall-clock
- * timeout, which suits club deployments and development machines but cannot stop CPU starvation, fork
- * bombs or network access.</p>
+ * <p>Owns the judging flow only; process execution lives in {@link LocalSandbox} and answer comparison
+ * in an {@link AnswerChecker}. The sandbox is a temporary directory plus an optional run wrapper
+ * (which may set shell limits such as {@code ulimit}) and a wall-clock timeout. It suits local-mode
+ * development and tests but cannot stop CPU starvation, fork bombs or network access.</p>
  *
  * <p>Custom checkers are deliberately not supported: compiling and running author-supplied code without a
  * sandbox would hand every problem author arbitrary code execution on the judge host. The factory therefore
@@ -50,7 +51,7 @@ public class LocalProcessJudgeEngine implements JudgeEngine {
     private final AnswerCheckerFactory checkerFactory;
 
     /**
-     * Creates the fallback engine that runs submissions directly on the host.
+     * Creates the local engine that runs submissions directly on the host.
      *
      * @param properties     judge configuration; supplies the per-language commands and limits
      * @param checkerFactory decides how answers are compared for each submission

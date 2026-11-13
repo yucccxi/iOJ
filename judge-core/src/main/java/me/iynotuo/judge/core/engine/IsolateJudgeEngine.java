@@ -29,12 +29,13 @@ import java.util.List;
 /**
  * Isolate sandbox judge engine.
  *
- * <p>Owns the judging flow (compile once, run every test case, aggregate the results) but delegates all
- * process execution to {@link IsolateSandbox} and all answer comparison to an {@link AnswerChecker}. That
- * keeps this class free of both isolate command details and special judge policy.</p>
+ * <p>Owns the judging flow (compile once, run test cases in order, aggregate the results) but delegates
+ * all process execution to {@link IsolateSandbox} and all answer comparison to an
+ * {@link AnswerChecker}. That keeps this class free of both isolate command details and special judge
+ * policy.</p>
  *
- * <p>Requires the Isolate service to run and the service user to be allowed to execute
- * {@code /usr/bin/isolate} (usually membership in the {@code isolate} group).</p>
+ * <p>Requires the Isolate service to run and the service user to be allowed to execute the configured
+ * binary (default {@code /usr/bin/isolate}, usually via membership in the {@code isolate} group).</p>
  */
 @Component
 @ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "isolate")

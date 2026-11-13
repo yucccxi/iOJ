@@ -60,7 +60,7 @@ public class EmailCodeService {
     }
 
     /**
-     * Whether registration has to be confirmed by an email code.
+     * Whether email verification codes are enabled, for both registration and password reset.
      */
     public boolean isEnabled() {
         return properties.isEnabled();
@@ -156,15 +156,15 @@ public class EmailCodeService {
      *
      * <p>Two transaction concerns shape this method:</p>
      * <ul>
-     *   <li>The caller creates the account inside its own transaction, and a rejected code must still
-     *   count as an attempt even though that outer transaction is rolled back by the exception. The
-     *   counter therefore goes through {@link EmailCodeAttemptRecorder}, whose
-     *   {@code REQUIRES_NEW} transaction commits on its own.</li>
-     *   <li>The success path does not consume the row here, because the account insert could still
-     *   fail on a duplicate key.</li>
+     *   <li>The caller performs the protected write (account insert or password update) inside its own
+     *   transaction, and a rejected code must still count as an attempt even though that outer
+     *   transaction is rolled back by the exception. The counter therefore goes through
+     *   {@link EmailCodeAttemptRecorder}, whose {@code REQUIRES_NEW} transaction commits on its own.</li>
+     *   <li>The success path does not consume the row here, because the caller's write could still
+     *   fail (for example on a duplicate key).</li>
      * </ul>
      *
-     * @return the id to pass to {@link #consume(Long)} once the account has been written
+     * @return the id to pass to {@link #consume(Long)} after the protected write succeeds
      */
     public Long verify(String rawEmail, EmailCodePurpose purpose, String inputCode) {
         String email = normalize(rawEmail);
@@ -203,8 +203,9 @@ public class EmailCodeService {
     }
 
     /**
-     * Marks a code as used. Call it inside the transaction that creates the account, so a failed
-     * insert leaves the code valid and a successful one can never be replayed.
+     * Marks a code as used. Call it inside the transaction that performs the protected write (account
+     * insert or password update), so a failed write leaves the code valid and a successful one can
+     * never be replayed.
      */
     public void consume(Long codeId) {
         if (codeId == null) {

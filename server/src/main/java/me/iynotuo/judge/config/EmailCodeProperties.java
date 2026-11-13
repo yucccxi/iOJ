@@ -12,9 +12,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class EmailCodeProperties {
 
     /**
-     * Whether registration requires an email code. When false the send endpoint reports that the
-     * feature is off and {@code POST /auth/register} does not ask for a code. Defaults to true;
-     * the test profile turns it off because most integration tests only need an account.
+     * Whether email verification codes are enabled. When false the send endpoint reports that the
+     * feature is off, {@code POST /auth/register} does not ask for a code and password reset is
+     * unavailable. Defaults to true; the test profile turns it off because most integration tests
+     * only need an account.
      */
     private boolean enabled = true;
 

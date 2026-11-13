@@ -78,7 +78,7 @@ public interface SubmissionMapper {
                     @Param("leaseExpiresAt") LocalDateTime leaseExpiresAt);
 
     /**
-     * Returns a claimed task to the queue after a graceful agent shutdown.
+     * Returns a claimed task to the queue when the agent cannot execute it or shuts down.
      */
     int releaseClaim(@Param("id") Long id, @Param("claimToken") String claimToken);
 

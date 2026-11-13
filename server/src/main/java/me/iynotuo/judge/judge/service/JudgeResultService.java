@@ -25,8 +25,9 @@ import java.util.Set;
 /**
  * Applies results reported by remote judge agents.
  *
- * <p>The write is fenced by the claim token and the JUDGING state, so a late result from an expired
- * lease, a requeued task or an administrator rejudge is rejected instead of overwriting newer data.</p>
+ * <p>The write is fenced by the claim token and the JUDGING state, so a result from a requeued or
+ * re-claimed task is rejected instead of overwriting newer data. A lease that merely expired is
+ * still accepted until {@code JudgeLeaseReaper} clears the claim.</p>
  */
 @Service
 public class JudgeResultService {

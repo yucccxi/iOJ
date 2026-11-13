@@ -13,9 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 /**
- * Problem scope dictionary maintenance. External scopes are administrator-managed and shared by
- * local problems and external OJ links; the public list (with usage counts) is served by
- * {@code GET /meta/scopes}.
+ * Problem scope dictionary maintenance. Scopes are administrator-managed: {@code LOCAL} is reserved
+ * for locally authored problems, and the other rows are used by external OJ links. The public list
+ * (with usage counts) is served by {@code GET /meta/scopes}.
  */
 @Service
 public class ScopeService {
@@ -61,8 +61,9 @@ public class ScopeService {
     }
 
     /**
-     * Deletes a scope. Scopes in use are rejected: local problems and external OJ links keep their
-     * reference, so they must be moved to another scope first.
+     * Deletes a scope. Scopes in use are rejected because problem or external-link rows still
+     * reference them, so those rows must be reassigned or removed first. The reserved {@code LOCAL}
+     * scope cannot be deleted at all.
      */
     @Transactional
     public void delete(Long id) {

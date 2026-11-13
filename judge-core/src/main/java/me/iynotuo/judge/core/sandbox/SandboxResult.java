@@ -11,7 +11,7 @@ package me.iynotuo.judge.core.sandbox;
  *                        {@code SG} (signal), {@code XX} (sandbox failure)
  * @param exitCode        exit code of the executed program, or {@code -1} when unknown
  * @param signal          signal that terminated the program, {@code 0} when none
- * @param timeMs          CPU time consumed, in milliseconds
+ * @param timeMs          CPU time for isolate runs, wall-clock time for the local sandbox, in milliseconds
  * @param memoryKb        peak memory in kilobytes, {@code 0} when the sandbox cannot measure it
  * @param outOfMemory     whether the sandbox reported a memory kill
  * @param stdout          captured standard output, truncated to the configured output limit
