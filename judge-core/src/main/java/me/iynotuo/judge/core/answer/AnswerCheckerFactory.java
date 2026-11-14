@@ -42,9 +42,6 @@ public class AnswerCheckerFactory {
         if (!properties.getChecker().isEnabled()) {
             return new DisabledAnswerChecker("custom checkers are disabled on this judge");
         }
-        if (!sandbox.supportsAuthorCode()) {
-            return new DisabledAnswerChecker("custom checkers require the isolate engine");
-        }
         return new ProgramAnswerChecker(sandbox, properties, context.checkerCode());
     }
 }

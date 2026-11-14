@@ -32,17 +32,10 @@ public class JudgeProperties {
     private int maxOutputBytes = 16 * 1024 * 1024;
 
     /**
-     * Maximum number of bytes kept from compiler stderr and from each run's stderr. The local engine
-     * also truncates the compile message to this many characters; isolate compile stdout is capped by
-     * {@link #maxOutputBytes} instead.
+     * Maximum number of bytes kept from compiler stderr and from each run's stderr. Compile stdout is
+     * capped by {@link #maxOutputBytes} instead.
      */
     private int maxCompileOutputBytes = 64 * 1024;
-
-    /**
-     * Compile timeout for the local engine, in milliseconds. The isolate engine uses
-     * {@code ioj.judge.isolate.compile-time-seconds} instead.
-     */
-    private long compileTimeoutMs = 30_000;
 
     /**
      * Settings for the optional per-problem custom checker (special judge).
@@ -51,7 +44,7 @@ public class JudgeProperties {
 
     /**
      * Settings for the Isolate sandbox engine. The agent bootstrap probes {@code binary} at every
-     * startup regardless of the selected engine, so it must exist even when {@code engine=local}.
+     * startup.
      */
     private Isolate isolate = new Isolate();
 

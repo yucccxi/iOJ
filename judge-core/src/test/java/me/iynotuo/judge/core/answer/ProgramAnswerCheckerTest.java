@@ -236,11 +236,6 @@ class ProgramAnswerCheckerTest {
         }
 
         @Override
-        public boolean supportsAuthorCode() {
-            return true;
-        }
-
-        @Override
         public SandboxResult exec(SandboxCommand command) throws Exception {
             if (produceBinary) {
                 Files.writeString(command.directory().resolve("checker"), "");

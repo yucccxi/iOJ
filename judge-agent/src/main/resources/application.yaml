@@ -27,11 +27,8 @@ ioj:
 
   judge:
     # Language source-file/compile-command/run-command come from the main server in each claim.
-    # "engine" selects the execution engine.
-    engine: isolate
     max-output-bytes: 16777216
     max-compile-output-bytes: 65536
-    compile-timeout-ms: 30000
     isolate:
       binary: ${IOJ_ISOLATE_BINARY:/usr/bin/isolate}
       box-id-start: ${IOJ_ISOLATE_BOX_ID_START:1}

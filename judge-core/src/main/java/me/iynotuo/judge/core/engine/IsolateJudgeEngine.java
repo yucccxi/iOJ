@@ -17,7 +17,6 @@ import me.iynotuo.judge.core.sandbox.SandboxResult;
 import me.iynotuo.judge.core.JudgeTestcase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -38,7 +37,6 @@ import java.util.List;
  * binary (default {@code /usr/bin/isolate}, usually via membership in the {@code isolate} group).</p>
  */
 @Component
-@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "isolate")
 public class IsolateJudgeEngine implements JudgeEngine {
 
     private static final Logger log = LoggerFactory.getLogger(IsolateJudgeEngine.class);

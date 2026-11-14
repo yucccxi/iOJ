@@ -74,11 +74,6 @@ public class IsolateSandbox implements Sandbox {
     }
 
     @Override
-    public boolean supportsAuthorCode() {
-        return true;
-    }
-
-    @Override
     public SandboxResult exec(SandboxCommand command) throws Exception {
         int boxId;
         try {

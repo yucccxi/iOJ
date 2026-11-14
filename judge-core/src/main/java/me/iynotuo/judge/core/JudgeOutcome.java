@@ -12,7 +12,7 @@ import java.util.List;
  * @param judgeMessage   system-level error message (for example missing test data); never contains test data
  * @param cases          per-test-case results (fail-fast: judging stops at the first failure)
  * @param timeUsedMs     slowest executed test case, in milliseconds
- * @param memoryUsedKb   peak memory; the local engine cannot measure it precisely, so it is usually null
+ * @param memoryUsedKb   peak memory; {@code null} when the engine cannot measure it
  */
 public record JudgeOutcome(SubmissionStatus status,
                            String compileMessage,
