@@ -2,7 +2,7 @@ package me.iynotuo.judge.judge.service;
 
 import me.iynotuo.judge.common.exception.BusinessException;
 import me.iynotuo.judge.common.exception.ErrorCode;
-import me.iynotuo.judge.core.config.JudgeProperties;
+import me.iynotuo.judge.config.ServerJudgeProperties;
 import me.iynotuo.judge.problem.entity.Problem;
 import me.iynotuo.judge.problem.entity.ProblemTestcase;
 import me.iynotuo.judge.problem.mapper.ProblemMapper;
@@ -38,14 +38,14 @@ public class JudgeTaskService {
     private final SubmissionMapper submissionMapper;
     private final ProblemMapper problemMapper;
     private final ProblemTestcaseMapper testcaseMapper;
-    private final JudgeProperties judgeProperties;
+    private final ServerJudgeProperties judgeProperties;
     private final JudgeKeyService judgeKeyService;
     private final JudgeNodeService judgeNodeService;
 
     public JudgeTaskService(SubmissionMapper submissionMapper,
                             ProblemMapper problemMapper,
                             ProblemTestcaseMapper testcaseMapper,
-                            JudgeProperties judgeProperties,
+                            ServerJudgeProperties judgeProperties,
                             JudgeKeyService judgeKeyService,
                             JudgeNodeService judgeNodeService) {
         this.submissionMapper = submissionMapper;
@@ -138,7 +138,7 @@ public class JudgeTaskService {
         if (problem == null) {
             return null;
         }
-        JudgeProperties.LanguageConfig language = judgeProperties.getLanguages().get(submission.getLanguage());
+        ServerJudgeProperties.LanguageConfig language = judgeProperties.getLanguages().get(submission.getLanguage());
         if (language == null) {
             return null;
         }

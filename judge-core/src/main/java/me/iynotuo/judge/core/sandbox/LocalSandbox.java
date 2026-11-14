@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
  * wall-clock timeout. Optional shell limits such as {@code ulimit} come from the configured run
  * wrapper, not from this class.
  *
- * <p>It exists for the server's local mode (development, tests, CI) and is <strong>not</strong> a
+ * <p>It exists for local development and tests, and is <strong>not</strong> a
  * security boundary: a hostile program can still exhaust the CPU, fork bomb or reach the network,
  * and it runs with the judge user's privileges. Because of that {@link #supportsAuthorCode()} is
  * {@code false}, so custom checkers are never executed here.</p>

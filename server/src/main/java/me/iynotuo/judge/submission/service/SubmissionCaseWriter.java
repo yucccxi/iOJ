@@ -32,9 +32,8 @@ public class SubmissionCaseWriter {
      *
      * <p>Rows are upserted by {@code (submission_id, case_ordinal)}. Ordinals that exist in the
      * database but are absent from {@code cases} are deleted, which handles a rejudge whose result
-     * has fewer test cases. The read-then-write sequence is safe because callers serialize writers
-     * for one submission: the remote path locks the submission row, and the local worker claims each
-     * submission once before judging it.</p>
+     * has fewer test cases. The read-then-write sequence is safe because the remote result path
+     * locks the submission row before calling this writer.</p>
      *
      * @param submissionId submission whose case rows are replaced
      * @param cases        new rows; their submission id must already be set. May be empty, in which

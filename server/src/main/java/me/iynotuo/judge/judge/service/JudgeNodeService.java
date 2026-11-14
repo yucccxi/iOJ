@@ -2,7 +2,7 @@ package me.iynotuo.judge.judge.service;
 
 import me.iynotuo.judge.common.exception.BusinessException;
 import me.iynotuo.judge.common.exception.ErrorCode;
-import me.iynotuo.judge.core.config.JudgeProperties;
+import me.iynotuo.judge.config.ServerJudgeProperties;
 import me.iynotuo.judge.judge.entity.JudgeNode;
 import me.iynotuo.judge.judge.mapper.JudgeNodeMapper;
 import me.iynotuo.judge.protocol.JudgeNodeInfo;
@@ -27,9 +27,9 @@ public class JudgeNodeService {
     private static final Logger log = LoggerFactory.getLogger(JudgeNodeService.class);
 
     private final JudgeNodeMapper judgeNodeMapper;
-    private final JudgeProperties judgeProperties;
+    private final ServerJudgeProperties judgeProperties;
 
-    public JudgeNodeService(JudgeNodeMapper judgeNodeMapper, JudgeProperties judgeProperties) {
+    public JudgeNodeService(JudgeNodeMapper judgeNodeMapper, ServerJudgeProperties judgeProperties) {
         this.judgeNodeMapper = judgeNodeMapper;
         this.judgeProperties = judgeProperties;
     }

@@ -31,7 +31,7 @@ import java.util.List;
  *
  * <p>Owns the judging flow only; process execution lives in {@link LocalSandbox} and answer comparison
  * in an {@link AnswerChecker}. The sandbox is a temporary directory plus an optional run wrapper
- * (which may set shell limits such as {@code ulimit}) and a wall-clock timeout. It suits local-mode
+ * (which may set shell limits such as {@code ulimit}) and a wall-clock timeout. It suits local
  * development and tests but cannot stop CPU starvation, fork bombs or network access.</p>
  *
  * <p>Custom checkers are deliberately not supported: compiling and running author-supplied code without a

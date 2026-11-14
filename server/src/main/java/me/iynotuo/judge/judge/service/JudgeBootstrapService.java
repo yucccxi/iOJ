@@ -1,6 +1,6 @@
 package me.iynotuo.judge.judge.service;
 
-import me.iynotuo.judge.core.config.JudgeProperties;
+import me.iynotuo.judge.config.ServerJudgeProperties;
 import me.iynotuo.judge.protocol.JudgeBootstrapConfig;
 import me.iynotuo.judge.protocol.JudgeLanguageConfig;
 import me.iynotuo.judge.protocol.Language;
@@ -25,18 +25,18 @@ import java.util.Map;
 @Service
 public class JudgeBootstrapService {
 
-    private final JudgeProperties judgeProperties;
+    private final ServerJudgeProperties judgeProperties;
 
-    public JudgeBootstrapService(JudgeProperties judgeProperties) {
+    public JudgeBootstrapService(ServerJudgeProperties judgeProperties) {
         this.judgeProperties = judgeProperties;
     }
 
     public JudgeBootstrapConfig bootstrapConfig() {
         Map<Language, JudgeLanguageConfig> languages = new EnumMap<>(Language.class);
         List<Language> required = new ArrayList<>();
-        for (Map.Entry<Language, JudgeProperties.LanguageConfig> entry : judgeProperties.getLanguages().entrySet()) {
+        for (Map.Entry<Language, ServerJudgeProperties.LanguageConfig> entry : judgeProperties.getLanguages().entrySet()) {
             Language language = entry.getKey();
-            JudgeProperties.LanguageConfig source = entry.getValue();
+            ServerJudgeProperties.LanguageConfig source = entry.getValue();
             required.add(language);
             languages.put(language, new JudgeLanguageConfig(
                     source.getSourceFile(),

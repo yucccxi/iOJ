@@ -2,55 +2,29 @@ package me.iynotuo.judge.core.config;
 
 import lombok.Getter;
 import lombok.Setter;
-import me.iynotuo.judge.protocol.Language;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Judge configuration. Language commands support these placeholders:
+ * Judge execution configuration used by judge-core and the agent.
+ *
+ * <p>Language commands support these placeholders:
  * <ul>
  * <li>{@code {command}}: the expanded run command, used only in the run wrapper;</li>
  * <li>{@code {memoryMb}} / {@code {memoryKb}}: the problem memory limit;</li>
  * <li>{@code {timeMs}}: the time limit for this problem (already multiplied by the language factor).</li>
  * </ul>
+ *
+ * <p>Server-side dispatch settings are not part of this class; the server keeps them in
+ * {@code me.iynotuo.judge.config.ServerJudgeProperties}. This class is registered by the agent
+ * application and used internally by judge-core.</p>
  */
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "ioj.judge")
 public class JudgeProperties {
-
-    /**
-     * Whether the server-side local JudgeWorker polls. Only used in local mode; remote agents ignore
-     * it, so disabling it in remote mode does not keep submissions PENDING.
-     */
-    private boolean enabled = true;
-
-    /**
-     * Server role: {@code remote} (default, accepts claims from agents) or {@code local} (legacy
-     * in-process judge used by tests and development).
-     */
-    private String mode = "remote";
-
-    /**
-     * Judge engine implementation: {@code isolate} (recommended), {@code local} (in-process fallback)
-     * or {@code none} when this process does not execute submissions. The value must match the
-     * condition on the engine bean.
-     */
-    private String engine = "none";
-
-    /**
-     * Number of submissions judged concurrently.
-     */
-    private int concurrency = 1;
-
-    /**
-     * Polling interval for pending submissions, in milliseconds.
-     */
-    private long pollIntervalMs = 1000;
 
     /**
      * Maximum output size per test case; a larger output is reported as wrong answer or output limit exceeded.
@@ -70,17 +44,10 @@ public class JudgeProperties {
      */
     private long compileTimeoutMs = 30_000;
 
-    private Map<Language, LanguageConfig> languages = new EnumMap<>(Language.class);
-
     /**
      * Settings for the optional per-problem custom checker (special judge).
      */
     private Checker checker = new Checker();
-
-    /**
-     * Settings for remote task dispatch and lease management. Ignored by a judge agent.
-     */
-    private Dispatch dispatch = new Dispatch();
 
     /**
      * Settings for the Isolate sandbox engine. The agent bootstrap probes {@code binary} at every
@@ -95,8 +62,6 @@ public class JudgeProperties {
     @Setter
     public static class LanguageConfig {
 
-        private String displayName;
-
         private String sourceFile;
 
         /**
@@ -105,7 +70,7 @@ public class JudgeProperties {
         private String compileCommand;
 
         /**
-         * Run command; may contain {memoryMb} and {memoryKb} placeholders.
+         * Run command; may contain {memoryMb}, {memoryKb} and {timeMs} placeholders.
          */
         private String runCommand;
 
@@ -146,45 +111,6 @@ public class JudgeProperties {
     }
 
     /**
-     * Remote dispatch settings: how long an agent owns a task and when the server reaps it.
-     */
-    @Getter
-    @Setter
-    public static class Dispatch {
-
-        /**
-         * Lease duration granted to a judge agent. The agent renews it with a heartbeat.
-         */
-        private int leaseSeconds = 300;
-
-        /**
-         * How many times a task may be claimed before it is failed instead of requeued.
-         */
-        private int maxAttempts = 3;
-
-        /**
-         * How often the server looks for expired leases, in milliseconds.
-         */
-        private long reaperIntervalMs = 30_000;
-
-        /**
-         * A node whose last heartbeat is older than this is shown as offline.
-         */
-        private long nodeOfflineSeconds = 90;
-
-        /**
-         * Upper bound on tasks returned by one claim request.
-         */
-        private int maxClaimBatch = 10;
-
-        /**
-         * When the combined UTF-8 size of a task's test data exceeds this many bytes, the claim
-         * response omits the inline test cases and points at the ZIP bundle endpoint instead.
-         */
-        private int inlineMaxBytes = 1_048_576;
-    }
-
-    /**
      * Settings for the Isolate sandbox engine.
      */
     @Getter
@@ -205,8 +131,7 @@ public class JudgeProperties {
 
         /**
          * Number of box ids reserved for this instance. Should be at least the number of concurrently
-         * judged submissions: {@code ioj.agent.concurrency} on an agent, or
-         * {@code ioj.judge.concurrency} in the server's local mode.
+         * judged submissions, which is {@code ioj.agent.concurrency} on an agent.
          */
         private int boxIdCount = 8;
 

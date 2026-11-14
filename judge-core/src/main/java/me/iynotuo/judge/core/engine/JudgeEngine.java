@@ -9,8 +9,8 @@ import me.iynotuo.judge.core.JudgeOutcome;
  * <p>The implementation is picked at startup by {@code ioj.judge.engine}:
  * {@code isolate} uses {@link IsolateJudgeEngine} and requires a working isolate binary, while
  * {@code local} uses {@link LocalProcessJudgeEngine} and runs programs directly on the host. The
- * local engine is intended for the server's local mode (tests/development); an agent still requires
- * isolate during bootstrap even when it selects {@code local}.</p>
+ * local engine is intended for local development and tests; an agent still requires isolate during
+ * bootstrap even when it selects {@code local}.</p>
  *
  * <p>An engine owns the "compile + execute one submission" concern: it receives everything it needs
  * through {@link JudgeContext}, runs test cases in order, stops at the first failure and aggregates

@@ -5,7 +5,7 @@ import me.iynotuo.judge.common.api.PageResult;
 import me.iynotuo.judge.protocol.SubmissionStatus;
 import me.iynotuo.judge.common.exception.BusinessException;
 import me.iynotuo.judge.common.exception.ErrorCode;
-import me.iynotuo.judge.core.config.JudgeProperties;
+import me.iynotuo.judge.config.ServerJudgeProperties;
 import me.iynotuo.judge.config.SubmissionProperties;
 import me.iynotuo.judge.problem.entity.Problem;
 import me.iynotuo.judge.problem.mapper.ProblemMapper;
@@ -41,7 +41,7 @@ public class SubmissionService {
     private final ProblemMapper problemMapper;
     private final ProblemTestcaseMapper testcaseMapper;
     private final UserMapper userMapper;
-    private final JudgeProperties judgeProperties;
+    private final ServerJudgeProperties judgeProperties;
     private final SubmissionProperties submissionProperties;
 
     public SubmissionService(SubmissionMapper submissionMapper,
@@ -49,7 +49,7 @@ public class SubmissionService {
                              ProblemMapper problemMapper,
                              ProblemTestcaseMapper testcaseMapper,
                              UserMapper userMapper,
-                             JudgeProperties judgeProperties,
+                             ServerJudgeProperties judgeProperties,
                              SubmissionProperties submissionProperties) {
         this.submissionMapper = submissionMapper;
         this.submissionCaseMapper = submissionCaseMapper;
@@ -61,8 +61,7 @@ public class SubmissionService {
     }
 
     /**
-     * Submits code. The row is stored as PENDING and picked up asynchronously by a remote judge agent
-     * (default) or by the local judge worker when {@code ioj.judge.mode=local}.
+     * Submits code. The row is stored as PENDING and picked up asynchronously by a remote judge agent.
      */
     @Transactional
     public SubmissionDetailVO submit(LoginUser current, SubmitRequest request) {

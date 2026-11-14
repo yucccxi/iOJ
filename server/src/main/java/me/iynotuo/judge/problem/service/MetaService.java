@@ -1,6 +1,6 @@
 package me.iynotuo.judge.problem.service;
 
-import me.iynotuo.judge.core.config.JudgeProperties;
+import me.iynotuo.judge.config.ServerJudgeProperties;
 import me.iynotuo.judge.problem.dto.LanguageVO;
 import me.iynotuo.judge.problem.dto.ScopeMetaVO;
 import me.iynotuo.judge.problem.dto.TagMetaVO;
@@ -19,11 +19,11 @@ import java.util.List;
 @Service
 public class MetaService {
 
-    private final JudgeProperties judgeProperties;
+    private final ServerJudgeProperties judgeProperties;
     private final TagMapper tagMapper;
     private final ProblemScopeMapper problemScopeMapper;
 
-    public MetaService(JudgeProperties judgeProperties, TagMapper tagMapper,
+    public MetaService(ServerJudgeProperties judgeProperties, TagMapper tagMapper,
                        ProblemScopeMapper problemScopeMapper) {
         this.judgeProperties = judgeProperties;
         this.tagMapper = tagMapper;

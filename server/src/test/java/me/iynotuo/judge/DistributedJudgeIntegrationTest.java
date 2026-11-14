@@ -31,8 +31,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "spring.datasource.url=jdbc:h2:mem:ioj-distributed;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
-                "ioj.judge.mode=remote",
-                "ioj.judge.engine=none",
                 "ioj.judge.dispatch.inline-max-bytes=0"
         })
 @ActiveProfiles("test")

@@ -29,11 +29,6 @@
             <artifactId>judge-protocol</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>me.iynotuo</groupId>
-            <artifactId>judge-core</artifactId>
-            <version>${project.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -1,8 +1,6 @@
 package me.iynotuo.judge;
 
-import me.iynotuo.judge.judge.local.JudgeService;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.JsonNode;
@@ -14,8 +12,8 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Custom checker (special judge) contract: who may read and write the source, how the problem detail
- * exposes it, and what the judge reports when the configured engine cannot run author-supplied code.
+ * Custom checker (special judge) contract: who may read and write the source and how the problem
+ * detail exposes it.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "spring.datasource.url=jdbc:h2:mem:ioj-checker;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE")
@@ -23,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CheckerIntegrationTest extends ApiTestSupport {
 
     /**
-     * A minimal C-style checker; the local engine never compiles it, so only its text matters here.
+     * A minimal C-style checker; the server only stores its text.
      */
     private static final String CHECKER = """
             #include <cstdio>
@@ -36,15 +34,12 @@ class CheckerIntegrationTest extends ApiTestSupport {
             }
             """;
 
-    @Autowired
-    private JudgeService judgeService;
-
     /**
-     * Covers the whole checker lifecycle: uploading it, keeping the source away from contestants,
-     * clearing it again, and the CHECKER_ERROR verdict produced by the local engine.
+     * Covers the checker lifecycle: uploading it, keeping the source away from contestants and
+     * clearing it again.
      */
     @Test
-    void checkerIsAuthorOnlyAndIsJudgedAsCheckerErrorOnTheLocalEngine() throws Exception {
+    void checkerIsAuthorOnlyAndSourceNeverLeaks() throws Exception {
         String authorToken = register("bob", "bob@example.com", "Bob");
         String otherToken = register("carol", "carol@example.com", "Carol");
 
@@ -80,16 +75,6 @@ class CheckerIntegrationTest extends ApiTestSupport {
                 request("/api/v1/problems/" + problemId + "/checker").GET(), otherToken);
         assertThat(forbiddenRead.statusCode()).isEqualTo(403);
         assertThat(JSON.readTree(forbiddenRead.body()).path("code").asInt()).isEqualTo(1003);
-
-        // The test profile forces engine=local, which reports a checker problem as a system-side failure
-        long submissionId = post("/api/v1/submissions", otherToken, Map.of(
-                "problemId", problemId, "language", "JAVA", "code", acceptedProgram()))
-                .path("data").path("id").asLong();
-        judgeService.judge(submissionId);
-
-        JsonNode judged = get("/api/v1/submissions/" + submissionId, otherToken);
-        assertThat(judged.path("data").path("status").asString()).isEqualTo("CHECKER_ERROR");
-        assertThat(judged.path("data").path("judgeMessage").asString()).contains("isolate engine");
 
         // Clearing the source restores the built-in comparison
         put("/api/v1/problems/" + problemId + "/checker", authorToken, Map.of("code", ""));
@@ -133,23 +118,5 @@ class CheckerIntegrationTest extends ApiTestSupport {
         long problemId = created.path("data").path("id").asLong();
         assertThat(problemId).as(created.toString()).isPositive();
         return problemId;
-    }
-
-    /**
-     * Returns a correct Java solution for the test data created above.
-     *
-     * @return Java source code
-     */
-    private String acceptedProgram() {
-        return """
-                import java.util.Scanner;
-
-                public class Main {
-                    public static void main(String[] args) {
-                        Scanner in = new Scanner(System.in);
-                        System.out.println(in.nextInt() + in.nextInt());
-                    }
-                }
-                """;
     }
 }

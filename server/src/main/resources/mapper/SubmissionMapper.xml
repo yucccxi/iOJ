@@ -66,15 +66,6 @@
         WHERE user_id = #{userId} AND problem_id = #{problemId} AND status = 'ACCEPTED'
     </select>
 
-    <select id="lockNextPendingId" resultType="java.lang.Long">
-        SELECT id
-        FROM submissions
-        WHERE status = 'PENDING'
-        ORDER BY id
-        LIMIT 1
-        FOR UPDATE
-    </select>
-
     <select id="lockNextPendingIdForLanguages" resultType="java.lang.Long">
         SELECT id
         FROM submissions
@@ -90,10 +81,6 @@
         FOR UPDATE
     </select>
 
-    <update id="markJudging">
-        UPDATE submissions SET status = 'JUDGING' WHERE id = #{id}
-    </update>
-
     <update id="markClaimed">
         UPDATE submissions
         SET status = 'JUDGING',
@@ -105,17 +92,6 @@
             attempt_count = attempt_count + 1
         WHERE id = #{id}
           AND status = 'PENDING'
-    </update>
-
-    <update id="updateResult" parameterType="me.iynotuo.judge.submission.entity.Submission">
-        UPDATE submissions
-        SET status = #{status},
-            time_used_ms = #{timeUsedMs},
-            memory_used_kb = #{memoryUsedKb},
-            compile_message = #{compileMessage},
-            judge_message = #{judgeMessage},
-            judged_at = #{judgedAt}
-        WHERE id = #{id}
     </update>
 
     <update id="applyResult">
@@ -194,10 +170,6 @@
         WHERE status = 'JUDGING'
           AND lease_expires_at &lt;= #{now}
           AND attempt_count &gt;= #{maxAttempts}
-    </update>
-
-    <update id="resetJudgingToPending">
-        UPDATE submissions SET status = 'PENDING' WHERE status = 'JUDGING'
     </update>
 
 </mapper>

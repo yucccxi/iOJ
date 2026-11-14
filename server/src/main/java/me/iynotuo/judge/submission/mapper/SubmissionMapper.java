@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Data access for submissions. Remote judge agents claim work through the lease methods; the legacy
- * local judge still uses {@link #lockNextPendingId()} when the server runs in local mode.
+ * Data access for submissions. Remote judge agents claim work through the lease methods and report
+ * results; the server never executes submissions locally.
  */
 @Mapper
 public interface SubmissionMapper {
@@ -32,17 +32,10 @@ public interface SubmissionMapper {
     int countAccepted(@Param("userId") Long userId, @Param("problemId") Long problemId);
 
     /**
-     * Locks the oldest pending submission (local judge mode).
-     */
-    Long lockNextPendingId();
-
-    /**
      * Locks the oldest pending submission for one of the given languages. A null or empty list means
      * "any language".
      */
     Long lockNextPendingIdForLanguages(@Param("languages") List<Language> languages);
-
-    int markJudging(@Param("id") Long id);
 
     /**
      * Marks a submission as claimed by a remote judge agent.
@@ -53,8 +46,6 @@ public interface SubmissionMapper {
                     @Param("claimToken") String claimToken,
                     @Param("claimedAt") LocalDateTime claimedAt,
                     @Param("leaseExpiresAt") LocalDateTime leaseExpiresAt);
-
-    int updateResult(Submission submission);
 
     /**
      * Applies a remote result only if the claim is still current. Returns 1 when applied, 0 when the
@@ -101,9 +92,4 @@ public interface SubmissionMapper {
     int failExpiredLeases(@Param("now") LocalDateTime now,
                           @Param("maxAttempts") int maxAttempts,
                           @Param("message") String message);
-
-    /**
-     * Resets leftover JUDGING submissions to PENDING when the service restarts (local judge mode only).
-     */
-    int resetJudgingToPending();
 }

@@ -1,10 +1,9 @@
 package me.iynotuo.judge.judge.service;
 
-import me.iynotuo.judge.core.config.JudgeProperties;
+import me.iynotuo.judge.config.ServerJudgeProperties;
 import me.iynotuo.judge.submission.mapper.SubmissionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -16,15 +15,14 @@ import java.time.LocalDateTime;
  * tasks from other agents in a distributed deployment.
  */
 @Component
-@ConditionalOnProperty(prefix = "ioj.judge", name = "mode", havingValue = "remote", matchIfMissing = true)
 public class JudgeLeaseReaper {
 
     private static final Logger log = LoggerFactory.getLogger(JudgeLeaseReaper.class);
 
     private final SubmissionMapper submissionMapper;
-    private final JudgeProperties judgeProperties;
+    private final ServerJudgeProperties judgeProperties;
 
-    public JudgeLeaseReaper(SubmissionMapper submissionMapper, JudgeProperties judgeProperties) {
+    public JudgeLeaseReaper(SubmissionMapper submissionMapper, ServerJudgeProperties judgeProperties) {
         this.submissionMapper = submissionMapper;
         this.judgeProperties = judgeProperties;
     }

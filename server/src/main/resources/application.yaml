@@ -91,16 +91,8 @@ ioj:
 # Consumed and expired rows are deleted after this many hours.
     cleanup-retention-hours: 24
   judge:
-    enabled: ${IOJ_JUDGE_ENABLED:true}
-    # remote: submissions are judged by remote agents (default); local: legacy in-process judge for tests/dev.
-    mode: ${IOJ_JUDGE_MODE:remote}
-    # none on the main server; the agent config sets isolate.
-    engine: ${IOJ_JUDGE_ENGINE:none}
-    concurrency: ${IOJ_JUDGE_CONCURRENCY:1}
-    poll-interval-ms: 1000
-    max-output-bytes: 16777216
-    max-compile-output-bytes: 65536
-    compile-timeout-ms: 30000
+    # The main server dispatches tasks to remote agents and persists their results; it does not
+    # compile or execute submissions. Execution limits live in the agent configuration.
     dispatch:
       # How long an agent owns a task before the server may requeue it.
       lease-seconds: ${IOJ_JUDGE_LEASE_SECONDS:300}
@@ -110,41 +102,14 @@ ioj:
       node-offline-seconds: ${IOJ_JUDGE_NODE_OFFLINE_SECONDS:90}
       max-claim-batch: ${IOJ_JUDGE_MAX_CLAIM_BATCH:10}
       inline-max-bytes: ${IOJ_JUDGE_INLINE_MAX_BYTES:1048576}
-    # Custom checker (special judge). Limits are global on purpose: they are intentionally
-    # independent from the per-problem limits, because a checker usually needs more memory
-    # and never should be reported as a contestant failure when it runs out of limits.
+    # The server tells the agent whether custom checkers are allowed and which compiler to probe;
+    # checker limits and commands are configured on the agent.
     checker:
       enabled: ${IOJ_JUDGE_CHECKER_ENABLED:true}
-      time-limit-ms: ${IOJ_JUDGE_CHECKER_TIME_LIMIT_MS:2000}
-      memory-limit-mb: ${IOJ_JUDGE_CHECKER_MEMORY_LIMIT_MB:512}
-      compile-timeout-ms: ${IOJ_JUDGE_CHECKER_COMPILE_TIMEOUT_MS:30000}
-      compile-memory-mb: ${IOJ_JUDGE_CHECKER_COMPILE_MEMORY_MB:512}
-      # The compile command must produce an executable named "checker".
-      source-file: checker.cpp
-      compile-command: g++ -O2 -std=c++17 -pipe -o checker checker.cpp
-      message-limit-bytes: 1024
       probe-commands:
         - g++ --version
-    isolate:
-      binary: ${IOJ_ISOLATE_BINARY:/usr/bin/isolate}
-      # Box 0 is commonly created by root during manual tests; start at 1 so a non-root
-      # service user does not collide with root-owned boxes.
-      box-id-start: 1
-      box-id-count: 8
-      check-on-startup: true
-      compile-processes: 64
-      compile-time-seconds: 10
-      compile-wall-time-seconds: 30
-      compile-cg-mem-kb: 524288
-      compile-fsize-kb: 16384
-      wall-time-extra-seconds: 3
-      setup-timeout-ms: 10000
-      # Read-only host directories the sandbox needs. Debian JDK reads
-      # /etc/java-21-openjdk/security/java.security; drop this on distributions
-      # where the JDK keeps that file inside the JDK directory.
-      extra-dirs:
-        - /etc/java-21-openjdk
-      resolve-executables: true
+    # Language source/compile/run commands are sent to agents in each claim; display-name is used
+    # by the public meta endpoint.
     languages:
       JAVA:
         display-name: Java 21
