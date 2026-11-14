@@ -62,6 +62,8 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 
 ### 3.1 主服务器环境变量
 
+主服务器的判题配置只有三类：`ioj.judge.dispatch.*`、`ioj.judge.languages.*` 和 `ioj.judge.checker.enabled` / `probe-commands`。主服务器没有引擎、沙箱、编译超时或 checker 运行限制配置。
+
 | 环境变量 | 类型 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
 | `IOJ_DB_HOST` / `IOJ_DB_PORT` / `IOJ_DB_NAME` | string / integer / string | 否 | `127.0.0.1` / `3306` / `ioj` | 数据库地址 |
@@ -72,19 +74,13 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_PROBLEM_MAX_TESTCASES` | integer | 否 | `100` | 单题测试点数量上限 |
 | `IOJ_PROBLEM_MAX_TESTCASE_BYTES` | integer | 否 | `4194304` | 单条测试点 `input`/`output` 各自的 UTF-8 字节上限 |
 | `IOJ_SUBMISSION_MAX_CODE_LENGTH` | integer | 否 | `65536` | 单次提交代码字符数上限 |
-| `IOJ_JUDGE_ENABLED` | boolean | 否 | `true` | 仅 `local` 模式使用；关闭后本地 worker 不消费任务 |
-| `IOJ_JUDGE_MODE` | string | 否 | `remote` | `remote` 主服务器调度；`local` 仅测试/本地开发 |
-| `IOJ_JUDGE_ENGINE` | string | 否 | `none` | 主服务器默认 `none`；Agent 使用自己的 `isolate` 配置 |
 | `IOJ_JUDGE_LEASE_SECONDS` | integer | 否 | `300` | Agent 任务租约时长 |
 | `IOJ_JUDGE_MAX_ATTEMPTS` | integer | 否 | `3` | 任务最多被领取次数 |
 | `IOJ_JUDGE_REAPER_INTERVAL_MS` | integer | 否 | `30000` | 过期租约回收间隔 |
 | `IOJ_JUDGE_NODE_OFFLINE_SECONDS` | integer | 否 | `90` | 节点心跳超时后标记离线 |
 | `IOJ_JUDGE_MAX_CLAIM_BATCH` | integer | 否 | `10` | 单次 claim 最多返回任务数（服务端上限；Agent 默认申请 `1`） |
 | `IOJ_JUDGE_INLINE_MAX_BYTES` | integer | 否 | `1048576` | 测试数据总字节数超过该值时改用 ZIP bundle 下载 |
-| `IOJ_JUDGE_CONCURRENCY` | integer | 否 | `1` | 仅主服务器 `local` 模式的并发数；远程 Agent 使用自己的并发配置 |
-| `IOJ_JUDGE_CHECKER_ENABLED` | boolean | 否 | `true` | 主服务器自身运行 `engine=isolate` 时作为本地 checker 开关；远程调度时只决定 bootstrap 中的 `checkerEnabled` 和探针命令，**不控制远程 Agent 是否执行 checker** |
-| `IOJ_JUDGE_CHECKER_TIME_LIMIT_MS` / `IOJ_JUDGE_CHECKER_MEMORY_LIMIT_MB` | integer | 否 | `2000` / `512` | 仅主服务器自身运行 `engine=isolate`（例如本地调试）时使用的 checker 运行限制；默认 `engine=none` 和远程 Agent 不使用这些值 |
-| `IOJ_JUDGE_CHECKER_COMPILE_TIMEOUT_MS` / `IOJ_JUDGE_CHECKER_COMPILE_MEMORY_MB` | integer | 否 | `30000` / `512` | 仅主服务器自身运行 `engine=isolate` 时使用的 checker 编译限制；默认 `engine=none` 和远程 Agent 不使用这些值 |
+| `IOJ_JUDGE_CHECKER_ENABLED` | boolean | 否 | `true` | 主服务器是否在 bootstrap 中声明 checker 可用并下发 checker 探针命令；**不控制远程 Agent 是否执行 checker** |
 | `ioj.datasource-check.enabled`（YAML） | boolean | 否 | `true` | 启动时做一次数据库连通性自检；失败会打印实际生效的 URL/用户名并终止启动 |
 | `IOJ_MAIL_HOST` / `IOJ_MAIL_PORT` | string / integer | 启用邮箱验证时是 | `smtp.localhost.invalid` / `25` | SMTP 服务器；默认值来自受跟踪配置，生产环境必须覆盖 |
 | `IOJ_MAIL_USERNAME` / `IOJ_MAIL_PASSWORD` | string | 视 SMTP 服务而定 | 空 | SMTP 认证信息 |
@@ -102,6 +98,8 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_CAPTCHA_CODE_LENGTH` | integer | 否 | `5` | 图片字符数 |
 | `IOJ_CAPTCHA_ISSUE_PER_MINUTE_PER_IP` / `IOJ_CAPTCHA_ISSUE_PER_HOUR_PER_IP` | integer | 否 | `60` / `600` | 单 IP 申请图形验证码的分钟/小时上限 |
 | `IOJ_CAPTCHA_CLEANUP_RETENTION_HOURS` | integer | 否 | `24` | 过期图形验证码保留时间 |
+
+`ioj.judge.languages` 不是单个环境变量，而是在 `server/src/main/resources/application.yaml` 中按语言配置的命令快照；修改后重启 server，Agent 在下一次 claim 时接收新快照。
 
 ### 3.2 判题 Agent 环境变量
 
@@ -131,14 +129,13 @@ Agent 的语言列表和语言命令不来自本地配置：启动时从主服�
 
 | 进程 | 配置项 | 类型 | 必填 | 默认值 | 作用 |
 | --- | --- | --- | --- | --- | --- |
-| 主服务器 | `IOJ_JUDGE_CHECKER_ENABLED` | boolean | 否 | `true` | 决定 bootstrap 中的 `checkerEnabled` 是否置位和是否下发探针命令；主服务器自身运行 `engine=isolate` 时也作为本地开关；**不阻止远程 Agent 执行 checker** |
-| 主服务器 | `IOJ_JUDGE_CHECKER_TIME_LIMIT_MS` / `IOJ_JUDGE_CHECKER_MEMORY_LIMIT_MB` / `IOJ_JUDGE_CHECKER_COMPILE_TIMEOUT_MS` / `IOJ_JUDGE_CHECKER_COMPILE_MEMORY_MB` | integer | 否 | `2000` / `512` / `30000` / `512` | 仅主服务器自身运行 `engine=isolate` 时使用；默认 `engine=none` 和远程 Agent 不使用这些值 |
+| 主服务器 | `IOJ_JUDGE_CHECKER_ENABLED` | boolean | 否 | `true` | 决定 bootstrap 中的 `checkerEnabled` 是否置位和是否下发探针命令；**不阻止远程 Agent 执行 checker** |
 | Agent | `ioj.judge.checker.enabled`（YAML） | boolean | 否 | `true` | Agent 实际是否执行题目自带的 checker |
 | Agent | `ioj.judge.checker.time-limit-ms` / `memory-limit-mb` | integer | 否 | `2000` / `512` | Agent 执行 checker 时的 CPU / 内存限制 |
 | Agent | `ioj.judge.checker.compile-timeout-ms` / `compile-memory-mb` | integer | 否 | `30000` / `512` | Agent 编译 checker 时的墙钟 / 内存限制 |
 | Agent | `ioj.judge.checker.source-file` / `compile-command` / `message-limit-bytes` | string / integer | 否 | `checker.cpp` / `g++ -O2 -std=c++17 -pipe -o checker checker.cpp` / `1024` | Agent 编译 checker 的文件名、命令和消息上限 |
 
-> 结论：远程判题的 checker 开关和限制以 **Agent 本地 YAML** 为准。只改主服务器的 `IOJ_JUDGE_CHECKER_ENABLED` 或 checker 时限，不会阻止或限制远程 Agent 执行 checker；必须同时配置每台 Agent。
+> 结论：远程判题的 checker 开关和限制以 **Agent 本地 YAML** 为准。只改主服务器的 `IOJ_JUDGE_CHECKER_ENABLED` 不会阻止或限制远程 Agent 执行 checker；必须同时配置每台 Agent。
 
 ### 3.4 SMTP 与发件配置
 
@@ -221,8 +218,6 @@ IOJ_DB_USER=<db-user>
 IOJ_DB_PASSWORD=<db-password>
 IOJ_JWT_SECRET=<at-least-32-bytes>
 IOJ_CORS_ORIGINS=https://<frontend-host>
-IOJ_JUDGE_MODE=remote
-IOJ_JUDGE_ENGINE=none
 IOJ_MAIL_HOST=<smtp-host>
 IOJ_MAIL_PORT=465
 IOJ_MAIL_USERNAME=<smtp-user>
@@ -261,7 +256,7 @@ sudo journalctl -u ioj -f
 
 > 主服务器默认监听 `8080`。生产环境通过 `SERVER_PORT` 或 `--server.port` 改端口时，必须同步调整 Nginx 的 `proxy_pass`。`ioj.problem.auto-publish`、CORS 和 SMTP 都由环境变量覆盖，不得依赖本地未跟踪配置。
 
-> 主服务器不需要安装 Isolate，也不需要 `IOJ_JUDGE_CONCURRENCY`；判题能力来自 Agent。
+> 主服务器不需要安装 Isolate，也不需要配置判题并发；判题能力来自 Agent。
 
 ### 判题 Agent 部署
 
@@ -317,6 +312,7 @@ Agent 启动时会先拉取 `/internal/judge/config`，按主服务器的 `requi
 - 一个 Agent 进程使用一个 key 和一个 `nodeId`
 - 同一台机器跑多个 Agent 时，给每个进程分配不同的 `IOJ_ISOLATE_BOX_ID_START` / `IOJ_ISOLATE_BOX_ID_COUNT`
 - Agent 只需要出站访问主服务器，不需要公网入站端口
+- 主服务器只负责任务调度；**没有在线 Agent 时提交保持 `PENDING`**，不会在 server 上本地执行
 
 ## 5. Nginx 反向代理
 
@@ -390,7 +386,7 @@ flowchart LR
 
 注意：
 
-- 主服务器 `ioj.judge.mode=remote`，默认 `ioj.judge.engine=none`，不加载 Isolate。
+- 主服务器只负责任务调度和结果落库，不加载 Isolate，也不执行用户代码。
 - Agent 不需要对外开放端口，只需要能出站访问主服务器的内部 API。
 - 同一台机器多个 Agent 的 `box-id-start` / `box-id-count` 不得重叠。
 - 任务租约过期由主服务器的 `JudgeLeaseReaper` 回收；Agent 重启不会重置其他 Agent 的任务。
@@ -478,7 +474,7 @@ gunzip -c /backup/ioj-before-upgrade-<timestamp>.sql.gz | mysql -uioj -p'<db-pas
 - [ ] 数据库密码已替换，MySQL 只监听内网/本机
 - [ ] 管理员密码已从 `admin123456` 改掉
 - [ ] `IOJ_PROBLEM_AUTO_PUBLISH` 按开放程度设置
-- [ ] 主服务器 `IOJ_JUDGE_MODE=remote`、`IOJ_JUDGE_ENGINE=none`，不再本地判题
+- [ ] 主服务器未配置本地判题，仅负责调度；至少有一个 Agent 在线
 - [ ] 已在 `/api/v1/admin/judge-keys` 为每台判题机创建独立 key，旧 key 已禁用
 - [ ] 判题机已安装 Isolate，`isolate.service` 为 active，运行用户能执行 `isolate --version`，`isolate --check-config` 通过
 - [ ] Agent 配置的 `IOJ_JUDGE_SERVER_URL` 使用内网地址；公网 Nginx 未暴露 `/internal/judge/**`

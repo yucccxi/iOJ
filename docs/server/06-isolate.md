@@ -42,7 +42,7 @@
 | `isolate` | 建命名空间、cgroup 限额、降权执行、输出 meta |
 
 - 代码：`judge-core/src/main/java/me/iynotuo/judge/core/engine/IsolateJudgeEngine.java`
-- 开关：Agent 的 `ioj.judge.engine=isolate`（环境变量 `IOJ_JUDGE_ENGINE`）；主服务器默认 `none`，不执行判题。
+- 开关：Agent 的 `ioj.judge.engine=isolate`（环境变量 `IOJ_JUDGE_ENGINE`）；主服务器不执行判题。
 - 创建引擎 Bean 时会做一次可执行性自检（见 §4.3）
 
 ## 2. 环境要求
@@ -182,7 +182,6 @@ ioj:
   agent:
     concurrency: ${IOJ_JUDGE_CONCURRENCY:1}   # 本机并发，建议 ≤ 核数 - 1
   judge:
-    mode: agent
     engine: isolate                          # Agent 固定使用 isolate
     max-output-bytes: 16777216               # 16 MB，同时决定 --fsize
     compile-timeout-ms: 30000

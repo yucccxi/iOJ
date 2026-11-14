@@ -36,12 +36,12 @@ iOJ/
 | 包 | 内容 |
 | --- | --- |
 | `common/` | 统一响应、分页、错误码、全局异常、业务枚举 |
-| `config/` | 安全配置、配置项、启动自检 |
+| `config/` | 安全配置、`ServerJudgeProperties`、配置项、启动自检 |
 | `security/` | JWT 签发与校验、判题 key 过滤器、登录身份 |
 | `user/` | 注册登录、邮箱验证码、个人资料、管理员用户管理 |
 | `problem/` | 题目、样例、测试数据、标签、scope、外部题库元数据、统一搜索 |
 | `submission/` | 提交记录与逐测试点结果 |
-| `judge/` | 远程任务调度、结果落库、租约回收、key/节点管理；`local/` 为本地调试实现 |
+| `judge/` | 远程任务调度、结果落库、租约回收、key/节点管理；不包含本地判题实现 |
 
 分层约定：`Controller` 只做参数绑定、权限注解和响应包装；`Service` 持有事务与领域规则；`Mapper` 只写 SQL；数据库实体与对外 DTO 分离。详见 [开发指南](05-development.md)。
 
@@ -53,7 +53,7 @@ iOJ/
 
 - JDK 21
 - MySQL 8
-- 不需要安装 Isolate 或编译器（默认 `mode=remote`、`engine=none`）
+- 不需要安装 Isolate 或编译器（只负责任务调度，不执行用户代码）
 - 不需要单独安装 Maven，仓库自带 `./mvnw`
 
 判题机（每台）：
@@ -73,7 +73,7 @@ sudo usermod -aG isolate "$USER"     # 重新登录后生效；官方 setuid 包
 isolate --check-config               # 无输出且退出码为 0 即可
 ```
 
-> 只在测试或本地开发时使用 `IOJ_JUDGE_MODE=local` + `IOJ_JUDGE_ENGINE=local`；生产环境由 Agent 判题。
+> 主服务器没有本地判题回退；没有在线 Agent 时提交保持 `PENDING`。
 
 ### 3.2 建库并初始化
 
@@ -149,7 +149,7 @@ curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
 # 全部模块，使用 H2 内存库，不需要 MySQL
 ./mvnw test
 
-# 只跑 server 的端到端流程（会真实调用 javac 编译并评测）
+# 只跑 server 的接口流程（不执行本地判题）
 ./mvnw -pl server -am test -Dtest=ApiFlowIntegrationTest \
   -Dsurefire.failIfNoSpecifiedTests=false
 ```
@@ -158,8 +158,8 @@ curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
 
 - 每个 Spring 上下文使用独立 H2 内存库，启动时执行 `db/schema.sql`。
 - `ioj.email-code.enabled=false`、`ioj.captcha.enabled=false`，注册与登录流程不需要邮件/图形验证码；相关测试类单独打开开关并注入假发送器。
-- `ioj.judge.mode=local`、`ioj.judge.enabled=false`，测试显式调用 `JudgeService`；分布式测试用 `remote` 覆盖。
-- 真实编译依赖本机 JDK；Java 源码必须使用 `public class Main`。
+- server 测试不配置本地判题引擎，提交后只断言 `PENDING` 和接口行为；远程协议由 `DistributedJudgeIntegrationTest` 覆盖，实际执行由 `judge-core` / `judge-agent` 测试覆盖。
+- `./mvnw -pl server -am test` 不需要本机安装 `javac`、`g++` 或 Isolate。
 
 主要测试类：
 
@@ -167,11 +167,11 @@ curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
 | --- | --- |
 | `ServerApplicationTests` | Spring 上下文与全部 Mapper XML 可加载 |
 | `JwtTokenProviderTest` | 令牌签发/解析、token 版本、篡改、过期、弱密钥拒绝 |
-| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→提交→本地评测→AC/WA→字段裁剪 |
+| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→提交→验证 `PENDING`→字段裁剪；不执行本地判题 |
 | `DistributedJudgeIntegrationTest` | key、节点心跳、claim、ZIP bundle、任务心跳、结果回报、幂等、旧 token 拒绝、租约回收 |
 | `AdminModerationIntegrationTest` | 测试点增删改查、题目上下架、用户搜索与封禁 |
 | `AdminMetaIntegrationTest` | 标签/scope 字典、重复处理、使用量、`LOCAL` 保护、删除保护 |
-| `CheckerIntegrationTest` | 判题器读写/清空、越权访问、`hasChecker`、`CHECKER_ERROR` |
+| `CheckerIntegrationTest` | 判题器读写/清空、越权访问、`hasChecker`；server 只存储源码，不执行 checker |
 | `EmailVerificationIntegrationTest` | 发码冷却/每小时上限、注册验证码、一次性消费、输错上限、过期拒绝 |
 | `PasswordResetIntegrationTest` | 找回密码全链路、用途隔离、旧密码/旧 token 失效 |
 | `TokenVersionIntegrationTest` | 修改密码/登出所有设备使旧 token 失效 |
@@ -190,7 +190,7 @@ curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
 
 ## 5. 评测概览
 
-- 主服务器默认 `mode=remote`、`engine=none`，不执行用户代码。
+- 主服务器只负责任务调度和结果落库，不执行用户代码；没有在线 Agent 时提交保持 `PENDING`。
 - Agent 启动时拉取语言与探测命令，校验全部工具链后开始 claim；缺少任意语言会拒绝启动。
 - 任务通过 `claim_token` + `lease_expires_at` 租约归属；心跳续租，过期由 `JudgeLeaseReaper` 回收，超过最大尝试次数判 `SYSTEM_ERROR`。
 - 测试数据总量不超过 `inline-max-bytes` 时内联在 claim 响应；超过时通过 ZIP bundle 下载（唯一入口 `testcases.json`）。

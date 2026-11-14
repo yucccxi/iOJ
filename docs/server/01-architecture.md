@@ -45,7 +45,7 @@ flowchart LR
     A2 -- 编译/运行 用户代码 --> TMP
 ```
 
-主服务器默认不再执行用户代码：
+主服务器只负责 Web、数据库和任务调度，不执行用户代码：
 
 | 平面 | 运行位置 | 说明 |
 | --- | --- | --- |
@@ -53,9 +53,7 @@ flowchart LR
 | 调度 | 主服务器 `@Scheduled` | claim、租约回收、节点离线检测 |
 | Judge | 独立 Judge Agent 进程 | 编译、运行、比对，集中消耗 CPU/内存 |
 
-两者通过数据库中的 `submissions.status` 和租约字段解耦：提交接口只写 `PENDING` 就返回。
-
-> `ioj.judge.mode=local` 仍保留给测试和本地开发，生产环境使用默认的 `remote`。
+两者通过数据库中的 `submissions.status` 和租约字段解耦：提交接口只写 `PENDING` 就返回。主服务器没有本地判题回退；Agent 不在线时提交保持 `PENDING`。
 
 ## 3. 代码分层
 
@@ -67,13 +65,15 @@ iOJ/
 └── server/          主服务器：Web API、数据库、调度
     └── me.iynotuo.judge
         ├── common/        统一响应 ApiResponse、分页、ErrorCode、全局异常、业务枚举
-        ├── config/        SecurityConfig、JwtProperties、线程池
+        ├── config/        SecurityConfig、JwtProperties、ServerJudgeProperties、*Properties
         ├── security/      JwtTokenProvider、JwtAuthenticationFilter、JudgeKeyAuthenticationFilter、LoginUser
         ├── user/          entity / mapper / service / controller / dto / mail（邮箱验证码发信）
         ├── problem/       entity / mapper / service / controller / dto（含测试点、标签、scope、外部题库元数据与统一搜索）
         ├── submission/    提交记录
         └── judge/         JudgeTaskService、JudgeResultService、JudgeLeaseReaper、JudgeKeyService、JudgeNodeService
 ```
+
+`server` 只依赖 `judge-protocol`，不依赖 `judge-core`；`JudgeProperties`、引擎、沙箱和输出比对属于 `judge-core`/`judge-agent`。
 
 约定（详见 05-development.md）：
 
@@ -140,7 +140,7 @@ sequenceDiagram
 - **过期回收**：`JudgeLeaseReaper` 把过期租约重新变回 `PENDING`；超过最大尝试次数后判 `SYSTEM_ERROR`。
 - **幂等**：同一 `claim_token` 的重复结果返回成功但不重复写；不同 token 的迟到结果返回 `409`。
 - **fail-fast**：某个测试点失败后不再执行后续测试点，节省机器资源。
-- **主服务器不执行用户代码**：`ioj.judge.mode=remote` 时不会创建本地判题 worker，也不会初始化 Isolate 引擎。
+- **主服务器不执行用户代码**：server 不包含本地判题引擎或 worker，只接收 claim/result 并落库。
 
 ## 6. 权限模型
 

@@ -4,7 +4,7 @@
 
 > 返回目录：[后端文档索引](README.md)
 
-主服务器默认不再执行用户代码。每台判题机运行一个 `judge-agent` 进程，通过主服务器的内部 API 领取任务、在 Isolate 中判题并回报结果。
+主服务器只负责任务调度和结果落库，不执行用户代码。每台判题机运行一个 `judge-agent` 进程，通过主服务器的内部 API 领取任务、在 Isolate 中判题并回报结果。
 
 ## 1. 拓扑
 
@@ -18,9 +18,10 @@
         Isolate             Isolate
 ```
 
-- 主服务器：`ioj.judge.mode=remote`，`ioj.judge.engine=none`
+- 主服务器：只负责任务调度和结果落库，不执行用户代码
 - Agent：`ioj.judge.engine=isolate`
 - Agent 只需要出站访问主服务器，不需要公网入站端口，也不连接 MySQL
+- 没有在线 Agent 时，提交保持 `PENDING`，server 不会本地回退执行
 
 ## 2. 启动流程
 
@@ -99,7 +100,6 @@ ioj:
     version: ${IOJ_JUDGE_AGENT_VERSION:0.0.1}
 
   judge:
-    mode: agent
     engine: isolate
     isolate:
       binary: ${IOJ_ISOLATE_BINARY:/usr/bin/isolate}

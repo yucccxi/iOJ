@@ -18,7 +18,7 @@ iOJ/                         # 父 POM，聚合 judge-protocol / judge-core / ju
 ├── judge-core/              # 判题执行核心
 │   ├── JudgeContext / JudgeSubmission / JudgeProblem / JudgeTestcase
 │   ├── JudgeOutcome / OutputComparator / LanguageCommands
-│   ├── config               JudgeProperties / LanguageConfig / Isolate / Checker / Dispatch
+│   ├── config               JudgeProperties / LanguageConfig / Isolate / Checker
 │   ├── sandbox              Sandbox（接口）/ IsolateSandbox / LocalSandbox / SandboxCommand / SandboxResult
 │   │                        SandboxFiles / Limits / Commands / IsolateMeta / StreamCollector
 │   ├── answer               AnswerChecker（接口）/ TextAnswerChecker / ProgramAnswerChecker
@@ -31,15 +31,16 @@ iOJ/                         # 父 POM，聚合 judge-protocol / judge-core / ju
     └── me.iynotuo.judge
         ├── ServerApplication.java
         ├── common           ApiResponse / PageQuery / PageResult / JsonResponses / ErrorCode / 业务枚举
-        ├── config           SecurityConfig / JudgeConfig / *Properties
+        ├── config           SecurityConfig / ServerJudgeProperties / *Properties
         ├── security         JwtTokenProvider / JwtAuthenticationFilter / JudgeKeyAuthenticationFilter / LoginUser / Rest*Handler
         ├── user             entity / mapper / service / controller / dto / mail
         ├── problem          entity / mapper / service / controller / dto
         ├── submission       entity / mapper / service / controller / dto
         └── judge            JudgeTaskService / JudgeResultService / JudgeLeaseReaper
                              JudgeKeyService / JudgeNodeService
-                             local/JudgeService / local/JudgeWorker（仅 local 模式）
 ```
+
+`server` 只依赖 `judge-protocol`，不依赖 `judge-core`；`judge-core` 的 `JudgeProperties` 是 Agent/Core 的执行配置。
 
 分层职责：
 
@@ -138,7 +139,7 @@ ioj:
 - **不得自己判断"答案对不对"**：把选手输出交给 `AnswerChecker`（由 `AnswerCheckerFactory` 创建），这样文本比对与作者判题器对新引擎自动生效。
 - `MEMORY_LIMIT_EXCEEDED` 通过沙箱的 `SandboxResult.outOfMemory()` 判定，同时写入 `memoryUsedKb`（`IsolateSandbox` 已提供参考实现）。
 - `Sandbox.supportsAuthorCode()` 返回 `false` 的沙箱不会执行作者判题器，`AnswerCheckerFactory` 会自动给它 `DisabledAnswerChecker`（判 `CHECKER_ERROR`）。
-- 在 `application.yaml` 中把 `ioj.judge.engine` 设为新实现对应的值，并确认启动日志/失败信息符合预期。
+- 在 `judge-agent/src/main/resources/application.yaml` 中把 `ioj.judge.engine` 设为新实现对应的值，并确认 Agent 启动日志/失败信息符合预期。
 
 ## 5. 数据库脚本规则
 
@@ -156,7 +157,7 @@ ioj:
 # 在仓库根目录执行
 ./mvnw test                                  # 全部模块（H2 内存库，无需 MySQL）
 
-# 只跑 server 的端到端流程
+# 只跑 server 的接口流程
 ./mvnw -pl server -am test -Dtest=ApiFlowIntegrationTest \
   -Dsurefire.failIfNoSpecifiedTests=false
 ```
@@ -172,10 +173,10 @@ ioj:
 | `AgentBootstrapTest` | 位于 `judge-agent`：启动配置拉取、协议校验、工具链探测、缺失语言拒绝启动 |
 | `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、ZIP bundle 解析、任务心跳间隔、claim → 执行 → 回报循环 |
 | `JudgeAgentApplicationTest` | 位于 `judge-agent`：Spring 上下文、配置绑定和 Agent Bean 装配 |
-| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→匿名列表→提交 Java 代码→本地 local 引擎评测→AC/WA→权限裁剪 |
-| `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、ZIP bundle 下载、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收 |
+| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→匿名列表→提交 Java 代码→验证提交保持 `PENDING`→权限裁剪；不执行本地判题 |
+| `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、ZIP bundle 下载、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收；覆盖 server 远程协议 |
 | `AdminModerationIntegrationTest` | 测试点单个/批量增删查、题目审核上下架、后台用户搜索、封禁后旧 token 立即失效 |
-| `CheckerIntegrationTest` | 判题器源码的读/写/清空、匿名与越权拒绝、题目详情只暴露 `hasChecker`、local 引擎返回 `CHECKER_ERROR` |
+| `CheckerIntegrationTest` | 判题器源码的读/写/清空、匿名与越权拒绝、题目详情只暴露 `hasChecker`；server 只存储源码，不执行 checker |
 | `ProgramAnswerCheckerTest` | 判题器退出码 0/1/2/其他、超时、崩溃、内存超限、编译失败、缺少二进制（假 Sandbox，无需 isolate） |
 | `IsolateSandboxCommandTest` | isolate 命令行（顺序与两位小数格式）与宿主机到 `/box` 的路径翻译 |
 | `AdminMetaIntegrationTest` | 标签/scope 字典的增删改、重复处理、使用量统计、外部题 scope 重命名传播、保留 scope `LOCAL` 保护、删除保护与 `force=true` |
@@ -186,12 +187,13 @@ ioj:
 | `CaptchaIntegrationTest` | 图形验证码签发、登录/发码接入、purpose 绑定、一次性消费 |
 | `CaptchaRateLimitIntegrationTest` | 单 IP 申请图形验证码的分钟窗口限流 |
 
+server 已移除本地判题测试和本地 worker：`./mvnw -pl server -am test` 只验证 Web/数据库/远程协议，不需要本机安装 `javac`、`g++` 或 Isolate。实际执行路径由 `judge-core` / `judge-agent` 测试覆盖。
+
 集成测试的关键配置（`src/test/resources/application-test.yaml`）：
 
 - 每个 Spring 上下文一个独立 H2 内存库（`jdbc:h2:mem:ioj-${random.uuid};MODE=MySQL`），启动时执行 `db/schema.sql`；
-- `ioj.judge.mode=local` + `ioj.judge.enabled=false`：关掉本地 worker，测试里显式调用 `judgeService.judge(id)`，结果确定且快；分布式测试用 `ioj.judge.mode=remote` 覆盖。
-- 语言配置直接复用主配置，所以 local 测试会真实调用本机 `javac`。CI 需要 JDK（构建本来就需要）；
-- `DistributedJudgeIntegrationTest` 使用独立 H2 库和 remote 模式，覆盖 claim/result/lease 全链路。
+- server 测试不配置本地判题引擎，提交后只断言 `PENDING` 和接口行为；远程协议由 `DistributedJudgeIntegrationTest` 覆盖。
+- `judge-core` / `judge-agent` 的测试独立覆盖引擎、沙箱、判题器和 Agent 循环，不需要启动 server。
 - 需要独立断言的集成测试类用 `@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:...")` 覆盖数据源，从而拥有独立的 H2 内存库，断言总数时不会互相干扰；代价是每个不同配置都会让 Spring 缓存一个独立上下文。
 - `application-test.yaml` 里 `ioj.email-code.enabled=false`：大多数流程测试只需要一个账号，不必先发码。`EmailVerificationIntegrationTest` 与 `PasswordResetIntegrationTest` 用 `@SpringBootTest(properties = "ioj.email-code.enabled=true")` 单独打开该功能，并用 `@Primary` 的假 `EmailCodeSender` 顶掉 SMTP 实现——测试不碰网络，也不需要真的邮箱。
 - `application-test.yaml` 里 `ioj.captcha.enabled=false`：现有流程测试不需要解图片。`CaptchaIntegrationTest` 与 `CaptchaRateLimitIntegrationTest` 单独打开该功能，并用固定 code generator 让测试可重复。
@@ -256,7 +258,7 @@ Vite 开发服务器默认监听 `127.0.0.1:5173`，并把 `/api` 代理到 `IOJ
 | 无 refresh token | 7 天后需重新登录 | 增加 refresh token + 轮换 |
 | 无提交频率限制 | 恶意用户可以刷提交 | 每用户每分钟限 N 次（Redis 或 DB 计数） |
 | 无比赛/榜单 | 只能练题 | 新增 contest 相关表与聚合查询 |
-| 判题 Agent 使用 Isolate 沙箱 | 需要安装与授权（不在 `isolate` 组则无法执行） | 按 06-isolate.md 配置；主服务器默认不判题，测试/CI 可用 `engine=local` |
+| 判题 Agent 使用 Isolate 沙箱 | 需要安装与授权（不在 `isolate` 组则无法执行） | 按 06-isolate.md 配置；server 不执行判题，Agent 本地开发/测试可用 `engine=local` |
 | 计数冗余字段 | 极端并发下可能略有偏差 | 定时对账任务修正 `submit_count` / `accepted_count` |
 | 无审计日志 | 管理员操作不可追溯 | 增加 `admin_audit_logs` |
 

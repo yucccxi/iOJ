@@ -190,7 +190,7 @@ erDiagram
 | code | MEDIUMTEXT | NOT NULL | 源代码（≤ 64 KB，服务层校验） |
 | status | VARCHAR(24) | NOT NULL DEFAULT 'PENDING' | 判题状态 |
 | time_used_ms | INT | NULL | 已执行测试点的最大耗时 |
-| memory_used_kb | INT | NULL | 内存峰值（Isolate 引擎写入 `cg-mem`；本机进程回退模式下为 null，见 03-judge.md） |
+| memory_used_kb | INT | NULL | 内存峰值（Agent 的 Isolate 引擎写入 `cg-mem`；Agent 的 local 回退模式下为 null，见 03-judge.md） |
 | compile_message | MEDIUMTEXT | NULL | 编译错误输出 |
 | judge_message | TEXT | NULL | 系统错误信息，含判题器编译失败时的编译器输出；不含测试数据 |
 | judge_key_id | BIGINT | FK → judge_keys.id, SET NULL | 领取任务的 Agent key；用于审计和历史 |
