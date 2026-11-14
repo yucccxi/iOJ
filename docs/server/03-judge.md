@@ -31,7 +31,7 @@ stateDiagram-v2
     SYSTEM_ERROR --> [*]
 ```
 
-- Agent 使用 `engine=isolate` 时，内存超限由 cgroup OOM 事件可靠判定；Agent 使用 `engine=local` 回退模式时一般只表现为运行时错误。
+- Agent 固定使用 Isolate 执行，内存超限由 cgroup OOM 事件判定。
 - 所有终态都会写入 `judged_at`；`SYSTEM_ERROR` 会写 `judge_message`。`CHECKER_ERROR` 在判题器准备阶段失败时写 `judgeMessage`，在运行阶段失败时写对应 `cases[].message`。
 - `CHECKER_ERROR` 表示**题目自带的判题器**出错（编译失败、超时、崩溃、返回非法退出码），不是选手的问题；选手代码本身可能完全正确，运维必须把它当作需要重跑的系统故障。
 - 判题采用 fail-fast：某个测试点失败后不再执行后续测试点。
@@ -43,20 +43,15 @@ stateDiagram-v2
 | 位置 | 是否执行用户代码 | 说明 |
 | --- | --- | --- |
 | `server` | 否 | 只做 claim、租约、结果落库、节点和 key 管理；`server/pom.xml` 只依赖 `judge-protocol` |
-| `judge-agent` | 是 | 使用 `judge-core` 的引擎和沙箱；生产配置 `engine=isolate` |
-| `judge-core` | 由 Agent 调用 | 引擎、沙箱、输出比对和 Special Judge 的实现；不直接连接数据库 |
+| `judge-agent` | 是 | 固定使用 `judge-core` 的 `IsolateJudgeEngine` 和 `IsolateSandbox` |
+| `judge-core` | 由 Agent 调用 | Isolate 引擎、沙箱、输出比对和 Special Judge 的实现；不直接连接数据库 |
 
-Agent 的 `ioj.judge.engine` 选择执行引擎：
+`judge-core` 只有一个引擎实现 `IsolateJudgeEngine`，它固定使用 `IsolateSandbox`，Agent 没有其他执行引擎可选，也没有本机进程或无沙箱回退。Isolate 不可用时，Agent 在启动自检或判题阶段失败，而不是改用其他方式执行用户代码。
 
-| `ioj.judge.engine` | 实现类 | 说明 |
-| --- | --- | --- |
-| `isolate` | `IsolateJudgeEngine` | 编译与运行都在 Isolate 沙箱内，资源限制与统计最完整；生产 Agent 使用 |
-| `local` | `LocalProcessJudgeEngine` | 本机进程 + `ulimit`，仅用于 Agent 的本地开发/测试 |
-
-- 选择方式：`judge-agent/src/main/resources/application.yaml` 的 `ioj.judge.engine`，或环境变量 `IOJ_JUDGE_ENGINE`。
 - 主服务器没有本地判题 worker 或执行引擎；服务端调度配置见 `ServerJudgeProperties`。
-- server 测试不启动本地判题：提交后只验证 `PENDING` 和接口行为；远程协议由 `DistributedJudgeIntegrationTest` 覆盖，实际执行由 `judge-core` / `judge-agent` 测试覆盖。
-- **自定义判题器（Special Judge）只在 `isolate` 引擎下生效**。`local` 引擎没有真正的沙箱，执行出题者上传的代码风险不可控，因此遇到带 `checker_code` 的题目会直接返回 `CHECKER_ERROR`（见 §10），而不是退回文本比对——静默换判定方式比报错更危险。
+- server 测试不启动本地判题：提交后只验证 `PENDING` 和接口行为；远程协议由 `DistributedJudgeIntegrationTest` 覆盖，执行相关覆盖集中在 `judge-core` 的 Isolate 单元测试和 `judge-agent` 测试。
+- **自定义判题器（Special Judge）在 Isolate 沙箱中执行**。Agent 本地 `ioj.judge.checker.enabled=false` 时，带 `checker_code` 的题目返回 `CHECKER_ERROR`（见 §9），不会退回文本比对。
+
 ### 2.1 代码分层
 
 判题代码分成三层，改动一层时不需要碰另外两层：
@@ -65,7 +60,7 @@ Agent 的 `ioj.judge.engine` 选择执行引擎：
 | --- | --- | --- | --- |
 | 引擎 | `judge-core/engine` | 算限额、串流程（编译 → 逐点运行 → 判定 → 聚合） | 不知道 isolate 命令行，也不知道判题器 |
 | 沙箱 | `judge-core/sandbox` | `Sandbox.exec` 原语：起进程、加限额、回收 box、把输出读回来 | 不知道"提交""答案""判定" |
-| 判定 | `judge-core/answer` | `AnswerChecker`：内置比对、作者判题器、不可用时的 `CHECKER_ERROR` | 不知道用的是哪个引擎 |
+| 判定 | `judge-core/answer` | `AnswerChecker`：内置比对、作者判题器、不可用时的 `CHECKER_ERROR` | 不知道沙箱命令行和引擎流程 |
 
 ```text
 judge-protocol/
@@ -75,10 +70,10 @@ judge-protocol/
 judge-core/
 ├── JudgeContext / JudgeOutcome / JudgeSubmission / JudgeProblem / JudgeTestcase
 ├── config/    JudgeProperties、LanguageConfig、Isolate、Checker
-├── sandbox/   Sandbox（接口）、IsolateSandbox、LocalSandbox、SandboxCommand/Result、SandboxFiles
+├── sandbox/   Sandbox（接口）、IsolateSandbox、SandboxCommand/Result、SandboxFiles
 ├── answer/    AnswerChecker（接口）、TextAnswerChecker、ProgramAnswerChecker、
 │              DisabledAnswerChecker、AnswerCheckerFactory
-└── engine/    JudgeEngine（接口）、IsolateJudgeEngine、LocalProcessJudgeEngine
+└── engine/    JudgeEngine（接口）、IsolateJudgeEngine
 
 judge-agent/
 ├── AgentRunner / AgentTaskMapper
@@ -94,7 +89,7 @@ server/judge/
 
 - `judge-core` 的 `JudgeProperties` 是 Agent/Core 的执行配置；server 的调度配置在 `me.iynotuo.judge.config.ServerJudgeProperties`。
 - 选哪种判定由 `AnswerCheckerFactory` 一处决定：题目有 `checker_code` 且沙箱支持作者代码 → `ProgramAnswerChecker`；否则 → `TextAnswerChecker`；不支持时 → `DisabledAnswerChecker`（判 `CHECKER_ERROR`）。
-- 因此两个引擎里**没有 "checker" 字样**，新增题型（例如 interactive）只需要再加一个 `AnswerChecker`。
+- 因此引擎里**没有 "checker" 字样**，新增题型（例如 interactive）只需要再加一个 `AnswerChecker`。
 - 沙箱自己管理的文件是 `stdout.txt` / `stderr.txt` / `empty.txt`；调用方的 `input.txt`、`output.txt`、`answer.txt` 不会被覆盖。
 
 ### 2.2 分布式任务协议
@@ -130,7 +125,7 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 - 同一 token 的重复结果幂等；旧 token 的迟到结果返回 `409`，不会覆盖新结果。
 - `accepted_count` 只在条件更新真正把提交写成 `ACCEPTED` 时 +1。
 
-## 3. 一次判题做了什么（isolate）
+## 3. 一次判题做了什么（Isolate）
 
 ```text
 AgentRunner.execute(task)
@@ -177,7 +172,7 @@ AgentRunner.execute(task)
 | --- | --- |
 | `{memoryMb}` / `{memoryKb}` | 题目的内存限制（MB / KB） |
 | `{timeMs}` | 本题实际时间限制（已乘语言系数） |
-| `{command}` | 仅用于 `runWrapper`（isolate 引擎不使用），会被展开后的 `runCommand` 替换 |
+| `{command}` | 仅用于 `runWrapper`；`runWrapper` 是保留字段，当前 Isolate 引擎不读取 |
 
 默认四种语言（isolate 引擎）：
 
@@ -214,10 +209,12 @@ AgentRunner.execute(task)
 
 ### 5.2 配置项
 
-> 以下只列 Agent 的沙箱参数，默认值以 `judge-agent/src/main/resources/application.yaml` 为准；完整 Agent 环境变量表见 [部署与运维 §3.2](04-deployment.md#32-判题-agent-环境变量)。
+> 以下只列 Agent 的执行参数，默认值以 `judge-agent/src/main/resources/application.yaml` 为准；checker 参数见 §9.4，完整 Agent 环境变量表见 [部署与运维 §3.2](04-deployment.md#32-判题-agent-环境变量)。
 
 | 配置 | 类型 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
+| `ioj.judge.max-output-bytes` | integer | 否 | `16777216` | 单测试点输出上限，同时决定 Isolate 的 `--fsize` |
+| `ioj.judge.max-compile-output-bytes` | integer | 否 | `65536` | 编译 stderr 和运行 stderr 的保留上限；编译 stdout 仍受 `max-output-bytes` 限制 |
 | `ioj.judge.isolate.binary` | string | 否 | `/usr/bin/isolate` | 可执行文件路径 |
 | `ioj.judge.isolate.box-id-start` / `box-id-count` | integer | 否 | `1` / `1` | Agent 实例可用的 box 编号区间；`box-id-count` 必须不小于 Agent 并发数 |
 | `ioj.judge.isolate.check-on-startup` | boolean | 否 | `true` | 启动时检查 binary 可执行，失败直接终止 |
@@ -257,22 +254,9 @@ AgentRunner.execute(task)
 | 外层看门狗超时（`!finished`） | `TIME_LIMIT_EXCEEDED` |
 | 输出一致 | `ACCEPTED` |
 
-`time`（CPU 秒）与 `cg-mem`（KB）会写入 `submissions` 与 `submission_cases`，所以使用 isolate 后 `memoryUsedKb` 不再是 `null`。
+`time`（CPU 秒）与 `cg-mem`（KB）会写入 `submissions` 与 `submission_cases`；meta 缺少 `cg-mem` 时 `memoryUsedKb` 为 `null`。
 
-## 6. 本机进程回退（Agent 的 `engine=local`）
-
-仅用于没有 Isolate 的 Agent 开发机或测试。生产 Agent 固定使用 `engine=isolate`；server 没有本地判题回退。它把用户程序作为普通子进程运行：
-
-| 手段 | 实现 |
-| --- | --- |
-| 超时 | `Process.waitFor(timeLimit)`，超时 `destroyForcibly` |
-| 内存 | C/C++/Python 使用 `ulimit -v`，Java 使用 `-Xmx`；**无法精确统计峰值** |
-| 输出 | 读取线程限流，超出上限停止保存 |
-| 文件 | 未设置 `ulimit -f`；运行命令的 `run-wrapper` 只包含 `ulimit -v` / `ulimit -s`，文件大小由输出上限间接约束 |
-
-限制：无法阻止 fork bomb、网络访问、提权；内存超限通常表现为运行时错误而不是 MLE。因此**仅适合校内/可信用户**，生产环境必须使用 isolate。
-
-## 7. 并发与调参
+## 6. 并发与调参
 
 | 配置 | 类型 | 必填 | 默认值 | 作用 | 建议 |
 | --- | --- | --- | --- | --- | --- |
@@ -288,7 +272,7 @@ AgentRunner.execute(task)
 - 逐任务的 Isolate 限制不得替代整机容量管理：给系统、数据库和 Agent 留出余量。
 - 编译器与运行库版本建议固定，避免不同节点产生差异；Agent 启动时上报版本，主服务器只分配语言能力匹配的任务。
 
-## 8. 常见问题
+## 7. 常见问题
 
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
@@ -297,26 +281,26 @@ AgentRunner.execute(task)
 | 编译报 `execve("javac"): No such file or directory` | `/usr/bin/javac` 指向 `/etc/alternatives`，沙箱未挂载该目录 | 保持 `resolve-executables: true`（默认），或改用绝对路径 |
 | JVM 启动报 `Error loading java.security file` | 沙箱内缺少 `/etc/java-21-openjdk` | 在 `extra-dirs` 中保留该目录（Debian），或按发行版调整 |
 | `pthread_create failed (EAGAIN)` | `--processes` 太小，JVM 无法创建线程 | 提高 Java 的 `isolate-processes`（默认 64）或 `compile-processes` |
-| 内存超限没有判成 MLE | 使用了 `engine=local` | 切换到 isolate；isolate 通过 cgroup OOM 检测 |
+| 内存超限没有判成 MLE | Isolate 未启用 `--cg`，或 meta 缺少 `cg-oom-killed` | 确认 `isolate.service` 与 cgroup v2 正常；查看该测试点的 meta |
 | 提交一直 `PENDING` | 没有在线 Agent、Agent 未配置 key 或队列积压；server 不会本地回退 | 检查 `GET /api/v1/admin/judge-nodes`、Agent 日志、`GET /api/v1/submissions?status=PENDING` |
 | 提交一直 `JUDGING` | Agent 崩溃/失联，租约尚未过期 | 等 `lease-seconds` 后由 `JudgeLeaseReaper` 回收；检查 Agent 日志和节点心跳 |
 | 编译超时（`COMPILATION_ERROR: Compile Time Exceeded`） | `compile-time-seconds` / `compile-wall-time-seconds` 太小 | 提高配置，注意编译与运行限制分开设置 |
 | `/var/lib/isolate` 残留目录 | 进程被强杀，未执行 cleanup | 确认服务日志；用对应用户执行 `isolate --cg --box-id=N --cleanup` |
 
-## 9. 可观测性
+## 8. 可观测性
 
-- 判题完成日志：`判题完成 submissionId=... status=...`。
+- 远程判题完成日志：`远程判题完成 submissionId=... status=... keyId=... nodeId=...`。
 - 沙箱清理失败会打印 `isolate --cleanup failed for box ...`，需要关注是否有残留 box。
 - 建议采集：待判队列长度、各状态占比、判题耗时 P95、`cg-mem` 分布、Isolate 内部错误（`status=XX`）次数。
 - 首次上线前用已知程序验证：正常 AC、死循环（TLE）、越界（RE）、超量输出（OLE）、内存压力（MLE），确认分类符合预期。
 
-## 10. 自定义判题器（Special Judge）
+## 9. 自定义判题器（Special Judge）
 
 多解题、浮点误差题、构造题需要“只要满足条件就算对”，单靠逐行文本比对做不到。iOJ 的做法是：**题目可选地携带一段 C++ 判题器源码**，判题时在沙箱里编译并逐测试点运行。出题者视角的完整编写指南、示例和本地测试方法见 [自定义判题器](08-special-judge.md)；本节只说明实现与运行限制。
 
-> 判题器只在 Agent 的 `engine=isolate` 下执行。Agent 的 `local` 引擎（本机进程回退、开发/测试环境）遇到带判题器的题目会直接判 `CHECKER_ERROR`，原因见 §2。
+> 判题器在 Agent 的 Isolate 沙箱中执行。该 Agent 本地 `ioj.judge.checker.enabled=false` 时，带判题器的题目会直接判 `CHECKER_ERROR`，原因见 §2。
 
-### 10.1 数据在哪
+### 9.1 数据在哪
 
 | 项 | 位置 | 说明 |
 | --- | --- | --- |
@@ -327,7 +311,7 @@ AgentRunner.execute(task)
 
 `checker_code` 是**故意不放进** `ProblemMapper.findById` 的：公开的题目详情接口走那条查询，把判题器源码带出去等于泄漏判题规则。详情接口只返回 `hasChecker`。
 
-### 10.2 判题器的输入与输出约定
+### 9.2 判题器的输入与输出约定
 
 判题器运行时，工作目录（沙箱里的 `/box`）包含三个文件：
 
@@ -348,7 +332,7 @@ AgentRunner.execute(task)
 
 判题器也可以完全忽略 `answer.txt`（例如"输出任意合法方案"的构造题），但文件总是在那里。
 
-### 10.3 一个最小示例
+### 9.3 一个最小示例
 
 ```cpp
 #include <cstdio>
@@ -379,7 +363,7 @@ int main() {
 
 写成 C 风格（`printf` / `scanf` / `fopen`）或 C++ 风格（`std::cin` / `std::ifstream`）都可以，两者都用 `g++ -std=c++17` 编译。注意 `printf` 的格式化、`<stdatomic.h>`、C99 指定初始化器等纯 C 构造在 C++17 下可能不合法。
 
-### 10.4 配置项
+### 9.4 配置项
 
 > 以下只列 **Agent** 的判题器参数。主服务器只下发 `checker.enabled` 和 `probe-commands`，不下发运行时限/内存；执行限制必须修改 `judge-agent/src/main/resources/application.yaml`。完整 Agent 环境变量表见 [部署与运维 §3.2](04-deployment.md#32-判题-agent-环境变量)。
 
@@ -402,13 +386,13 @@ ioj:
 - 判题器**每次提交编译一次**，每个测试点运行一次；编译产物不跨提交缓存（俱乐部规模下每次约 0.2 秒，可以接受）。
 - 主服务器的 `IOJ_JUDGE_CHECKER_ENABLED` / `IOJ_JUDGE_CHECKER_*` 不会修改已启动 Agent 的执行策略；必须逐台修改 Agent 配置并重启 Agent。
 
-### 10.5 隔离边界
+### 9.5 隔离边界
 
 - 判题器与选手程序**跑在两个不同的目录**里，选手目录里没有 `answer.txt`，所以选手无法读取标准答案，也无法覆写判题器二进制。
 - 判题器只被判题器阶段使用，此时选手进程已经退出，不存在并发篡改。
 - 判题器与选手同样受 `--cg` / `--time` / `--wall-time` / `--fsize` 约束，没有网络。
 
-### 10.6 排错
+### 9.6 排错
 
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
@@ -416,6 +400,6 @@ ioj:
 | `judgeMessage` 是 "the checker compile command did not produce a file named checker" | 编译命令改了输出名 | 保持 `-o checker` |
 | `submission_cases.message` 出现 "the checker exceeded the time limit" | 判题器太慢 | 提高对应 Agent 本地 `ioj.judge.checker.time-limit-ms` 后重启 Agent（这是系统侧失败，不是选手 TLE） |
 | 明明答案正确却 WA，且 `message` 是判题器打印的内容 | 判题器逻辑/退出码写错 | 判题器退出码必须是 0/1/2，其余按系统错误处理 |
-| Agent 的 `engine=local` 环境下全题都是 `CHECKER_ERROR` | 本机进程引擎不支持判题器 | Agent 本地开发/测试的正常现象；生产 Agent 必须使用 `engine=isolate` |
+| 带 checker 的题全是 `CHECKER_ERROR` | 该 Agent 本地 `ioj.judge.checker.enabled=false` | 在 Agent 配置中打开 checker 并重启 Agent |
 
 

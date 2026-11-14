@@ -69,9 +69,9 @@ docs/
 | [server/README.md](server/README.md) | 后端、运维 | 技术栈、模块结构、快速启动、测试、配置入口、常见问题 |
 | [server/01-architecture.md](server/01-architecture.md) | 后端 | 目标与约束、模块边界、请求链路、分布式评测、权限模型、安全与设计取舍 |
 | [server/02-database.md](server/02-database.md) | 后端、运维 | ER 图、表结构、枚举、索引、事务、容量估算、初始化与备份 |
-| [server/03-judge.md](server/03-judge.md) | 后端、运维、出题者 | 状态机、引擎选择、沙箱参数、语言配置、Special Judge 实现 |
+| [server/03-judge.md](server/03-judge.md) | 后端、运维、出题者 | 状态机、执行位置、沙箱参数、语言配置、Special Judge 实现 |
 | [server/04-deployment.md](server/04-deployment.md) | 运维 | 环境要求、建库、环境变量总表、systemd/Nginx、备份恢复、升级回滚、上线检查 |
-| [server/05-development.md](server/05-development.md) | 开发 | 分层约定、新增接口/语言/引擎、数据库脚本规则、测试、框架注意事项、已知简化 |
+| [server/05-development.md](server/05-development.md) | 开发 | 分层约定、新增接口/语言、替换沙箱或判题流程、数据库脚本规则、测试、框架注意事项、已知简化 |
 | [server/06-isolate.md](server/06-isolate.md) | 运维 | Isolate 安装、cgroup、权限、实际命令、手工验证、容量与排障 |
 | [server/07-judge-agent.md](server/07-judge-agent.md) | 运维、后端 | Agent 启动校验、构建、key、配置、systemd、多节点、排障、安全 |
 | [server/08-special-judge.md](server/08-special-judge.md) | 出题者、后端 | Checker 适用场景、文件协议、退出码、限制、本地测试、上传 |

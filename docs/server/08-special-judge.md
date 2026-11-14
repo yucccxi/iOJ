@@ -1,6 +1,6 @@
 # 自定义判题器（Special Judge）
 
-本文说明 iOJ 自定义判题器（Checker，也称 Special Judge）的适用场景、文件协议、退出码、运行限制和上传方式，读者为出题者与后端开发人员。判题器的实现位置、沙箱参数和引擎选择见 [判题设计](03-judge.md)。
+本文说明 iOJ 自定义判题器（Checker，也称 Special Judge）的适用场景、文件协议、退出码、运行限制和上传方式，读者为出题者与后端开发人员。判题器的实现位置和沙箱参数见 [判题设计](03-judge.md)。
 
 > 返回目录：[后端文档索引](README.md)
 
@@ -115,7 +115,7 @@ Checker 在评测沙箱里运行，和选手程序**分属两个不同的目录�
 由此带来两条实践规则：
 
 1. Checker 超时或内存超限会判 `CHECKER_ERROR`（评测侧问题），**不会**算成选手的 TLE / MLE。所以 Checker 必须足够快、足够省内存。
-2. Checker 只在 `engine=isolate` 且 **该 Agent 本地** `ioj.judge.checker.enabled=true` 时执行。若平台使用 `local` 引擎（无沙箱的开发机或 CI），或 Agent 本地关闭了 checker，带 Checker 的题目会统一返回 `CHECKER_ERROR`，这属于环境限制而非你的代码问题。主服务器的 `IOJ_JUDGE_CHECKER_ENABLED` 不是远程执行开关。
+2. Checker 在 Agent 的 Isolate 沙箱中执行，并要求 **该 Agent 本地** `ioj.judge.checker.enabled=true`。若 Agent 本地关闭了 checker，带 Checker 的题目会统一返回 `CHECKER_ERROR`，这属于环境限制而非你的代码问题。主服务器的 `IOJ_JUDGE_CHECKER_ENABLED` 不是远程执行开关。
 
 ## 6. 编写建议
 

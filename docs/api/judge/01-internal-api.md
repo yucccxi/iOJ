@@ -607,7 +607,7 @@ Agent 优雅停机或没有空闲并发时，把尚未开始执行的任务交�
 | `sourceFile` | string | 源代码写入的文件名 |
 | `compileCommand` | string / null | 编译命令；解释型语言可为 `null` |
 | `runCommand` | string | 运行命令，支持 `{memoryMb}` / `{memoryKb}` / `{timeMs}` 占位符 |
-| `runWrapper` | string / null | 本地进程引擎的 shell 包装；Isolate 引擎不使用 |
+| `runWrapper` | string / null | 保留字段；当前 Isolate 引擎不使用 |
 | `timeMultiplier` | number | 题目时限的倍数；Java 2.0、Python 3.0 |
 | `isolateProcesses` | integer / null | 运行阶段允许的进程/线程数；Java 64，其余通常 1 |
 | `isolateMemoryExtraMb` | integer / null | 运行阶段在题目内存上额外预留的 MB；Java 256 |

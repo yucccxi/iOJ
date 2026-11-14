@@ -4,7 +4,7 @@
 
 > 返回目录：[后端文档索引](README.md)
 
-- 判题状态机、引擎选择、meta → 状态的映射：见 [判题设计](03-judge.md)
+- 判题状态机、执行位置、meta → 状态的映射：见 [判题设计](03-judge.md)
 - 整机部署、systemd、Nginx：见 [部署与运维](04-deployment.md)
 - 接口契约（前端视角）：见 [前端 API 文档](../api/frontend/README.md)
 
@@ -42,7 +42,7 @@
 | `isolate` | 建命名空间、cgroup 限额、降权执行、输出 meta |
 
 - 代码：`judge-core/src/main/java/me/iynotuo/judge/core/engine/IsolateJudgeEngine.java`
-- 开关：Agent 的 `ioj.judge.engine=isolate`（环境变量 `IOJ_JUDGE_ENGINE`）；主服务器不执行判题。
+- Agent 固定使用 `IsolateJudgeEngine` 执行，没有其他引擎或无沙箱回退；主服务器不执行判题。
 - 创建引擎 Bean 时会做一次可执行性自检（见 §4.3）
 
 ## 2. 环境要求
@@ -119,7 +119,7 @@ ls -l /usr/bin/isolate
 ```
 
 `-rwsr-xr-x` 即 **4755 + setuid root**：无论哪个用户执行，进程都以 root 建沙箱、再降权到隔离 UID。
-所以 Debian 官方包**不得求**把运行用户加进 `isolate` 组——实测运行用户不在 `isolate` 组时，
+所以 Debian 官方包**不要求**把运行用户加进 `isolate` 组——实测运行用户不在 `isolate` 组时，
 `isolate --cg --box-id=N --init` 依然成功。
 
 | 打包方式 | 是否需要 `isolate` 组 |
@@ -182,9 +182,8 @@ ioj:
   agent:
     concurrency: ${IOJ_JUDGE_CONCURRENCY:1}   # 本机并发，建议 ≤ 核数 - 1
   judge:
-    engine: isolate                          # Agent 固定使用 isolate
     max-output-bytes: 16777216               # 16 MB，同时决定 --fsize
-    compile-timeout-ms: 30000
+    max-compile-output-bytes: 65536          # 编译输出保留上限
     checker:                                 # 题目自带的 C++ 判题器（Special Judge）
       enabled: true
       time-limit-ms: 2000                    # 独立于题限，见 §6.5
@@ -215,7 +214,8 @@ ioj:
 
 | 配置 | 类型 | 必填 | 默认值 | 作用 | 调整建议 |
 | --- | --- | --- | --- | --- | --- |
-| `engine` | string | 否 | `isolate` | Agent 固定 `isolate` | 生产不得使用 `local` |
+| `ioj.judge.max-output-bytes` | integer | 否 | `16777216` | 单测试点输出上限，同时决定 `--fsize` | 按题目数据量调整 |
+| `ioj.judge.max-compile-output-bytes` | integer | 否 | `65536` | 编译 stderr 和运行 stderr 的保留上限 | 编译报错被截断时上调 |
 | `ioj.agent.concurrency` | integer | 否 | `1` | 本机同时评测的提交数 | ≤ 核数 - 1，见 §9 |
 | `box-id-start` / `box-id-count` | integer | 否 | `1` / `1` | 本实例独占的 box 编号区间 | `count` 必须 ≥ `concurrency`；同机多 Agent 必须分段 |
 | `compile-processes` | integer | 否 | `64` | 编译期 `--processes` | 保持 64，否则 javac 报 `pthread_create failed` |
@@ -489,8 +489,7 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | 日志 | 无 `Isolate judging failed for submission`、无 `isolate --cleanup failed` |
 | 宿主机 | `ls /var/lib/isolate` 在判题结束后必须为空 |
 
-如果 `memoryUsedKb` 一直是 `null`，先确认 Agent 的 `ioj.judge.engine` 为 `isolate`：
-回退引擎不读 cgroup，本来就没有内存统计。
+如果 `memoryUsedKb` 一直是 `null`，检查 Isolate meta 是否包含 `cg-mem`。缺少该字段时提交仍可正常判题，但不会有内存统计。
 
 ## 9. 容量与调优
 
@@ -526,7 +525,7 @@ curl -s $BASE/submissions/$ID -H "Authorization: Bearer $TOKEN"
 | 编译超时（`COMPILATION_ERROR: Compile Time Exceeded`） | `compile-time-seconds` / `compile-wall-time-seconds` 太小 | 分别上调 CPU 与墙钟限制 |
 | 判题结束后 `/var/lib/isolate` 有残留目录 | 进程被强杀，没执行 `--cleanup` | 确认日志告警；用同一用户 `isolate --cg --box-id=N --cleanup` |
 | 提交一直 `PENDING` | 没有在线 Agent（`IOJ_JUDGE_KEY` 未配置/错误）或任务积压 | 查 `GET /api/v1/admin/judge-nodes`、Agent 日志、`GET /api/v1/submissions?status=PENDING` |
-| 判题正常但 `memoryUsedKb` 为 `null` | Agent 引擎是 `local` 回退，或 meta 里没有 `cg-mem` | 确认 Agent 的 `ioj.judge.engine=isolate`，并手工跑一次看 meta |
+| 判题正常但 `memoryUsedKb` 为 `null` | Isolate meta 里没有 `cg-mem` | 确认 `isolate.service` 与 cgroup v2 正常，并手工跑一次看 meta |
 
 排查顺序建议：`isolate --version` → `systemctl is-active isolate.service` → `cat /run/isolate/cgroup`
 → 手工 §7 流程 → 再看后端日志。前两步就能覆盖大部分“装好了但判不了”的情况。

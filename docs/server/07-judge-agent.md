@@ -19,7 +19,7 @@
 ```
 
 - 主服务器：只负责任务调度和结果落库，不执行用户代码
-- Agent：`ioj.judge.engine=isolate`
+- Agent：固定使用 Isolate 执行，没有其他引擎或无沙箱回退
 - Agent 只需要出站访问主服务器，不需要公网入站端口，也不连接 MySQL
 - 没有在线 Agent 时，提交保持 `PENDING`，server 不会本地回退执行
 
@@ -100,7 +100,8 @@ ioj:
     version: ${IOJ_JUDGE_AGENT_VERSION:0.0.1}
 
   judge:
-    engine: isolate
+    max-output-bytes: 16777216
+    max-compile-output-bytes: 65536
     isolate:
       binary: ${IOJ_ISOLATE_BINARY:/usr/bin/isolate}
       box-id-start: ${IOJ_ISOLATE_BOX_ID_START:1}
@@ -129,6 +130,7 @@ ioj:
 
 ### 语言命令由谁配置
 
+- **执行引擎**：固定为 `IsolateJudgeEngine`，Isolate 是 Agent 的必需依赖；没有本机进程或无沙箱回退。
 - **源码文件名、编译命令、运行命令、时间系数、进程数、额外内存**：主服务器 `ioj.judge.languages`，随 claim 响应的 `languageConfig` 下发。
 - **Isolate 路径、box id、`extra-dirs`、编译限制、checker 编译命令**：Agent 本地配置。
 - **checker 执行开关与运行/编译限制**：由 Agent 本地 `ioj.judge.checker.*` 决定。主服务器只下发 `checkerEnabled` 和 checker 探针命令，不下发时限/内存；只改主服务器配置不会限制远程 Agent。
@@ -146,7 +148,7 @@ Agent 启动失败时不会先发心跳或 claim；缺少工具链会打印具�
 - **节点离线阈值**：主服务器 `ioj.judge.dispatch.node-offline-seconds`，由节点心跳响应返回。
 - **节点心跳**：Agent 启动后立即发一次节点心跳；拿到响应前，后续间隔使用本地 `node-heartbeat-interval-ms`，之后改为 `offlineSeconds / 3`。
 - Agent 不再配置 `lease-seconds`；租约的唯一来源是主服务器。
-- 节点心跳和任务心跳共用一个心跳调度器，但按各自的到期时间执行，不得求相同频率。
+- 节点心跳和任务心跳共用一个心跳调度器，但按各自的到期时间执行，不要求相同频率。
 
 ## 6. systemd
 

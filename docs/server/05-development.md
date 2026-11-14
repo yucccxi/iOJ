@@ -19,11 +19,11 @@ iOJ/                         # 父 POM，聚合 judge-protocol / judge-core / ju
 │   ├── JudgeContext / JudgeSubmission / JudgeProblem / JudgeTestcase
 │   ├── JudgeOutcome / OutputComparator / LanguageCommands
 │   ├── config               JudgeProperties / LanguageConfig / Isolate / Checker
-│   ├── sandbox              Sandbox（接口）/ IsolateSandbox / LocalSandbox / SandboxCommand / SandboxResult
+│   ├── sandbox              Sandbox（接口）/ IsolateSandbox / SandboxCommand / SandboxResult
 │   │                        SandboxFiles / Limits / Commands / IsolateMeta / StreamCollector
 │   ├── answer               AnswerChecker（接口）/ TextAnswerChecker / ProgramAnswerChecker
 │   │                        DisabledAnswerChecker / AnswerCheckerFactory
-│   └── engine               JudgeEngine（接口）/ IsolateJudgeEngine / LocalProcessJudgeEngine
+│   └── engine               JudgeEngine（接口）/ IsolateJudgeEngine
 ├── judge-agent/             # 独立判题进程
 │   ├── AgentRunner / AgentTaskMapper / AgentProperties
 │   └── HttpJudgeAgentClient
@@ -50,8 +50,8 @@ iOJ/                         # 父 POM，聚合 judge-protocol / judge-core / ju
 | Service | 事务边界、权限与领域校验、组装 VO | 不处理 HTTP 细节 |
 | Mapper | SQL（XML），入参是实体或 `Criteria`/`@Param` | 不含业务判断 |
 | judge-core/engine | 编排判题（编译 → 逐点运行 → 判定 → 聚合），返回 `JudgeOutcome` | 不直接写数据库（由 `JudgeResultService` 落库） |
-| judge-core/sandbox | 起进程、加限额、读回输出（isolate / 本机进程各一个实现） | 不知道"答案""判定""提交" |
-| judge-core/answer | 判定一个测试点是否正确（文本比对 / 作者判题器） | 不知道用的是哪个引擎 |
+| judge-core/sandbox | 起进程、加限额、读回输出（`IsolateSandbox` 实现） | 不知道"答案""判定""提交" |
+| judge-core/answer | 判定一个测试点是否正确（文本比对 / 作者判题器） | 不知道沙箱命令行和引擎流程 |
 
 约定：
 
@@ -117,7 +117,6 @@ ioj:
         source-file: main.go
         compile-command: go build -o main main.go
         run-command: ./main
-        run-wrapper: ulimit -v {memoryKb}; exec {command}
         time-multiplier: 1.5
         isolate-processes: 1
         isolate-memory-extra-mb: 16
@@ -125,21 +124,24 @@ ioj:
           - go version
 ```
 
+> `run-wrapper` 是协议保留字段，当前 Isolate 引擎不使用；新增语言可以不配置。
+
 3. 判题机安装 `go`，重启 Agent。`GET /meta/languages` 会自动出现新语言，前端无需改代码。
 
 `probe-commands` 是必填项：Agent 启动时逐条执行，每条退出码必须为 0；任意语言缺少探测命令或探测失败，Agent 都会以退出码 `78` 拒绝启动。`source-file` 和 `run-command` 也不得为空。
 
-## 4. 新增/替换判题引擎
+## 4. 替换沙箱或判题流程
 
-见 `03-judge.md` 的「判题引擎选择」与 §2.1「代码分层」。要点：
+见 `03-judge.md` 的「判题执行位置与引擎」与 §2.1「代码分层」。要点：
 
-- 优先只写一个 `Sandbox` 实现（`me.iynotuo.judge.core.sandbox` 包）：把"起进程、加限额、读回输出"做完，然后复用现成的引擎流程。绝大多数新沙箱（Docker、nsjail）只需要替换这一层。
-- 真要替换整条流程时，实现 `JudgeEngine`（放在 `me.iynotuo.judge.core.engine` 包，与现有实现同级），用 `@ConditionalOnProperty(prefix = "ioj.judge", name = "engine", havingValue = "docker")` 限定生效条件，避免两个实现同时注册。
-- 返回的 `JudgeOutcome` 语义要与现有引擎（`isolate` / `local`）一致：`status` 取第一个失败测试点的状态，`cases` 按执行顺序，失败即停。
+- 当前只有 `IsolateJudgeEngine` 一个引擎，固定驱动 `IsolateSandbox`；没有按配置切换引擎的机制。
+- 优先只写一个 `Sandbox` 实现（`me.iynotuo.judge.core.sandbox` 包）：把"起进程、加限额、读回输出"做完，然后在 `IsolateJudgeEngine` 中替换 `new IsolateSandbox(...)`。新沙箱应保持与 Isolate 相同的限额语义和 `SandboxResult` 字段。
+- 真要替换整条流程时，实现 `JudgeEngine`（放在 `me.iynotuo.judge.core.engine` 包，与现有实现同级）并替换 `IsolateJudgeEngine` 的 Bean 注册。两个实现同时标注 `@Component` 会导致 `JudgeEngine` 注入冲突，必须先移除或停用旧实现。
+- 返回的 `JudgeOutcome` 语义要与现有引擎一致：`status` 取第一个失败测试点的状态，`cases` 按执行顺序，失败即停。
 - **不得自己判断"答案对不对"**：把选手输出交给 `AnswerChecker`（由 `AnswerCheckerFactory` 创建），这样文本比对与作者判题器对新引擎自动生效。
 - `MEMORY_LIMIT_EXCEEDED` 通过沙箱的 `SandboxResult.outOfMemory()` 判定，同时写入 `memoryUsedKb`（`IsolateSandbox` 已提供参考实现）。
 - `Sandbox.supportsAuthorCode()` 返回 `false` 的沙箱不会执行作者判题器，`AnswerCheckerFactory` 会自动给它 `DisabledAnswerChecker`（判 `CHECKER_ERROR`）。
-- 在 `judge-agent/src/main/resources/application.yaml` 中把 `ioj.judge.engine` 设为新实现对应的值，并确认 Agent 启动日志/失败信息符合预期。
+- 修改后确认 Agent 启动日志/失败信息符合预期，并在真实 Isolate 环境验证编译、运行、超时、内存超限和清理路径。
 
 ## 5. 数据库脚本规则
 
@@ -187,13 +189,13 @@ ioj:
 | `CaptchaIntegrationTest` | 图形验证码签发、登录/发码接入、purpose 绑定、一次性消费 |
 | `CaptchaRateLimitIntegrationTest` | 单 IP 申请图形验证码的分钟窗口限流 |
 
-server 已移除本地判题测试和本地 worker：`./mvnw -pl server -am test` 只验证 Web/数据库/远程协议，不需要本机安装 `javac`、`g++` 或 Isolate。实际执行路径由 `judge-core` / `judge-agent` 测试覆盖。
+server 已移除本地判题测试和本地 worker：`./mvnw -pl server -am test` 只验证 Web/数据库/远程协议，不需要本机安装 `javac`、`g++` 或 Isolate。执行链路的自动化覆盖集中在 `judge-core` 的 Isolate 单元测试（`IsolateSandboxCommandTest`、`IsolateMetaTest`、`ProgramAnswerCheckerTest`）和 `judge-agent` 测试（claim → 执行 → 回报，使用 fake engine）；仓库不包含依赖真实 Isolate 的端到端自动化测试，真实沙箱验证见 [06-isolate.md](06-isolate.md) §7、§8。
 
 集成测试的关键配置（`src/test/resources/application-test.yaml`）：
 
 - 每个 Spring 上下文一个独立 H2 内存库（`jdbc:h2:mem:ioj-${random.uuid};MODE=MySQL`），启动时执行 `db/schema.sql`；
-- server 测试不配置本地判题引擎，提交后只断言 `PENDING` 和接口行为；远程协议由 `DistributedJudgeIntegrationTest` 覆盖。
-- `judge-core` / `judge-agent` 的测试独立覆盖引擎、沙箱、判题器和 Agent 循环，不需要启动 server。
+- server 测试不启动判题执行，提交后只断言 `PENDING` 和接口行为；远程协议由 `DistributedJudgeIntegrationTest` 覆盖。
+- `judge-core` 的 Isolate 单元测试和 `judge-agent` 测试独立覆盖命令构造、meta 解析、判题器映射和 Agent 循环，不需要启动 server 或真实 Isolate。
 - 需要独立断言的集成测试类用 `@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:...")` 覆盖数据源，从而拥有独立的 H2 内存库，断言总数时不会互相干扰；代价是每个不同配置都会让 Spring 缓存一个独立上下文。
 - `application-test.yaml` 里 `ioj.email-code.enabled=false`：大多数流程测试只需要一个账号，不必先发码。`EmailVerificationIntegrationTest` 与 `PasswordResetIntegrationTest` 用 `@SpringBootTest(properties = "ioj.email-code.enabled=true")` 单独打开该功能，并用 `@Primary` 的假 `EmailCodeSender` 顶掉 SMTP 实现——测试不碰网络，也不需要真的邮箱。
 - `application-test.yaml` 里 `ioj.captcha.enabled=false`：现有流程测试不需要解图片。`CaptchaIntegrationTest` 与 `CaptchaRateLimitIntegrationTest` 单独打开该功能，并用固定 code generator 让测试可重复。
@@ -244,7 +246,7 @@ Vite 开发服务器默认监听 `127.0.0.1:5173`，并把 `/api` 代理到 `IOJ
 ## 9. 代码风格与协作
 
 - 4 空格缩进；类/方法命名用英文，注释与用户可见文案用中文。
-- 一个文件一个公开类；Controller 按资源聚合，不得一个接口一个类。
+- 一个文件一个公开类；Controller 按资源聚合，不得按一个接口一个类的方式拆分。
 - 新增错误码加到 `ErrorCode`（业务号段：用户 2xxx、题目 3xxx、提交 4xxx）。
 - 提交前在仓库根目录跑 `./mvnw test`；改 SQL 时同时跑集成测试（它会真的执行所有 mapper）。
 - Git 提交信息建议：`feat(problem): 支持按标签筛选`、`fix(judge): 修复 Java 超时判定`。
@@ -258,7 +260,7 @@ Vite 开发服务器默认监听 `127.0.0.1:5173`，并把 `/api` 代理到 `IOJ
 | 无 refresh token | 7 天后需重新登录 | 增加 refresh token + 轮换 |
 | 无提交频率限制 | 恶意用户可以刷提交 | 每用户每分钟限 N 次（Redis 或 DB 计数） |
 | 无比赛/榜单 | 只能练题 | 新增 contest 相关表与聚合查询 |
-| 判题 Agent 使用 Isolate 沙箱 | 需要安装与授权（不在 `isolate` 组则无法执行） | 按 06-isolate.md 配置；server 不执行判题，Agent 本地开发/测试可用 `engine=local` |
+| 判题 Agent 使用 Isolate 沙箱 | 需要安装与授权（不在 `isolate` 组则无法执行） | 按 06-isolate.md 配置；server 不执行判题，Agent 没有无沙箱回退 |
 | 计数冗余字段 | 极端并发下可能略有偏差 | 定时对账任务修正 `submit_count` / `accepted_count` |
 | 无审计日志 | 管理员操作不可追溯 | 增加 `admin_audit_logs` |
 

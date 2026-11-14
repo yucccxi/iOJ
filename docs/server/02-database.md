@@ -131,7 +131,7 @@ erDiagram
 
 `checker_code` 的几条约定：
 
-- 判题器是**出题者上传的 C++ 源码**，判题时在沙箱里用 `g++` 编译后逐测试点运行（见 `03-judge.md` §10）。
+- 判题器是**出题者上传的 C++ 源码**，判题时在 Isolate 沙箱里用 `g++` 编译后逐测试点运行（见 `03-judge.md` §9）。
 - 判题器的时限与内存**不在数据库里**，而由运行判题器的进程配置：远程判题使用 Agent 本地 `ioj.judge.checker.*`，主服务器只下发 checker 源码和引导开关。原因是判题器需要的内存通常比选手程序大一个量级，而“某道题需要更久的判题器”这种需求在俱乐部规模下可以直接整体调大。
 - 该列**不会**出现在 `ProblemMapper.findById` 的查询里：公开的 `GET /problems/{id}` 与判题取数是两条不同的查询，避免判题逻辑通过公开接口泄漏。列表接口同样不返回，详情接口只返回 `hasChecker` 布尔值。
 - 修改判题器走独立端点 `PUT /problems/{id}/checker`，**不并入** `PUT /problems/{id}`：后者是整体替换，客户端漏传一次就会静默退回内置比对。
@@ -190,7 +190,7 @@ erDiagram
 | code | MEDIUMTEXT | NOT NULL | 源代码（≤ 64 KB，服务层校验） |
 | status | VARCHAR(24) | NOT NULL DEFAULT 'PENDING' | 判题状态 |
 | time_used_ms | INT | NULL | 已执行测试点的最大耗时 |
-| memory_used_kb | INT | NULL | 内存峰值（Agent 的 Isolate 引擎写入 `cg-mem`；Agent 的 local 回退模式下为 null，见 03-judge.md） |
+| memory_used_kb | INT | NULL | 内存峰值（Agent 从 Isolate meta 的 `cg-mem` 写入；meta 未提供该字段时为 `null`，见 03-judge.md） |
 | compile_message | MEDIUMTEXT | NULL | 编译错误输出 |
 | judge_message | TEXT | NULL | 系统错误信息，含判题器编译失败时的编译器输出；不含测试数据 |
 | judge_key_id | BIGINT | FK → judge_keys.id, SET NULL | 领取任务的 Agent key；用于审计和历史 |
@@ -218,7 +218,7 @@ erDiagram
 
 ### 4.9 external_problems —— 外部 OJ 题目（仅元数据）
 
-只存“指路牌”：题名、scope、难度分、链接，以及原站的提交/通过次数。**不存题面、不存测试数据、不参与本机判题**，所以 `submit_count` / `accepted_count` 由导入或管理员维护，
+只存“指路牌”：题名、scope、难度分、链接，以及原站的提交/通过次数。**不存题面、不存测试数据、不参与判题**，所以 `submit_count` / `accepted_count` 由导入或管理员维护，
 本站不会因为有人提交而加 1。
 
 | 字段 | 类型 | 约束 | 说明 |

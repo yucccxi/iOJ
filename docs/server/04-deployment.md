@@ -12,7 +12,7 @@
 | MySQL | 8.0+ | 主服务器使用；必须支持 `FOR UPDATE`、`utf8mb4` |
 | Maven | 3.9+（或用仓库自带 `./mvnw`） | 构建 |
 | 判题工具链 | `g++`（C++17）、`gcc`（C11）、`python3` | **仅判题机**按需要的语言安装 |
-| 判题沙箱 | Isolate | **仅判题机**：`isolate.service` 运行中，Agent 用户可执行 `/usr/bin/isolate` |
+| 判题沙箱 | Isolate | **仅判题机，必需**：`isolate.service` 运行中，Agent 用户可执行 `/usr/bin/isolate`；Agent 没有无沙箱回退 |
 | 系统 | Linux | 主服务器可用 Linux；判题机依赖 cgroup v2、`/bin/bash` |
 
 ```bash
@@ -24,6 +24,8 @@ isolate --check-config
 ```
 
 > 如果发行版仓库没有 `isolate` 包，按 [Isolate 沙箱运维](06-isolate.md) 添加官方仓库或从源码安装。
+
+> Isolate 是判题 Agent 的必需依赖。Agent 只提供 Isolate 执行引擎，没有本机进程或无沙箱回退；`isolate` 不可执行时，Agent 会在启动自检或判题阶段失败。
 
 ## 2. 初始化数据库
 
@@ -81,7 +83,6 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_JUDGE_MAX_CLAIM_BATCH` | integer | 否 | `10` | 单次 claim 最多返回任务数（服务端上限；Agent 默认申请 `1`） |
 | `IOJ_JUDGE_INLINE_MAX_BYTES` | integer | 否 | `1048576` | 测试数据总字节数超过该值时改用 ZIP bundle 下载 |
 | `IOJ_JUDGE_CHECKER_ENABLED` | boolean | 否 | `true` | 主服务器是否在 bootstrap 中声明 checker 可用并下发 checker 探针命令；**不控制远程 Agent 是否执行 checker** |
-| `ioj.datasource-check.enabled`（YAML） | boolean | 否 | `true` | 启动时做一次数据库连通性自检；失败会打印实际生效的 URL/用户名并终止启动 |
 | `IOJ_MAIL_HOST` / `IOJ_MAIL_PORT` | string / integer | 启用邮箱验证时是 | `smtp.localhost.invalid` / `25` | SMTP 服务器；默认值来自受跟踪配置，生产环境必须覆盖 |
 | `IOJ_MAIL_USERNAME` / `IOJ_MAIL_PASSWORD` | string | 视 SMTP 服务而定 | 空 | SMTP 认证信息 |
 | `IOJ_MAIL_SMTP_AUTH` / `IOJ_MAIL_SSL` / `IOJ_MAIL_STARTTLS` | boolean | 否 | `false` / `false` / `false` | 加密与认证开关：465 用 SSL，587 用 STARTTLS |
@@ -98,6 +99,8 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_CAPTCHA_CODE_LENGTH` | integer | 否 | `5` | 图片字符数 |
 | `IOJ_CAPTCHA_ISSUE_PER_MINUTE_PER_IP` / `IOJ_CAPTCHA_ISSUE_PER_HOUR_PER_IP` | integer | 否 | `60` / `600` | 单 IP 申请图形验证码的分钟/小时上限 |
 | `IOJ_CAPTCHA_CLEANUP_RETENTION_HOURS` | integer | 否 | `24` | 过期图形验证码保留时间 |
+
+`ioj.datasource-check.enabled` 是 YAML 键（默认 `true`），不是环境变量；启动自检失败会打印实际生效的 URL/用户名并终止启动。
 
 `ioj.judge.languages` 不是单个环境变量，而是在 `server/src/main/resources/application.yaml` 中按语言配置的命令快照；修改后重启 server，Agent 在下一次 claim 时接收新快照。
 
@@ -122,6 +125,8 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_JUDGE_CHECKER_ENABLED` | boolean | 否 | `true` | **Agent 本地实际执行 checker 的开关**；`false` 时带 checker 的题目返回 `CHECKER_ERROR` |
 
 Agent 的语言列表和语言命令不来自本地配置：启动时从主服务器拉取 `requiredLanguages`、`languages` 和 `probeCommands`，全部探测通过后才开始 claim。
+
+Agent 的 YAML 顶层判题参数是 `ioj.judge.max-output-bytes`、`ioj.judge.max-compile-output-bytes`、`ioj.judge.isolate.*` 和 `ioj.judge.checker.*`。判题器编译超时只由 `ioj.judge.checker.compile-timeout-ms` 配置，Agent 没有外层编译超时参数。
 
 ### 3.3 判题器配置归属
 
@@ -521,7 +526,7 @@ cd server && ./mvnw spring-boot:run
 
 ```text
 2) IntelliJ IDEA：Run/Debug Configurations → Environment variables
-   分号分隔，等号两边不得空格：
+   分号分隔，等号两边不得有空格：
    IOJ_DB_HOST=localhost;IOJ_DB_NAME=ioj;IOJ_DB_USER=<db-user>;IOJ_DB_PASSWORD=<db-password>;IOJ_JWT_SECRET=...
 ```
 

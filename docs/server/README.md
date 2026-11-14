@@ -61,7 +61,7 @@ iOJ/
 - Linux（Debian/Ubuntu），cgroup v2，内核 ≥ 5.19
 - JDK 21（运行 Agent，也是 Java 评测工具链）
 - `g++`（C++17）、`gcc`（C11）、`python3`（按启用的语言安装）
-- Isolate 沙箱：`isolate.service` 运行中，运行 Agent 的用户能执行 `/usr/bin/isolate`
+- Isolate 沙箱（必需）：`isolate.service` 运行中，运行 Agent 的用户能执行 `/usr/bin/isolate`；Agent 只支持 Isolate 执行
 - 能出站访问主服务器的内部 API
 
 安装与授权示例（Debian，详见 [Isolate 沙箱运维](06-isolate.md)）：
@@ -158,7 +158,7 @@ curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
 
 - 每个 Spring 上下文使用独立 H2 内存库，启动时执行 `db/schema.sql`。
 - `ioj.email-code.enabled=false`、`ioj.captcha.enabled=false`，注册与登录流程不需要邮件/图形验证码；相关测试类单独打开开关并注入假发送器。
-- server 测试不配置本地判题引擎，提交后只断言 `PENDING` 和接口行为；远程协议由 `DistributedJudgeIntegrationTest` 覆盖，实际执行由 `judge-core` / `judge-agent` 测试覆盖。
+- server 测试不启动判题执行，提交后只断言 `PENDING` 和接口行为；远程协议由 `DistributedJudgeIntegrationTest` 覆盖，执行覆盖集中在 `judge-core` 的 Isolate 单元测试和 `judge-agent` 测试。
 - `./mvnw -pl server -am test` 不需要本机安装 `javac`、`g++` 或 Isolate。
 
 主要测试类：
