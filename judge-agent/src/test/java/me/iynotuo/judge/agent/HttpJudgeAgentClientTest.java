@@ -16,11 +16,14 @@ import me.iynotuo.judge.protocol.Language;
 import me.iynotuo.judge.protocol.ProtocolVersion;
 import me.iynotuo.judge.protocol.SubmissionStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.ByteArrayOutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,6 +38,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class HttpJudgeAgentClientTest {
 
     private final JsonMapper json = JsonMapper.builder().build();
+
+    @TempDir
+    Path tempDir;
 
     @Test
     void claimsAndReportsThroughInternalApi() throws Exception {
@@ -141,6 +147,11 @@ class HttpJudgeAgentClientTest {
             List<JudgeTestCase> testcases = client.fetchTestcases(1L, "claim-token");
             assertThat(testcases).hasSize(1);
             assertThat(testcases.get(0).input()).isEqualTo("1 2\n");
+
+            Path downloaded = tempDir.resolve("bundle.zip");
+            client.downloadTestcaseBundle(1L, "claim-token", downloaded);
+            assertThat(Files.size(downloaded)).isPositive();
+            assertThat(TestcaseZipReader.read(downloaded, json)).hasSize(1);
         } finally {
             server.stop(0);
         }
@@ -158,6 +169,7 @@ class HttpJudgeAgentClientTest {
         return new JudgeTask(
                 1L,
                 1L,
+                42L,
                 "claim-token",
                 300,
                 Language.JAVA,

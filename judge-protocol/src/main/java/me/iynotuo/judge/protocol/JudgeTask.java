@@ -11,6 +11,7 @@ import java.util.List;
  *
  * @param taskId             submission id used as the task id in the current implementation
  * @param submissionId       submission being judged
+ * @param problemId          problem whose test data is used; database id
  * @param claimToken         fencing token that must be sent back with heartbeats and the result
  * @param leaseSeconds       how long the claim is valid without a heartbeat
  * @param language           language selected for the submission
@@ -22,10 +23,11 @@ import java.util.List;
  * @param testcases          inline test cases; empty when a bundle is used
  * @param testcaseBundleUrl  relative or absolute URL of a ZIP test case bundle containing
  *                           {@code testcases.json}
- * @param bundleSha256       SHA-256 of the bundle, or {@code null} when the server does not provide one
+ * @param bundleSha256       SHA-256 of the ZIP bundle, or {@code null} when no bundle is used
  */
 public record JudgeTask(Long taskId,
                         Long submissionId,
+                        Long problemId,
                         String claimToken,
                         int leaseSeconds,
                         Language language,

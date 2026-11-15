@@ -24,6 +24,10 @@ ioj:
     config-fetch-retry-delay-ms: ${IOJ_JUDGE_CONFIG_FETCH_RETRY_DELAY_MS:2000}
     probe-timeout-ms: ${IOJ_JUDGE_PROBE_TIMEOUT_MS:5000}
     version: ${IOJ_JUDGE_AGENT_VERSION:0.0.1}
+    testcase-cache:
+      enabled: ${IOJ_TESTCASE_CACHE_ENABLED:true}
+      directory: ${IOJ_TESTCASE_CACHE_DIR:./cache/testcases}
+      max-bytes: ${IOJ_TESTCASE_CACHE_MAX_BYTES:2147483648}
 
   judge:
     # Language source-file/compile-command/run-command come from the main server in each claim.

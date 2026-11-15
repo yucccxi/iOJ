@@ -14,7 +14,9 @@ import me.iynotuo.judge.protocol.Language;
 import me.iynotuo.judge.protocol.ProtocolVersion;
 import me.iynotuo.judge.protocol.SubmissionStatus;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -42,6 +44,7 @@ class AgentRunnerTest {
         properties.setMaxClaimBatch(1);
         properties.setPollIntervalMs(10);
         properties.setMaxPollIntervalMs(20);
+        properties.getTestcaseCache().setEnabled(false);
 
         JudgeBootstrapConfig config = new JudgeBootstrapConfig(
                 ProtocolVersion.CURRENT, "test-config", List.of(Language.JAVA),
@@ -51,7 +54,8 @@ class AgentRunnerTest {
         JudgeEngine engine = context -> new JudgeOutcome(SubmissionStatus.ACCEPTED, null, null,
                 List.of(new JudgeOutcome.CaseResult(1, SubmissionStatus.ACCEPTED, 1, 1024, null)),
                 1, 1024);
-        AgentRunner runner = new AgentRunner(properties, client, new AgentTaskMapper(), engine, bootstrap);
+        AgentRunner runner = new AgentRunner(properties, client, new AgentTaskMapper(),
+                new TestcaseCache(properties, client, JsonMapper.builder().build()), engine, bootstrap);
         try {
             runner.start();
             assertThat(reported.await(5, TimeUnit.SECONDS)).isTrue();
@@ -78,6 +82,7 @@ class AgentRunnerTest {
         properties.setMaxClaimBatch(1);
         properties.setPollIntervalMs(10);
         properties.setMaxPollIntervalMs(20);
+        properties.getTestcaseCache().setEnabled(false);
 
         JudgeBootstrapConfig config = new JudgeBootstrapConfig(
                 ProtocolVersion.CURRENT, "test-config", List.of(Language.JAVA),
@@ -95,7 +100,8 @@ class AgentRunnerTest {
                     1, 1024);
         };
 
-        AgentRunner runner = new AgentRunner(properties, client, new AgentTaskMapper(), engine, bootstrap);
+        AgentRunner runner = new AgentRunner(properties, client, new AgentTaskMapper(),
+                new TestcaseCache(properties, client, JsonMapper.builder().build()), engine, bootstrap);
         try {
             runner.start();
             assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
@@ -118,6 +124,7 @@ class AgentRunnerTest {
         return new JudgeTask(
                 1L,
                 1L,
+                42L,
                 "claim-token",
                 leaseSeconds,
                 Language.JAVA,
@@ -164,6 +171,11 @@ class AgentRunnerTest {
         @Override
         public List<JudgeTestCase> fetchTestcases(Long taskId, String claimToken) {
             return task.testcases();
+        }
+
+        @Override
+        public void downloadTestcaseBundle(Long taskId, String claimToken, Path target) {
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -215,6 +227,11 @@ class AgentRunnerTest {
         @Override
         public List<JudgeTestCase> fetchTestcases(Long taskId, String claimToken) {
             return task.testcases();
+        }
+
+        @Override
+        public void downloadTestcaseBundle(Long taskId, String claimToken, Path target) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

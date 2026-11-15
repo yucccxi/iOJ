@@ -16,7 +16,9 @@ import tools.jackson.databind.JsonNode;
 
 import java.io.ByteArrayInputStream;
 import java.net.http.HttpResponse;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -101,8 +103,11 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         String claimToken = task.path("claimToken").asString();
         assertThat(claimToken).isNotBlank();
         assertThat(task.path("submissionId").asLong()).isEqualTo(submissionId);
+        assertThat(task.path("problemId").asLong()).isEqualTo(problemId);
         assertThat(task.path("testcases").size()).isZero();
         assertThat(task.path("testcaseBundleUrl").asString()).contains("/testcases");
+        String bundleSha256 = task.path("bundleSha256").asString();
+        assertThat(bundleSha256).matches("[0-9a-f]{64}");
 
         // The bundle endpoint always returns ZIP with one testcases.json entry.
         HttpResponse<byte[]> zipResponse = client.send(request("/internal/judge/tasks/" + submissionId
@@ -113,6 +118,9 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         assertThat(zipResponse.statusCode()).isEqualTo(200);
         assertThat(zipResponse.headers().firstValue("Content-Type").orElse(""))
                 .contains("application/zip");
+        String actualSha256 = HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(zipResponse.body()));
+        assertThat(actualSha256).isEqualTo(bundleSha256);
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(zipResponse.body()))) {
             ZipEntry entry = zip.getNextEntry();
             assertThat(entry).isNotNull();

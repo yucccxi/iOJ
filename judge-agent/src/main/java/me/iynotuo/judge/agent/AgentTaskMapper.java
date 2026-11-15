@@ -41,7 +41,7 @@ public class AgentTaskMapper {
         JudgeProperties.LanguageConfig language = toLanguageConfig(task.languageConfig());
         return new JudgeContext(
                 new JudgeSubmission(task.submissionId(), task.code(), task.language()),
-                new JudgeProblem(task.submissionId(), task.timeLimitMs(), task.memoryLimitMb()),
+                new JudgeProblem(task.problemId(), task.timeLimitMs(), task.memoryLimitMb()),
                 judgeTestcases,
                 language,
                 task.checkerCode());

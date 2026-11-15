@@ -46,6 +46,7 @@ public class AgentRunner {
     private final AgentProperties properties;
     private final JudgeAgentClient client;
     private final AgentTaskMapper taskMapper;
+    private final TestcaseCache testcaseCache;
     private final JudgeEngine judgeEngine;
     private final AgentBootstrap bootstrap;
     private final Semaphore slots;
@@ -66,11 +67,13 @@ public class AgentRunner {
     public AgentRunner(AgentProperties properties,
                        JudgeAgentClient client,
                        AgentTaskMapper taskMapper,
+                       TestcaseCache testcaseCache,
                        JudgeEngine judgeEngine,
                        AgentBootstrap bootstrap) {
         this.properties = properties;
         this.client = client;
         this.taskMapper = taskMapper;
+        this.testcaseCache = testcaseCache;
         this.judgeEngine = judgeEngine;
         this.bootstrap = bootstrap;
         this.nodeHeartbeatIntervalMs = Math.max(MIN_HEARTBEAT_INTERVAL_MS,
@@ -190,7 +193,7 @@ public class AgentRunner {
             }
             List<JudgeTestCase> testcases = task.testcases();
             if (testcases.isEmpty() && task.testcaseBundleUrl() != null) {
-                testcases = client.fetchTestcases(task.taskId(), task.claimToken());
+                testcases = testcaseCache.loadOrFetch(task);
             }
             JudgeOutcome outcome = judgeEngine.judge(taskMapper.toContext(task, testcases));
             if (cancelledTasks.remove(task.taskId())) {

@@ -7,6 +7,10 @@ import tools.jackson.databind.json.JsonMapper;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -57,5 +61,29 @@ public class JudgeTestcaseBundleWriter {
         zip.closeEntry();
         zip.finish();
         zip.flush();
+    }
+
+    /**
+     * Computes the SHA-256 of the ZIP archive that {@link #write(OutputStream, List)} produces.
+     *
+     * <p>The ZIP entry timestamp is fixed, so the same test data always produces the same bytes and
+     * therefore the same hash. Agents use this value to decide whether their cached bundle is still
+     * current.</p>
+     *
+     * @param testcases test cases to serialize
+     * @return the lower-case hex SHA-256 of the ZIP bundle
+     * @throws IOException when the archive cannot be written
+     */
+    public String sha256(List<JudgeTestCase> testcases) throws IOException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is not available", ex);
+        }
+        try (DigestOutputStream out = new DigestOutputStream(OutputStream.nullOutputStream(), digest)) {
+            write(out, testcases);
+        }
+        return HexFormat.of().formatHex(digest.digest());
     }
 }

@@ -77,4 +77,31 @@ public class AgentProperties {
      * Reported agent version; useful when several agents are upgraded at different times.
      */
     private String version = "0.0.1";
+
+    /**
+     * Downloaded test data cache. Cached bundles live under
+     * {@code directory/problemId/bundle.zip} with a sibling {@code bundle.sha256}.
+     */
+    private TestcaseCache testcaseCache = new TestcaseCache();
+
+    @Getter
+    @Setter
+    public static class TestcaseCache {
+
+        /**
+         * Whether downloaded bundles are cached on disk.
+         */
+        private boolean enabled = true;
+
+        /**
+         * Cache root, resolved against the agent working directory when relative.
+         */
+        private String directory = "./cache/testcases";
+
+        /**
+         * Maximum total size of cached bundles in bytes. Zero or negative means unlimited. A single
+         * bundle larger than this limit is still kept so the task can be judged.
+         */
+        private long maxBytes = 2L * 1024 * 1024 * 1024;
+    }
 }

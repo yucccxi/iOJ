@@ -13,6 +13,7 @@ import me.iynotuo.judge.protocol.Language;
 import me.iynotuo.judge.protocol.ProtocolVersion;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -126,6 +127,11 @@ class AgentBootstrapTest {
         @Override
         public List<JudgeTestCase> fetchTestcases(Long taskId, String claimToken) {
             return List.of();
+        }
+
+        @Override
+        public void downloadTestcaseBundle(Long taskId, String claimToken, Path target) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

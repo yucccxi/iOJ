@@ -23,6 +23,7 @@ class JudgeProtocolTest {
         JudgeTask task = new JudgeTask(
                 500L,
                 500L,
+                42L,
                 "claim-token",
                 300,
                 Language.JAVA,

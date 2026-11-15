@@ -13,9 +13,10 @@ public final class ProtocolVersion {
      * Current protocol version. Bump it when a change is not backward compatible.
      *
      * <p>Version 2 requires test data bundles to be ZIP archives; the legacy JSON bundle fallback
-     * was removed.</p>
+     * was removed. Version 3 adds the problem id to every task and the SHA-256 of the ZIP bundle so
+     * agents can cache test data.</p>
      */
-    public static final int CURRENT = 2;
+    public static final int CURRENT = 3;
 
     private ProtocolVersion() {
     }

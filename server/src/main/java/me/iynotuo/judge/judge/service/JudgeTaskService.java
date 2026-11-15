@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -41,19 +42,22 @@ public class JudgeTaskService {
     private final ServerJudgeProperties judgeProperties;
     private final JudgeKeyService judgeKeyService;
     private final JudgeNodeService judgeNodeService;
+    private final JudgeTestcaseBundleWriter testcaseBundleWriter;
 
     public JudgeTaskService(SubmissionMapper submissionMapper,
                             ProblemMapper problemMapper,
                             ProblemTestcaseMapper testcaseMapper,
                             ServerJudgeProperties judgeProperties,
                             JudgeKeyService judgeKeyService,
-                            JudgeNodeService judgeNodeService) {
+                            JudgeNodeService judgeNodeService,
+                            JudgeTestcaseBundleWriter testcaseBundleWriter) {
         this.submissionMapper = submissionMapper;
         this.problemMapper = problemMapper;
         this.testcaseMapper = testcaseMapper;
         this.judgeProperties = judgeProperties;
         this.judgeKeyService = judgeKeyService;
         this.judgeNodeService = judgeNodeService;
+        this.testcaseBundleWriter = testcaseBundleWriter;
     }
 
     /**
@@ -147,15 +151,24 @@ public class JudgeTaskService {
             return null;
         }
         String checkerCode = problemMapper.findCheckerCode(problem.getId());
-        long testcaseBytes = testcases.stream()
-                .mapToLong(testcase -> utf8Length(testcase.getInputData()) + utf8Length(testcase.getOutputData()))
-                .sum();
-        boolean bundle = testcaseBytes > Math.max(0, judgeProperties.getDispatch().getInlineMaxBytes());
-        List<JudgeTestCase> judgeTestcases = bundle ? List.of() : testcases.stream()
+        List<JudgeTestCase> allTestcases = testcases.stream()
                 .map(testcase -> new JudgeTestCase(testcase.getOrdinal(),
                         testcase.getInputData(), testcase.getOutputData()))
                 .toList();
+        long testcaseBytes = allTestcases.stream()
+                .mapToLong(testcase -> utf8Length(testcase.input()) + utf8Length(testcase.output()))
+                .sum();
+        boolean bundle = testcaseBytes > Math.max(0, judgeProperties.getDispatch().getInlineMaxBytes());
+        List<JudgeTestCase> judgeTestcases = bundle ? List.of() : allTestcases;
         String bundleUrl = bundle ? "/internal/judge/tasks/" + submission.getId() + "/testcases" : null;
+        String bundleSha256 = null;
+        if (bundle) {
+            try {
+                bundleSha256 = testcaseBundleWriter.sha256(allTestcases);
+            } catch (IOException ex) {
+                throw new IllegalStateException("无法计算测试数据 bundle 哈希", ex);
+            }
+        }
         JudgeLanguageConfig languageConfig = new JudgeLanguageConfig(
                 language.getSourceFile(),
                 language.getCompileCommand(),
@@ -169,6 +182,7 @@ public class JudgeTaskService {
         return new JudgeTask(
                 submission.getId(),
                 submission.getId(),
+                problem.getId(),
                 claimToken,
                 leaseSeconds,
                 submission.getLanguage(),
@@ -179,7 +193,7 @@ public class JudgeTaskService {
                 checkerCode,
                 judgeTestcases,
                 bundleUrl,
-                null);
+                bundleSha256);
     }
 
     /**

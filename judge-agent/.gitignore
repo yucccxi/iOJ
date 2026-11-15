@@ -1,2 +1,3 @@
 src/main/resources/application-template.yml
 src/main/resources/application-test.yml
+/cache/

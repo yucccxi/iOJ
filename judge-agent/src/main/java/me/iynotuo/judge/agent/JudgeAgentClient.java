@@ -9,6 +9,7 @@ import me.iynotuo.judge.protocol.JudgeTask;
 import me.iynotuo.judge.protocol.JudgeTestCase;
 import me.iynotuo.judge.protocol.Language;
 
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -24,6 +25,11 @@ public interface JudgeAgentClient {
      * Downloads test data when a task was claimed in bundle mode.
      */
     List<JudgeTestCase> fetchTestcases(Long taskId, String claimToken);
+
+    /**
+     * Downloads the raw ZIP bundle to {@code target}, replacing an existing file.
+     */
+    void downloadTestcaseBundle(Long taskId, String claimToken, Path target);
 
     JudgeNodeHeartbeatResponse heartbeatNode(JudgeNodeInfo info);
 

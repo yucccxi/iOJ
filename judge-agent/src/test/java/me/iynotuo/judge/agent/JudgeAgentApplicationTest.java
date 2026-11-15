@@ -78,6 +78,12 @@ class JudgeAgentApplicationTest {
                 }
 
                 @Override
+                public void downloadTestcaseBundle(Long taskId, String claimToken,
+                                                   java.nio.file.Path target) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
                 public JudgeNodeHeartbeatResponse heartbeatNode(JudgeNodeInfo info) {
                     return new JudgeNodeHeartbeatResponse(90);
                 }

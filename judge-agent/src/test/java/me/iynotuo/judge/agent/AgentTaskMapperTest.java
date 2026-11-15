@@ -28,6 +28,7 @@ class AgentTaskMapperTest {
 
         assertThat(context.submission().id()).isEqualTo(500L);
         assertThat(context.submission().language()).isEqualTo(Language.JAVA);
+        assertThat(context.problem().id()).isEqualTo(42L);
         assertThat(context.problem().timeLimitMs()).isEqualTo(1000);
         assertThat(context.problem().memoryLimitMb()).isEqualTo(256);
         assertThat(context.testcases()).hasSize(1);
@@ -55,6 +56,7 @@ class AgentTaskMapperTest {
         return new JudgeTask(
                 500L,
                 500L,
+                42L,
                 "claim-token",
                 300,
                 Language.JAVA,
