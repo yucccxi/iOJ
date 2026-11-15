@@ -1,6 +1,7 @@
 .DS_Store
 .idea/
-test-client
+
+AGENTS.md
 
 # clist.by sync script: local credentials, incremental state and virtualenv
 scripts/.env

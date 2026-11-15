@@ -1,0 +1,21 @@
+{
+  "name": "ioj-test-client",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5.45",
+    "vue-router": "^4.6.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.11",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.8",
+    "vue-tsc": "^3.3.14"
+  }
+}
