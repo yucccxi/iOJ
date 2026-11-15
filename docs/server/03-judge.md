@@ -77,6 +77,7 @@ judge-core/
 
 judge-agent/
 ├── AgentRunner / AgentTaskMapper
+├── TestcaseCache / TestcaseZipReader
 ├── HttpJudgeAgentClient
 └── AgentProperties
 
@@ -114,10 +115,11 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 
 - `claim_token` 是 fencing token；结果写入时同时校验 token 和 `JUDGING` 状态。
 - 主服务器没有本地判题回退：Agent 不在线或没有可用 Agent 时，提交保持 `PENDING`，不会在 server 上执行。
-- Agent 启动时先拉取 `/internal/judge/config`，按 `requiredLanguages` 的 `probeCommands` 校验本机工具链；缺任何语言就拒绝启动，不会先发心跳或 claim。
+- Agent 启动时先拉取 `/internal/judge/config`，校验 `protocolVersion` 与 `ProtocolVersion.CURRENT`（当前 `3`）一致，再按 `requiredLanguages` 的 `probeCommands` 校验本机工具链；任一项失败都会拒绝启动，不会先发心跳或 claim。
 - 测试数据总量不超过 `ioj.judge.dispatch.inline-max-bytes`（默认 1 MiB）时直接内联在 claim 响应；超过时返回 `testcaseBundleUrl`，Agent 用同一个 `claimToken` 通过 GET 下载 ZIP bundle。
 - ZIP bundle 只有一个 `testcases.json` 条目。Agent 发送 `Accept: application/zip`，服务端始终返回 ZIP；不再提供 JSON bundle 兼容格式。
-- `bundleSha256` 字段已预留但当前 ZIP 响应暂不填充；ZIP/DEFLATE 自带 CRC32，可用于发现传输损坏。
+- 当前内部协议版本为 `3`。v3 起 `JudgeTask` 包含 `problemId` 和 `bundleSha256`：`problemId` 是题目数据库 id，Agent 用它在本地按题缓存测试数据；`bundleSha256` 是服务端生成 ZIP 的 SHA-256，内联模式为 `null`。
+- 服务端固定 ZIP 条目的时间戳，因此同样测试数据总是生成相同字节和相同 `bundleSha256`。Agent 在本地缓存缺失、哈希文件不一致或 ZIP 解析失败时重新下载；缓存关闭或哈希不可用时直接下载。下载后必须校验哈希，缓存目录、LRU 和权限见 [判题 Agent 部署与运维 §5](07-judge-agent.md#5-配置)。
 - 任务租约由主服务器 `ioj.judge.dispatch.lease-seconds` 决定；Agent 任务心跳间隔为租约的 `1/3`。
 - 租约边界采用半开区间：`lease_expires_at > now` 时仍有效，`lease_expires_at <= now` 时回收器可以处理；心跳在等号时返回 `cancel=true`。
 - 节点离线阈值由主服务器 `ioj.judge.dispatch.node-offline-seconds` 决定；Agent 启动后立即发一次节点心跳，之后按该值的 `1/3` 调度；拿到响应前先使用本地默认间隔。
@@ -129,7 +131,8 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 
 ```text
 AgentRunner.execute(task)
-├── AgentTaskMapper.toContext(task)
+├── TestcaseCache.loadOrFetch(task)（bundle 模式；命中缓存或下载并校验 bundleSha256）
+├── AgentTaskMapper.toContext(task, testcases)
 ├── IsolateJudgeEngine.judge(context)
 │   ├── 从 box-id 池取一个编号，创建临时工作目录
 │   ├── 判题器准备（仅当题目带 checker_code 且 Agent 本地 checker.enabled=true）
@@ -290,6 +293,7 @@ AgentRunner.execute(task)
 ## 8. 可观测性
 
 - 远程判题完成日志：`远程判题完成 submissionId=... status=... keyId=... nodeId=...`。
+- 缓存日志：`测试数据已缓存 problemId=... sha256=...`、`测试数据缓存命中`（debug）、`淘汰测试数据缓存 problemId=...`；目录不可用时打印 `测试数据缓存不可用，将直接下载`。
 - 沙箱清理失败会打印 `isolate --cleanup failed for box ...`，需要关注是否有残留 box。
 - 建议采集：待判队列长度、各状态占比、判题耗时 P95、`cg-mem` 分布、Isolate 内部错误（`status=XX`）次数。
 - 首次上线前用已知程序验证：正常 AC、死循环（TLE）、越界（RE）、超量输出（OLE）、内存压力（MLE），确认分类符合预期。

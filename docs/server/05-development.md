@@ -26,6 +26,7 @@ iOJ/                         # 父 POM，聚合 judge-protocol / judge-core / ju
 │   └── engine               JudgeEngine（接口）/ IsolateJudgeEngine
 ├── judge-agent/             # 独立判题进程
 │   ├── AgentRunner / AgentTaskMapper / AgentProperties
+│   ├── TestcaseCache / TestcaseZipReader
 │   └── HttpJudgeAgentClient
 └── server/                  # Web API + 数据库 + 调度
     └── me.iynotuo.judge
@@ -174,6 +175,7 @@ ioj:
 | `AgentTaskMapperTest` | 位于 `judge-agent`：协议任务 → JudgeContext、JudgeOutcome → JudgeResult |
 | `AgentBootstrapTest` | 位于 `judge-agent`：启动配置拉取、协议校验、工具链探测、缺失语言拒绝启动 |
 | `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、ZIP bundle 解析、任务心跳间隔、claim → 执行 → 回报循环 |
+| `TestcaseCacheTest` | 位于 `judge-agent`：缓存命中、哈希变化重下、LRU 淘汰、哈希不一致拒绝、损坏缓存重下、禁用缓存直接下载 |
 | `JudgeAgentApplicationTest` | 位于 `judge-agent`：Spring 上下文、配置绑定和 Agent Bean 装配 |
 | `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→匿名列表→提交 Java 代码→验证提交保持 `PENDING`→权限裁剪；不执行本地判题 |
 | `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、ZIP bundle 下载、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收；覆盖 server 远程协议 |

@@ -135,8 +135,9 @@ sequenceDiagram
 ```
 
 - **租约抢占**：agent 领取任务时写入 `claim_token` 和 `lease_expires_at`，只有持有当前 token 的 agent 能续租或回报结果。
-- **启动校验**：Agent 先拉取 `/internal/judge/config`，按 `probeCommands` 校验全部 `requiredLanguages`；缺任何语言就拒绝启动，不会先发心跳或 claim。
+- **启动校验**：Agent 先拉取 `/internal/judge/config`，校验 `protocolVersion`（当前 `3`），再按 `probeCommands` 校验全部 `requiredLanguages`；任一失败就拒绝启动，不会先发心跳或 claim。
 - **短事务**：领取和结果落库都是短事务；判题过程不持有数据库连接。
+- **测试数据缓存**：Agent 按 `problemId` 缓存 ZIP bundle，用 claim 下发的 `bundleSha256` 判断是否失效；主服务器不主动推送缓存失效通知。
 - **过期回收**：`JudgeLeaseReaper` 把过期租约重新变回 `PENDING`；超过最大尝试次数后判 `SYSTEM_ERROR`。
 - **幂等**：同一 `claim_token` 的重复结果返回成功但不重复写；不同 token 的迟到结果返回 `409`。
 - **fail-fast**：某个测试点失败后不再执行后续测试点，节省机器资源。

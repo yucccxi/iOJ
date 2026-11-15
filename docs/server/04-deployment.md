@@ -120,11 +120,16 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_JUDGE_CONFIG_FETCH_RETRIES` / `IOJ_JUDGE_CONFIG_FETCH_RETRY_DELAY_MS` | integer | 否 | `5` / `2000` | 启动配置拉取重试次数与间隔 |
 | `IOJ_JUDGE_PROBE_TIMEOUT_MS` | integer | 否 | `5000` | 单条工具链探测超时 |
 | `IOJ_JUDGE_AGENT_VERSION` | string | 否 | `0.0.1` | Agent 上报的版本号 |
+| `IOJ_TESTCASE_CACHE_ENABLED` | boolean | 否 | `true` | 是否启用测试数据缓存；关闭后每个 bundle 任务都直接下载 |
+| `IOJ_TESTCASE_CACHE_DIR` | string | 否 | `./cache/testcases` | 缓存根目录；相对路径按 Agent 工作目录解析，生产建议指向持久化磁盘 |
+| `IOJ_TESTCASE_CACHE_MAX_BYTES` | integer | 否 | `2147483648` | 缓存 bundle 总大小上限（2 GiB）；`0` 或负数表示不限制；单题 bundle 超过上限时仍会保留 |
 | `IOJ_ISOLATE_BINARY` | string | 否 | `/usr/bin/isolate` | Isolate 可执行文件路径 |
 | `IOJ_ISOLATE_BOX_ID_START` / `IOJ_ISOLATE_BOX_ID_COUNT` | integer | 否 | `1` / `1` | Agent 本机 box 编号区间；`count` 必须不小于 Agent 并发数 |
 | `IOJ_JUDGE_CHECKER_ENABLED` | boolean | 否 | `true` | **Agent 本地实际执行 checker 的开关**；`false` 时带 checker 的题目返回 `CHECKER_ERROR` |
 
 Agent 的语言列表和语言命令不来自本地配置：启动时从主服务器拉取 `requiredLanguages`、`languages` 和 `probeCommands`，全部探测通过后才开始 claim。
+
+生产环境建议把 `IOJ_TESTCASE_CACHE_DIR` 指向持久化磁盘（例如 `/var/lib/ioj-agent/cache`），不要使用容器临时层或默认的相对目录；缓存布局、LRU 和权限见 [判题 Agent 部署与运维 §5](07-judge-agent.md#5-配置)。
 
 Agent 的 YAML 顶层判题参数是 `ioj.judge.max-output-bytes`、`ioj.judge.max-compile-output-bytes`、`ioj.judge.isolate.*` 和 `ioj.judge.checker.*`。判题器编译超时只由 `ioj.judge.checker.compile-timeout-ms` 配置，Agent 没有外层编译超时参数。
 
@@ -295,6 +300,7 @@ WantedBy=multi-user.target
 
 ```bash
 sudo install -m 0640 -o root -g judge /dev/null /etc/ioj/judge-agent.env
+sudo install -d -m 0700 -o judge -g judge /var/lib/ioj-agent/cache
 sudo editor /etc/ioj/judge-agent.env
 ```
 
@@ -303,6 +309,7 @@ IOJ_JUDGE_SERVER_URL=http://<server-internal-ip>:8080
 IOJ_JUDGE_KEY=<judge-key>
 IOJ_JUDGE_NODE_ID=judge-1
 IOJ_JUDGE_CONCURRENCY=2
+IOJ_TESTCASE_CACHE_DIR=/var/lib/ioj-agent/cache
 IOJ_ISOLATE_BOX_ID_START=1
 IOJ_ISOLATE_BOX_ID_COUNT=2
 ```
@@ -461,6 +468,8 @@ gunzip -c /backup/ioj-before-upgrade-<timestamp>.sql.gz | mysql -uioj -p'<db-pas
 ```
 
 > 恢复数据库会覆盖升级后产生的数据；只有在确认数据可以丢弃或已另行迁移时才能执行。升级顺序建议：若协议版本变更则不兼容旧 Agent，必须同时升级主服务器和 Agent；协议兼容时再按“主服务器兼容旧协议 → 逐台升级 Agent”的顺序。排障先看 `ProtocolVersion` 和发布说明。
+>
+> 当前协议版本为 `3`。旧 Agent 会在启动拉取配置时发现版本不匹配，以退出码 `78` 拒绝启动，不会领取任务；升级主服务器前先准备所有 Agent 的升级包。
 
 ### 9.1 CI 部署
 
@@ -484,6 +493,7 @@ gunzip -c /backup/ioj-before-upgrade-<timestamp>.sql.gz | mysql -uioj -p'<db-pas
 - [ ] 判题机已安装 Isolate，`isolate.service` 为 active，运行用户能执行 `isolate --version`，`isolate --check-config` 通过
 - [ ] Agent 配置的 `IOJ_JUDGE_SERVER_URL` 使用内网地址；公网 Nginx 未暴露 `/internal/judge/**`
 - [ ] Agent 配置的 key 只出现在环境变量/权限 0640（属主为运行用户）的配置文件中，没有写进仓库
+- [ ] `IOJ_TESTCASE_CACHE_DIR` 指向持久化磁盘，目录属主为运行 Agent 的用户且权限为 `0700`；`IOJ_TESTCASE_CACHE_MAX_BYTES` 符合磁盘容量
 - [ ] 同一台机器多个 Agent 的 `box-id-start/count` 已分段
 - [ ] Nginx 已开启 HTTPS；`client_max_body_size` 足够上传测试数据
 - [ ] 备份任务已配置并验证过一次恢复

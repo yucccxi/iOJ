@@ -24,7 +24,7 @@ iOJ/
 ├── pom.xml                 # 父 POM，聚合 judge-protocol / judge-core / judge-agent / server
 ├── judge-protocol/         # 主服务器与判题 Agent 共用的协议 DTO / 枚举
 ├── judge-core/             # 判题引擎、沙箱、输出比对、Special Judge
-├── judge-agent/            # 独立判题进程：claim、Isolate 执行、结果回报
+├── judge-agent/            # 独立判题进程：claim、测试数据缓存、Isolate 执行、结果回报
 ├── server/                 # 主服务器：REST API、数据库、调度
 ├── client/                 # 正式前端（React，开发中）
 ├── scripts/                # clist.by 外部题库同步脚本
@@ -194,6 +194,7 @@ curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
 - Agent 启动时拉取语言与探测命令，校验全部工具链后开始 claim；缺少任意语言会拒绝启动。
 - 任务通过 `claim_token` + `lease_expires_at` 租约归属；心跳续租，过期由 `JudgeLeaseReaper` 回收，超过最大尝试次数判 `SYSTEM_ERROR`。
 - 测试数据总量不超过 `inline-max-bytes` 时内联在 claim 响应；超过时通过 ZIP bundle 下载（唯一入口 `testcases.json`）。
+- bundle 模式由 Agent 按 `problemId` 缓存；claim 返回 `bundleSha256`，只有缓存缺失、哈希不一致或缓存无法解析时才重新下载，缓存总量按 LRU 受 `IOJ_TESTCASE_CACHE_MAX_BYTES` 限制。
 - 默认输出比对忽略行尾空格/Tab 与文末空行；题目带自定义 C++ 判题器时按退出码 0/1/2/其他判定。
 - 失败即停：某个测试点未通过后不再执行后续测试点，所以 `cases` 可能少于测试点总数。
 
