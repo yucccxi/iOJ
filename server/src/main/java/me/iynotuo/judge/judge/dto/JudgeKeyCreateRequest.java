@@ -2,6 +2,7 @@ package me.iynotuo.judge.judge.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 
@@ -12,6 +13,7 @@ public record JudgeKeyCreateRequest(
         @NotBlank(message = "key 名称不能为空")
         @Size(max = 128, message = "key 名称不能超过 128 字符")
         String name,
+        @Schema(nullable = true)
         LocalDateTime expiresAt
 ) {
 }

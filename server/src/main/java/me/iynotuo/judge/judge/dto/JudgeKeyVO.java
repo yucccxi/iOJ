@@ -1,5 +1,6 @@
 package me.iynotuo.judge.judge.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import me.iynotuo.judge.judge.entity.JudgeKey;
 
 import java.time.LocalDateTime;
@@ -11,8 +12,8 @@ public record JudgeKeyVO(Long id,
                          String name,
                          String prefix,
                          boolean enabled,
-                         LocalDateTime expiresAt,
-                         LocalDateTime lastUsedAt,
+                         @Schema(nullable = true) LocalDateTime expiresAt,
+                         @Schema(nullable = true) LocalDateTime lastUsedAt,
                          LocalDateTime createdAt) {
 
     public static JudgeKeyVO from(JudgeKey key) {

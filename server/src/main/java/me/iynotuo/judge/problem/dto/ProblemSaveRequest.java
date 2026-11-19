@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import io.swagger.v3.oas.annotations.media.Schema;
 import me.iynotuo.judge.common.enums.Difficulty;
 
 import java.util.List;
@@ -28,6 +29,7 @@ public record ProblemSaveRequest(
 
         @Min(value = 0, message = "难度分不能小于 0")
         @Max(value = 5000, message = "难度分不能超过 5000")
+        @Schema(nullable = true)
         Integer rating,
 
         @NotBlank(message = "题面不能为空")
@@ -35,26 +37,33 @@ public record ProblemSaveRequest(
         String description,
 
         @Size(max = 20_000, message = "输入格式说明过长")
+        @Schema(nullable = true)
         String inputFormat,
 
         @Size(max = 20_000, message = "输出格式说明过长")
+        @Schema(nullable = true)
         String outputFormat,
 
         @Size(max = 20_000, message = "提示过长")
+        @Schema(nullable = true)
         String hint,
 
         @Min(value = 100, message = "时间限制至少 100ms")
         @Max(value = 30_000, message = "时间限制最大 30000ms")
+        @Schema(nullable = true)
         Integer timeLimitMs,
 
         @Min(value = 16, message = "内存限制至少 16MB")
         @Max(value = 1024, message = "内存限制最大 1024MB")
+        @Schema(nullable = true)
         Integer memoryLimitMb,
 
         @Size(max = 10, message = "标签最多 10 个")
+        @Schema(nullable = true)
         List<Long> tagIds,
 
         @Size(max = 10, message = "样例最多 10 个")
+        @Schema(nullable = true)
         List<@Valid SampleRequest> samples
 ) {
 }

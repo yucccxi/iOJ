@@ -1,0 +1,3975 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "description" : "iOJ web API used by the frontend client.",
+    "title" : "iOJ API",
+    "version" : "1.0.0"
+  },
+  "servers" : [ ],
+  "paths" : {
+    "/api/v1/admin/judge-keys" : {
+      "get" : {
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListJudgeKeyVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-judge-key-controller" ]
+      },
+      "post" : {
+        "operationId" : "create_4",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JudgeKeyCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseJudgeKeyCreatedVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-judge-key-controller" ]
+      }
+    },
+    "/api/v1/admin/judge-keys/{id}" : {
+      "delete" : {
+        "operationId" : "delete_3",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-judge-key-controller" ]
+      },
+      "patch" : {
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JudgeKeyStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-judge-key-controller" ]
+      }
+    },
+    "/api/v1/admin/judge-nodes" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListJudgeNodeVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-judge-node-controller" ]
+      }
+    },
+    "/api/v1/admin/problems" : {
+      "get" : {
+        "operationId" : "page_3",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "keyword",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_REVIEW", "PUBLISHED", "HIDDEN" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageResultProblemSummaryVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-problem-controller" ]
+      }
+    },
+    "/api/v1/admin/problems/{id}/status" : {
+      "patch" : {
+        "operationId" : "updateStatus_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateProblemStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-problem-controller" ]
+      }
+    },
+    "/api/v1/admin/scopes" : {
+      "post" : {
+        "operationId" : "create_3",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ScopeSaveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseScopeMetaVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-scope-controller" ]
+      }
+    },
+    "/api/v1/admin/scopes/{id}" : {
+      "delete" : {
+        "operationId" : "delete_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-scope-controller" ]
+      },
+      "put" : {
+        "operationId" : "rename_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ScopeSaveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseScopeMetaVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-scope-controller" ]
+      }
+    },
+    "/api/v1/admin/tags" : {
+      "post" : {
+        "operationId" : "create_2",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TagSaveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTagMetaVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-tag-controller" ]
+      }
+    },
+    "/api/v1/admin/tags/{id}" : {
+      "delete" : {
+        "operationId" : "delete_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "in" : "query",
+          "name" : "force",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-tag-controller" ]
+      },
+      "put" : {
+        "operationId" : "rename",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TagSaveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTagMetaVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-tag-controller" ]
+      }
+    },
+    "/api/v1/admin/users" : {
+      "get" : {
+        "operationId" : "page_2",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "keyword",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageResultUserVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      }
+    },
+    "/api/v1/admin/users/{id}/role" : {
+      "patch" : {
+        "operationId" : "updateRole",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateUserRoleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      }
+    },
+    "/api/v1/admin/users/{id}/status" : {
+      "patch" : {
+        "operationId" : "updateStatus",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateUserStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "admin-user-controller" ]
+      }
+    },
+    "/api/v1/auth/email-codes" : {
+      "post" : {
+        "operationId" : "sendEmailCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SendEmailCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSendEmailCodeVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/auth/login" : {
+      "post" : {
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/auth/logout-all" : {
+      "post" : {
+        "operationId" : "logoutAll",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/auth/me" : {
+      "get" : {
+        "operationId" : "me_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/auth/password-reset-codes" : {
+      "post" : {
+        "operationId" : "sendPasswordResetCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SendEmailCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSendEmailCodeVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/auth/password-resets" : {
+      "post" : {
+        "operationId" : "resetPassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/auth/register" : {
+      "post" : {
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/captcha" : {
+      "post" : {
+        "operationId" : "create_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CaptchaCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCaptchaVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "captcha-controller" ]
+      }
+    },
+    "/api/v1/catalog" : {
+      "get" : {
+        "operationId" : "page_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "keyword",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "difficulty",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "EASY", "MEDIUM", "HARD", "UNKNOWN" ]
+            }
+          }
+        }, {
+          "in" : "query",
+          "name" : "scopeId",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }, {
+          "in" : "query",
+          "name" : "tagId",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }, {
+          "in" : "query",
+          "name" : "tagMatch",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ANY", "ALL" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "rating",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "minRating",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "maxRating",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "DEFAULT", "RATING", "ACCEPTED", "SUBMISSIONS", "ACCEPTANCE_RATE" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "order",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ASC", "DESC" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageResultCatalogItemVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "catalog-controller" ]
+      }
+    },
+    "/api/v1/meta/languages" : {
+      "get" : {
+        "operationId" : "languages",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListLanguageVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "meta-controller" ]
+      }
+    },
+    "/api/v1/meta/scopes" : {
+      "get" : {
+        "operationId" : "scopes",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListScopeMetaVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "meta-controller" ]
+      }
+    },
+    "/api/v1/meta/tags" : {
+      "get" : {
+        "operationId" : "tags",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListTagMetaVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "meta-controller" ]
+      }
+    },
+    "/api/v1/problems" : {
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProblemSaveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProblemDetailVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-controller" ]
+      }
+    },
+    "/api/v1/problems/mine" : {
+      "get" : {
+        "operationId" : "mine",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "keyword",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageResultProblemSummaryVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-controller" ]
+      }
+    },
+    "/api/v1/problems/{id}" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-controller" ]
+      },
+      "get" : {
+        "operationId" : "detail",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProblemDetailVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-controller" ]
+      },
+      "put" : {
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProblemSaveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProblemDetailVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-controller" ]
+      }
+    },
+    "/api/v1/problems/{id}/checker" : {
+      "get" : {
+        "operationId" : "checker",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCheckerDetailVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-controller" ]
+      },
+      "put" : {
+        "operationId" : "updateChecker",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CheckerSaveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-controller" ]
+      }
+    },
+    "/api/v1/problems/{problemId}/testcases" : {
+      "get" : {
+        "operationId" : "list",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "problemId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListTestcaseSummaryVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-testcase-controller" ]
+      },
+      "post" : {
+        "operationId" : "add",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "problemId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TestcaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTestcaseSummaryVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-testcase-controller" ]
+      },
+      "put" : {
+        "operationId" : "replace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "problemId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "$ref" : "#/components/schemas/TestcaseRequest"
+                }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListTestcaseSummaryVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-testcase-controller" ]
+      }
+    },
+    "/api/v1/problems/{problemId}/testcases/{testcaseId}" : {
+      "delete" : {
+        "operationId" : "delete_4",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "problemId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "in" : "path",
+          "name" : "testcaseId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-testcase-controller" ]
+      },
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "problemId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "in" : "path",
+          "name" : "testcaseId",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTestcaseDetailVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "problem-testcase-controller" ]
+      }
+    },
+    "/api/v1/submissions" : {
+      "get" : {
+        "operationId" : "page",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "problemId",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "in" : "query",
+          "name" : "userId",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "JUDGING", "ACCEPTED", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "MEMORY_LIMIT_EXCEEDED", "OUTPUT_LIMIT_EXCEEDED", "RUNTIME_ERROR", "COMPILATION_ERROR", "CHECKER_ERROR", "SYSTEM_ERROR" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageResultSubmissionSummaryVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "submission-controller" ]
+      },
+      "post" : {
+        "operationId" : "submit",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SubmitRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSubmissionDetailVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "submission-controller" ]
+      }
+    },
+    "/api/v1/submissions/{id}" : {
+      "get" : {
+        "operationId" : "detail_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSubmissionDetailVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "submission-controller" ]
+      }
+    },
+    "/api/v1/users/me" : {
+      "get" : {
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserProfileVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "user-controller" ]
+      },
+      "patch" : {
+        "operationId" : "updateProfile",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "user-controller" ]
+      }
+    },
+    "/api/v1/users/me/password" : {
+      "put" : {
+        "operationId" : "changePassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "user-controller" ]
+      }
+    },
+    "/api/v1/users/{id}" : {
+      "get" : {
+        "operationId" : "profile",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserProfileVO"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "default" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "code" : {
+                      "type" : "integer",
+                      "format" : "int32"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  },
+                  "required" : [ "code", "message" ]
+                }
+              }
+            },
+            "description" : "统一错误响应"
+          }
+        },
+        "tags" : [ "user-controller" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ApiResponseCaptchaVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CaptchaVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseCheckerDetailVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/CheckerDetailVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseJudgeKeyCreatedVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/JudgeKeyCreatedVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseListJudgeKeyVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/JudgeKeyVO"
+            }
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseListJudgeNodeVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/JudgeNodeVO"
+            }
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseListLanguageVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LanguageVO"
+            }
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseListScopeMetaVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ScopeMetaVO"
+            }
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseListTagMetaVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TagMetaVO"
+            }
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseListTestcaseSummaryVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TestcaseSummaryVO"
+            }
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseLoginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/LoginResponse"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponsePageResultCatalogItemVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/PageResultCatalogItemVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponsePageResultProblemSummaryVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/PageResultProblemSummaryVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponsePageResultSubmissionSummaryVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/PageResultSubmissionSummaryVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponsePageResultUserVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/PageResultUserVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseProblemDetailVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/ProblemDetailVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseScopeMetaVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/ScopeMetaVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseSendEmailCodeVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SendEmailCodeVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseSubmissionDetailVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/SubmissionDetailVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseTagMetaVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/TagMetaVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseTestcaseDetailVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/TestcaseDetailVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseTestcaseSummaryVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/TestcaseSummaryVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseUserProfileVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/UserProfileVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseUserVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/UserVO"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "ApiResponseVoid" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : { },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
+      "CaptchaCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "purpose" : {
+            "type" : "string",
+            "enum" : [ "LOGIN", "EMAIL_SENDING" ]
+          }
+        },
+        "required" : [ "purpose" ]
+      },
+      "CaptchaVO" : {
+        "type" : "object",
+        "properties" : {
+          "captchaId" : {
+            "type" : "string"
+          },
+          "expiresInSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "image" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "captchaId", "expiresInSeconds", "image" ]
+      },
+      "CatalogItemVO" : {
+        "type" : "object",
+        "properties" : {
+          "acceptedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "authorId" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "authorNickname" : {
+            "type" : [ "string", "null" ]
+          },
+          "code" : {
+            "type" : [ "string", "null" ]
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "difficulty" : {
+            "type" : "string",
+            "enum" : [ "EASY", "MEDIUM", "HARD", "UNKNOWN" ]
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "rating" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "scopeId" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "scopeName" : {
+            "type" : [ "string", "null" ]
+          },
+          "submitCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TagVO"
+            }
+          },
+          "time" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "url" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "acceptedCount", "authorId", "authorNickname", "code", "createdAt", "difficulty", "id", "rating", "scopeId", "scopeName", "submitCount", "tags", "time", "title", "url" ]
+      },
+      "ChangePasswordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "newPassword" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 8
+          },
+          "oldPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "newPassword", "oldPassword" ]
+      },
+      "CheckerDetailVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code" ]
+      },
+      "CheckerSaveRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : [ "string", "null" ],
+            "maxLength" : 65536,
+            "minLength" : 0
+          }
+        }
+      },
+      "JudgeKeyCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expiresAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 128,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "name" ]
+      },
+      "JudgeKeyCreatedVO" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "expiresAt", "id", "key", "name", "prefix" ]
+      },
+      "JudgeKeyStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "enabled" ]
+      },
+      "JudgeKeyVO" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "expiresAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastUsedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "enabled", "expiresAt", "id", "lastUsedAt", "name", "prefix" ]
+      },
+      "JudgeNodeVO" : {
+        "type" : "object",
+        "properties" : {
+          "hostname" : {
+            "type" : [ "string", "null" ]
+          },
+          "isolateVersion" : {
+            "type" : [ "string", "null" ]
+          },
+          "languages" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "JAVA", "CPP", "C", "PYTHON3" ]
+            }
+          },
+          "lastHeartbeatAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "maxConcurrency" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "runningTasks" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "hostname", "isolateVersion", "languages", "lastHeartbeatAt", "maxConcurrency", "nodeId", "runningTasks", "status", "version" ]
+      },
+      "LanguageVO" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "displayName" ]
+      },
+      "LoginRequest" : {
+        "type" : "object",
+        "properties" : {
+          "account" : {
+            "type" : "string",
+            "maxLength" : 128,
+            "minLength" : 0
+          },
+          "captchaCode" : {
+            "type" : "string",
+            "maxLength" : 16,
+            "minLength" : 0
+          },
+          "captchaId" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          },
+          "password" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "account", "password" ]
+      },
+      "LoginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "token" : {
+            "type" : "string"
+          },
+          "tokenType" : {
+            "type" : "string"
+          },
+          "user" : {
+            "$ref" : "#/components/schemas/UserVO"
+          }
+        }
+      },
+      "PageResultCatalogItemVO" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CatalogItemVO"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "items", "page", "size", "total" ]
+      },
+      "PageResultProblemSummaryVO" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProblemSummaryVO"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "items", "page", "size", "total" ]
+      },
+      "PageResultSubmissionSummaryVO" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SubmissionSummaryVO"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "items", "page", "size", "total" ]
+      },
+      "PageResultUserVO" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UserVO"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "items", "page", "size", "total" ]
+      },
+      "PasswordResetRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 128,
+            "minLength" : 0
+          },
+          "emailCode" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^\\d{6}$"
+          },
+          "newPassword" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 8
+          }
+        },
+        "required" : [ "email", "emailCode", "newPassword" ]
+      },
+      "ProblemDetailVO" : {
+        "type" : "object",
+        "properties" : {
+          "acceptedCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "authorId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "authorNickname" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "difficulty" : {
+            "type" : "string",
+            "enum" : [ "EASY", "MEDIUM", "HARD", "UNKNOWN" ]
+          },
+          "hasChecker" : {
+            "type" : "boolean"
+          },
+          "hint" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inputFormat" : {
+            "type" : [ "string", "null" ]
+          },
+          "memoryLimitMb" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outputFormat" : {
+            "type" : [ "string", "null" ]
+          },
+          "rating" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "samples" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SampleVO"
+            }
+          },
+          "scopeId" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "scopeName" : {
+            "type" : [ "string", "null" ]
+          },
+          "solved" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_REVIEW", "PUBLISHED", "HIDDEN" ]
+          },
+          "submitCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TagVO"
+            }
+          },
+          "timeLimitMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "acceptedCount", "authorId", "authorNickname", "createdAt", "description", "difficulty", "hasChecker", "hint", "id", "inputFormat", "memoryLimitMb", "outputFormat", "rating", "samples", "scopeId", "scopeName", "solved", "status", "submitCount", "tags", "timeLimitMs", "title", "updatedAt" ]
+      },
+      "ProblemSaveRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "maxLength" : 200000,
+            "minLength" : 0
+          },
+          "difficulty" : {
+            "type" : "string",
+            "enum" : [ "EASY", "MEDIUM", "HARD", "UNKNOWN" ]
+          },
+          "hint" : {
+            "type" : [ "string", "null" ],
+            "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "inputFormat" : {
+            "type" : [ "string", "null" ],
+            "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "memoryLimitMb" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "maximum" : 1024,
+            "minimum" : 16
+          },
+          "outputFormat" : {
+            "type" : [ "string", "null" ],
+            "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "rating" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "maximum" : 5000,
+            "minimum" : 0
+          },
+          "samples" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "$ref" : "#/components/schemas/SampleRequest"
+            },
+            "maxItems" : 10,
+            "minItems" : 0
+          },
+          "tagIds" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            },
+            "maxItems" : 10,
+            "minItems" : 0
+          },
+          "timeLimitMs" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "maximum" : 30000,
+            "minimum" : 100
+          },
+          "title" : {
+            "type" : "string",
+            "maxLength" : 128,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "description", "difficulty", "title" ]
+      },
+      "ProblemSummaryVO" : {
+        "type" : "object",
+        "properties" : {
+          "acceptedCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "authorId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "authorNickname" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "difficulty" : {
+            "type" : "string",
+            "enum" : [ "EASY", "MEDIUM", "HARD", "UNKNOWN" ]
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "rating" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_REVIEW", "PUBLISHED", "HIDDEN" ]
+          },
+          "submitCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TagVO"
+            }
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "acceptedCount", "authorId", "authorNickname", "createdAt", "difficulty", "id", "rating", "status", "submitCount", "tags", "title" ]
+      },
+      "RegisterRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 128,
+            "minLength" : 0
+          },
+          "emailCode" : {
+            "type" : [ "string", "null" ],
+            "pattern" : "^\\d{6}$"
+          },
+          "nickname" : {
+            "type" : [ "string", "null" ],
+            "maxLength" : 32,
+            "minLength" : 0
+          },
+          "password" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 8
+          },
+          "username" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[A-Za-z0-9_]{3,32}$"
+          }
+        },
+        "required" : [ "email", "password", "username" ]
+      },
+      "SampleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "explanation" : {
+            "type" : [ "string", "null" ],
+            "maxLength" : 10240,
+            "minLength" : 0
+          },
+          "input" : {
+            "type" : "string",
+            "maxLength" : 10240,
+            "minLength" : 0
+          },
+          "output" : {
+            "type" : "string",
+            "maxLength" : 10240,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "input", "output" ]
+      },
+      "SampleVO" : {
+        "type" : "object",
+        "properties" : {
+          "explanation" : {
+            "type" : [ "string", "null" ]
+          },
+          "input" : {
+            "type" : "string"
+          },
+          "ordinal" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "output" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "explanation", "input", "ordinal", "output" ]
+      },
+      "ScopeMetaVO" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "problemCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "createdAt", "id", "name", "problemCount" ]
+      },
+      "ScopeSaveRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "maxLength" : 128,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "name" ]
+      },
+      "SendEmailCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "captchaCode" : {
+            "type" : [ "string", "null" ],
+            "maxLength" : 16,
+            "minLength" : 0
+          },
+          "captchaId" : {
+            "type" : [ "string", "null" ],
+            "maxLength" : 64,
+            "minLength" : 0
+          },
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 128,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "email" ]
+      },
+      "SendEmailCodeVO" : {
+        "type" : "object",
+        "properties" : {
+          "expiresInSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "resendAfterSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "expiresInSeconds", "resendAfterSeconds" ]
+      },
+      "SubmissionCaseVO" : {
+        "type" : "object",
+        "properties" : {
+          "memoryUsedKb" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : [ "string", "null" ]
+          },
+          "ordinal" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "JUDGING", "ACCEPTED", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "MEMORY_LIMIT_EXCEEDED", "OUTPUT_LIMIT_EXCEEDED", "RUNTIME_ERROR", "COMPILATION_ERROR", "CHECKER_ERROR", "SYSTEM_ERROR" ]
+          },
+          "statusText" : {
+            "type" : "string"
+          },
+          "timeUsedMs" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          }
+        },
+        "required" : [ "memoryUsedKb", "message", "ordinal", "status", "statusText", "timeUsedMs" ]
+      },
+      "SubmissionDetailVO" : {
+        "type" : "object",
+        "properties" : {
+          "cases" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SubmissionCaseVO"
+            }
+          },
+          "code" : {
+            "type" : [ "string", "null" ]
+          },
+          "compileMessage" : {
+            "type" : [ "string", "null" ]
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "judgeMessage" : {
+            "type" : [ "string", "null" ]
+          },
+          "judgedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "language" : {
+            "type" : "string",
+            "enum" : [ "JAVA", "CPP", "C", "PYTHON3" ]
+          },
+          "memoryUsedKb" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "problemId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "problemTitle" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "JUDGING", "ACCEPTED", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "MEMORY_LIMIT_EXCEEDED", "OUTPUT_LIMIT_EXCEEDED", "RUNTIME_ERROR", "COMPILATION_ERROR", "CHECKER_ERROR", "SYSTEM_ERROR" ]
+          },
+          "statusText" : {
+            "type" : "string"
+          },
+          "timeUsedMs" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "userNickname" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "cases", "code", "compileMessage", "createdAt", "id", "judgeMessage", "judgedAt", "language", "memoryUsedKb", "problemId", "problemTitle", "status", "statusText", "timeUsedMs", "userId", "userNickname" ]
+      },
+      "SubmissionSummaryVO" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "language" : {
+            "type" : "string",
+            "enum" : [ "JAVA", "CPP", "C", "PYTHON3" ]
+          },
+          "memoryUsedKb" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "problemId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "problemTitle" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "JUDGING", "ACCEPTED", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED", "MEMORY_LIMIT_EXCEEDED", "OUTPUT_LIMIT_EXCEEDED", "RUNTIME_ERROR", "COMPILATION_ERROR", "CHECKER_ERROR", "SYSTEM_ERROR" ]
+          },
+          "statusText" : {
+            "type" : "string"
+          },
+          "timeUsedMs" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "userNickname" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "id", "language", "memoryUsedKb", "problemId", "problemTitle", "status", "statusText", "timeUsedMs", "userId", "userNickname" ]
+      },
+      "SubmitRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "language" : {
+            "type" : "string",
+            "enum" : [ "JAVA", "CPP", "C", "PYTHON3" ]
+          },
+          "problemId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "code", "language", "problemId" ]
+      },
+      "TagMetaVO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "problemCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "id", "name", "problemCount" ]
+      },
+      "TagSaveRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[\\p{L}\\p{N}_+#.-]{1,32}$"
+          }
+        },
+        "required" : [ "name" ]
+      },
+      "TagVO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "name" ]
+      },
+      "TestcaseDetailVO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "input" : {
+            "type" : "string"
+          },
+          "ordinal" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "output" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "id", "input", "ordinal", "output" ]
+      },
+      "TestcaseRequest" : {
+        "type" : "object",
+        "properties" : {
+          "input" : {
+            "type" : "string"
+          },
+          "output" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "input", "output" ]
+      },
+      "TestcaseSummaryVO" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inputBytes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "ordinal" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outputBytes" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "createdAt", "id", "inputBytes", "ordinal", "outputBytes" ]
+      },
+      "UpdateProblemStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_REVIEW", "PUBLISHED", "HIDDEN" ]
+          }
+        },
+        "required" : [ "status" ]
+      },
+      "UpdateProfileRequest" : {
+        "type" : "object",
+        "properties" : {
+          "nickname" : {
+            "type" : "string",
+            "maxLength" : 32,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "nickname" ]
+      },
+      "UpdateUserRoleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "role" : {
+            "type" : "string",
+            "enum" : [ "USER", "ADMIN" ]
+          }
+        },
+        "required" : [ "role" ]
+      },
+      "UpdateUserStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "BANNED" ]
+          }
+        },
+        "required" : [ "status" ]
+      },
+      "UserProfileVO" : {
+        "type" : "object",
+        "properties" : {
+          "contributedCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "USER", "ADMIN" ]
+          },
+          "solvedCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "contributedCount", "createdAt", "id", "nickname", "role", "solvedCount", "username" ]
+      },
+      "UserVO" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "USER", "ADMIN" ]
+          },
+          "username" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "id", "nickname", "role", "username" ]
+      }
+    }
+  }
+}

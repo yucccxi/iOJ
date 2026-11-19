@@ -43,6 +43,18 @@ mybatis:
     default-fetch-size: 100
     default-statement-timeout: 30
 
+# OpenAPI schema used by the frontend's openapi-typescript code generation.
+springdoc:
+  api-docs:
+    enabled: ${IOJ_OPENAPI_ENABLED:false}
+    path: /v3/api-docs
+  paths-to-match: /api/v1/**
+  paths-to-exclude: /internal/**
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
+  writer-with-order-by-keys: true
+  writer-with-default-pretty-printer: true
+
 ioj:
   jwt:
 # Always override this with an environment variable in production; at least 32 bytes.

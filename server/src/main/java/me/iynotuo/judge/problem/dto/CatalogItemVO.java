@@ -1,5 +1,6 @@
 package me.iynotuo.judge.problem.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import me.iynotuo.judge.common.enums.Difficulty;
 
 import java.time.LocalDateTime;
@@ -23,9 +24,13 @@ import java.util.List;
  * {@code scopeId}/{@code scopeName} and {@code tags}, which is what makes a single filtered list
  * possible. An unrated item exposes {@code rating} as {@code -1} instead of {@code null}.</p>
  */
-public record CatalogItemVO(Long id, String title, String code, Difficulty difficulty,
-                            LocalDateTime time, Integer rating, Long scopeId, String scopeName, String url,
-                            Integer submitCount, Integer acceptedCount, Long authorId, String authorNickname,
+public record CatalogItemVO(Long id, String title, @Schema(nullable = true) String code, Difficulty difficulty,
+                            @Schema(nullable = true) LocalDateTime time, Integer rating,
+                            @Schema(nullable = true) Long scopeId,
+                            @Schema(nullable = true) String scopeName,
+                            @Schema(nullable = true) String url,
+                            Integer submitCount, Integer acceptedCount, @Schema(nullable = true) Long authorId,
+                            @Schema(nullable = true) String authorNickname,
                             List<TagVO> tags, LocalDateTime createdAt) {
 
     public CatalogItemVO {

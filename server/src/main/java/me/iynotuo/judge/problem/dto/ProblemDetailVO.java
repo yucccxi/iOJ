@@ -1,5 +1,6 @@
 package me.iynotuo.judge.problem.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import me.iynotuo.judge.common.enums.Difficulty;
 import me.iynotuo.judge.common.enums.ProblemStatus;
 
@@ -17,8 +18,11 @@ import java.util.List;
  * derived from rating.</p>
  */
 public record ProblemDetailVO(Long id, String title, Difficulty difficulty, Integer rating, String description,
-                              String inputFormat, String outputFormat, String hint,
-                              Long scopeId, String scopeName,
+                              @Schema(nullable = true) String inputFormat,
+                              @Schema(nullable = true) String outputFormat,
+                              @Schema(nullable = true) String hint,
+                              @Schema(nullable = true) Long scopeId,
+                              @Schema(nullable = true) String scopeName,
                               int timeLimitMs, int memoryLimitMb,
                               ProblemStatus status, Long authorId, String authorNickname, List<TagVO> tags,
                               List<SampleVO> samples, long submitCount, long acceptedCount, boolean solved,

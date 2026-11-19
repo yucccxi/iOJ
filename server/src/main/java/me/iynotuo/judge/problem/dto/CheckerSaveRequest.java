@@ -1,6 +1,7 @@
 package me.iynotuo.judge.problem.dto;
 
 import jakarta.validation.constraints.Size;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * Uploads or clears the custom checker (special judge) of a problem.
@@ -13,6 +14,7 @@ import jakarta.validation.constraints.Size;
 public record CheckerSaveRequest(
 
         @Size(max = 65_536, message = "判题器代码不能超过 64KB")
+        @Schema(nullable = true)
         String code
 ) {
 }
