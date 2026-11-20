@@ -3,6 +3,8 @@ const sizes = {
   xs: "size-3 font-mono text-mini leading-none",
   /** 28px, for name lists. */
   md: "size-7 text-number",
+  /** 32px, for the account header and its trigger. */
+  lg: "size-8 border border-accent text-label",
 };
 
 type AvatarProps = { name: string; size: keyof typeof sizes };

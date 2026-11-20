@@ -11,9 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as ActivityRouteImport } from './routes/activity'
+import { Route as BookmarksRouteImport } from './routes/bookmarks'
 import { Route as DiscussRouteImport } from './routes/discuss'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProblemsIndexRouteImport } from './routes/problems/index'
 import { Route as ProblemsProblemIdRouteImport } from './routes/problems/$problemId'
 import { Route as ProblemsNewRouteImport } from './routes/problems/new'
@@ -29,6 +33,16 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BookmarksRoute = BookmarksRouteImport.update({
+  id: '/bookmarks',
+  path: '/bookmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DiscussRoute = DiscussRouteImport.update({
   id: '/discuss',
   path: '/discuss',
@@ -39,9 +53,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProblemsIndexRoute = ProblemsIndexRouteImport.update({
@@ -68,9 +92,13 @@ const SubmissionsIndexRoute = SubmissionsIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/activity': typeof ActivityRoute
+  '/bookmarks': typeof BookmarksRoute
   '/discuss': typeof DiscussRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
   '/problems/$problemId': typeof ProblemsProblemIdRoute
   '/problems/new': typeof ProblemsNewRoute
   '/problems/': typeof ProblemsIndexRoute
@@ -79,9 +107,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/activity': typeof ActivityRoute
+  '/bookmarks': typeof BookmarksRoute
   '/discuss': typeof DiscussRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
   '/problems/$problemId': typeof ProblemsProblemIdRoute
   '/problems/new': typeof ProblemsNewRoute
   '/problems': typeof ProblemsIndexRoute
@@ -91,9 +123,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/activity': typeof ActivityRoute
+  '/bookmarks': typeof BookmarksRoute
   '/discuss': typeof DiscussRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
   '/problems/$problemId': typeof ProblemsProblemIdRoute
   '/problems/new': typeof ProblemsNewRoute
   '/problems/': typeof ProblemsIndexRoute
@@ -104,9 +140,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/activity'
+    | '/bookmarks'
     | '/discuss'
     | '/login'
+    | '/profile'
     | '/register'
+    | '/settings'
     | '/problems/$problemId'
     | '/problems/new'
     | '/problems/'
@@ -115,9 +155,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/activity'
+    | '/bookmarks'
     | '/discuss'
     | '/login'
+    | '/profile'
     | '/register'
+    | '/settings'
     | '/problems/$problemId'
     | '/problems/new'
     | '/problems'
@@ -126,9 +170,13 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
+    | '/activity'
+    | '/bookmarks'
     | '/discuss'
     | '/login'
+    | '/profile'
     | '/register'
+    | '/settings'
     | '/problems/$problemId'
     | '/problems/new'
     | '/problems/'
@@ -138,9 +186,13 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  ActivityRoute: typeof ActivityRoute
+  BookmarksRoute: typeof BookmarksRoute
   DiscussRoute: typeof DiscussRoute
   LoginRoute: typeof LoginRoute
+  ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
+  SettingsRoute: typeof SettingsRoute
   ProblemsProblemIdRoute: typeof ProblemsProblemIdRoute
   ProblemsNewRoute: typeof ProblemsNewRoute
   ProblemsIndexRoute: typeof ProblemsIndexRoute
@@ -163,6 +215,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity': {
+      id: '/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof ActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bookmarks': {
+      id: '/bookmarks'
+      path: '/bookmarks'
+      fullPath: '/bookmarks'
+      preLoaderRoute: typeof BookmarksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/discuss': {
       id: '/discuss'
       path: '/discuss'
@@ -177,11 +243,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/register': {
       id: '/register'
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/problems/': {
@@ -218,9 +298,13 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  ActivityRoute: ActivityRoute,
+  BookmarksRoute: BookmarksRoute,
   DiscussRoute: DiscussRoute,
   LoginRoute: LoginRoute,
+  ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
+  SettingsRoute: SettingsRoute,
   ProblemsProblemIdRoute: ProblemsProblemIdRoute,
   ProblemsNewRoute: ProblemsNewRoute,
   ProblemsIndexRoute: ProblemsIndexRoute,

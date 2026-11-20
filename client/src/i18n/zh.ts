@@ -10,6 +10,29 @@ export const zh = {
     contribute: "贡献题目",
     login: "登录",
   },
+  account: {
+    menuLabel: "账号菜单",
+    signedOutPrompt: "登录后可以提交代码、收藏题目和查看动态",
+    signUp: "注册",
+    profile: "个人资料",
+    activity: "动态",
+    bookmarks: "收藏",
+    settings: "设置",
+    signOut: "退出登录",
+    uid: (id: number) => `UID ${id}`,
+    loading: "加载中",
+  },
+  theme: {
+    label: "主题",
+    default: "默认",
+    dark: "深色",
+    glass: "玻璃",
+  },
+  language: {
+    label: "语言",
+    zh: "简体中文",
+    en: "English",
+  },
   tagFilter: {
     label: "按标签筛选",
     title: "标签",
@@ -26,6 +49,10 @@ export const zh = {
   },
   page: {
     problemDetail: "题目详情",
+    profile: "个人资料",
+    activity: "动态",
+    bookmarks: "收藏",
+    settings: "设置",
   },
   errors: {
     serviceUnavailable: (status: number) => `服务暂时不可用（HTTP ${status}）`,

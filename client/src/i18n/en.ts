@@ -13,6 +13,30 @@ export const en = {
     contribute: "Contribute",
     login: "Sign in",
   },
+  account: {
+    menuLabel: "Account menu",
+    signedOutPrompt:
+      "Sign in to submit code, bookmark problems, and see activity",
+    signUp: "Sign up",
+    profile: "Profile",
+    activity: "Activity",
+    bookmarks: "Bookmarks",
+    settings: "Settings",
+    signOut: "Sign out",
+    uid: (id: number) => `UID ${id}`,
+    loading: "Loading",
+  },
+  theme: {
+    label: "Theme",
+    default: "Default",
+    dark: "Dark",
+    glass: "Glass",
+  },
+  language: {
+    label: "Language",
+    zh: "简体中文",
+    en: "English",
+  },
   tagFilter: {
     label: "Filter by tags",
     title: "Tags",
@@ -29,6 +53,10 @@ export const en = {
   },
   page: {
     problemDetail: "Problem details",
+    profile: "Profile",
+    activity: "Activity",
+    bookmarks: "Bookmarks",
+    settings: "Settings",
   },
   errors: {
     serviceUnavailable: (status: number) =>

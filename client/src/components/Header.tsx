@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, SquarePlus, User } from "lucide-react";
+import { SquarePlus } from "lucide-react";
+import AccountMenu from "@/components/AccountMenu";
 import SectionSwitcher from "@/components/SectionSwitcher";
 import { useCopy } from "@/i18n";
 import logoUrl from "@/assets/logo.svg";
@@ -31,19 +32,7 @@ export default function Header() {
           <SquarePlus />
           {copy.nav.contribute}
         </Link>
-        <Link
-          to="/login"
-          aria-label={copy.nav.login}
-          className="flex items-center gap-2 rounded-full p-1"
-        >
-          <span
-            className="flex size-8 items-center justify-center rounded-full
-              border border-line bg-popover text-fg"
-          >
-            <User />
-          </span>
-          <ChevronDown size={14} className="text-fg-subtle" />
-        </Link>
+        <AccountMenu />
       </div>
     </header>
   );
