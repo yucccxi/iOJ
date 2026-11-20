@@ -8,6 +8,7 @@ import "@fontsource-variable/jetbrains-mono";
 import "katex/dist/katex.min.css";
 import "./index.css";
 import "@/i18n";
+import "@/lib/theme";
 import { routeTree } from "./routeTree.gen";
 
 const queryClient = new QueryClient();
