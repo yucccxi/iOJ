@@ -9,7 +9,7 @@ export function isLocal(item: CatalogItem) {
 /**
  * Display ID: `IOJ{id}` for problems uploaded here, the platform's number for external ones.
  * The platform prefix is dropped (`CF_2278G` → `2278G`, `AT_ABC482_G` → `ABC482 G`)
- * because the 来源 column already names the platform.
+ * because the source column already names the platform.
  */
 export function problemCode(item: CatalogItem) {
   if (isLocal(item)) return `IOJ${item.id}`;

@@ -1,8 +1,6 @@
 .DS_Store
 .idea/
 
-AGENTS.md
-
 # clist.by sync script: local credentials, incremental state and virtualenv
 scripts/.env
 scripts/.state/
@@ -14,3 +12,5 @@ scripts/.venv/
 
 # Maven build output for the multi-module build
 target/
+
+test-client/

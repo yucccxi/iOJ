@@ -16,7 +16,8 @@ export default defineConfig(({ mode }) => ({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   server: {
-    host: "127.0.0.1",
+    // Listen on all interfaces so other devices on the LAN can reach the dev server.
+    host: true,
     port: 5173,
     strictPort: true,
     proxy: {
