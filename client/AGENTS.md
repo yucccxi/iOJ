@@ -6,7 +6,7 @@ iOJ 前端：React 19 + Vite + TypeScript `~6.0.3` + Tailwind CSS v4 + TanStack 
 
 - **前端编码、设计系统、API 边界与踩坑速查表**：[`docs/client/RULES.md`](../docs/client/RULES.md)（改代码前必读）
 - **当前进度、遗留问题与后续页面路线图**：[`docs/client/TODO.md`](../docs/client/TODO.md)（任务完成后同步更新）
-- **前后端接口契约（唯一字段权威来源）**：[`docs/shared/api/README.md`](../docs/shared/api/README.md)
+- **前后端接口契约（唯一字段权威来源）**：[`docs/api/README.md`](../docs/api/README.md)
 - **通用 UI 视觉与 Figma 插件规范**：[`~/.claude/skills/design-tweaks/SKILL.md`](file:///Users/fallingsakura/.claude/skills/design-tweaks/SKILL.md)
 
 ---
@@ -24,7 +24,7 @@ client/
   src/index.css         Tailwind v4 三主题设计变量
 docs/
   client/               前端规则 RULES.md 与进度 TODO.md
-  shared/api/           后端接口契约（唯一字段权威）
+  api/                  后端接口契约（唯一字段权威）
 .github/workflows/
   deploy-client.yml     client 自动部署
 ```
@@ -35,8 +35,8 @@ docs/
 
 ```sh
 # 默认且唯一包管理器为 pnpm（非交互式 shell 若找不到 pnpm，用 ~/Library/pnpm/bin/pnpm）
-pnpm dev                                  # 用户常驻占用 127.0.0.1:5173，AI 勿抢占
-pnpm exec vite --port 5199 --strictPort   # AI 临时自测专用端口，测完立即 pkill -f "vite --port 5199"
+pnpm dev                                  # 用户常驻占用 5173，AI 勿抢占；host: true，局域网可访问
+pnpm exec vite --port 5199 --strictPort   # AI 临时自测专用端口（同样对局域网开放），测完立即 pkill -f "vite --port 5199"
 pnpm exec tsc -b                          # 快速增量类型检查（改代码必跑；Vite dev 与 eslint 不查 TS 类型）
 pnpm exec vite build                      # 新增/重命名 src/routes/ 文件后先跑一次，以生成 src/routeTree.gen.ts
 pnpm build                                # 完整构建：tsc -b && vite build
