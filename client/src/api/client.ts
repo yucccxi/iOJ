@@ -1,3 +1,4 @@
+import { getToken } from "@/api/token";
 import { getCopy } from "@/i18n";
 
 type Envelope<T> = { code: number; message: string; data: T };
@@ -31,7 +32,11 @@ export async function get<T>(
     }
   }
   const search = params.size > 0 ? `?${params}` : "";
-  const response = await fetch(`/api/v1${path}${search}`, { signal });
+  const token = getToken();
+  const response = await fetch(`/api/v1${path}${search}`, {
+    signal,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
 
   // A proxy or gateway error returns HTML, not the envelope.
   if (!response.headers.get("content-type")?.includes("application/json")) {
