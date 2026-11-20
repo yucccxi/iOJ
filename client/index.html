@@ -5,8 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>iOJ</title>
+    <script>
+      // Mirrors readTheme/applyTheme in src/lib/theme.ts so a stored dark theme paints before the bundle loads.
+      try {
+        const theme = localStorage.getItem("ioj-theme");
+        if (theme === "dark" || theme === "glass") {
+          document.documentElement.dataset.theme = theme;
+        }
+      } catch {
+        // Storage can be unavailable in private or restricted contexts.
+      }
+    </script>
   </head>
-  <body>
+  <body class="bg-canvas">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

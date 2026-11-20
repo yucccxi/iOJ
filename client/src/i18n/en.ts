@@ -1,5 +1,5 @@
 import type { Widen } from "./types";
-import { zh } from "./zh";
+import type { zh } from "./zh";
 
 /** User-visible copy for the en locale. */
 export const en = {
@@ -36,6 +36,9 @@ export const en = {
     label: "Language",
     zh: "简体中文",
     en: "English",
+  },
+  select: {
+    current: (name: string, value: string) => `${name}: ${value}`,
   },
   tagFilter: {
     label: "Filter by tags",

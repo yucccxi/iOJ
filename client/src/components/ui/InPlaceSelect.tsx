@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useCopy } from "@/i18n";
 
 type Option<T extends string> = { value: T; label: string };
 
@@ -19,11 +20,11 @@ export default function InPlaceSelect<T extends string>({
   label,
   className = "",
 }: InPlaceSelectProps<T>) {
+  const copy = useCopy();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const current =
-    options.find((option) => option.value === value) ?? options[0];
+  const current = options.find((option) => option.value === value)!;
 
   useEffect(() => {
     if (!open) return;
@@ -56,8 +57,7 @@ export default function InPlaceSelect<T extends string>({
       <button
         ref={triggerRef}
         type="button"
-        aria-label={`${label}: ${current?.label ?? ""}`}
-        aria-haspopup="listbox"
+        aria-label={copy.select.current(label, current.label)}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className="absolute inset-0 flex items-center gap-1 overflow-hidden
@@ -65,14 +65,14 @@ export default function InPlaceSelect<T extends string>({
           text-caption font-medium"
       >
         <span className="flex-1 truncate text-left text-accent-strong">
-          {current?.label}
+          {current.label}
         </span>
         <ChevronDown size={12} className="shrink-0 text-fg-subtle" />
       </button>
 
       {open && (
         <div
-          role="listbox"
+          role="group"
           aria-label={label}
           className="absolute inset-x-0 top-0 z-20 flex flex-col overflow-hidden
             rounded-control border border-line-popover bg-hover shadow-popover
@@ -84,8 +84,7 @@ export default function InPlaceSelect<T extends string>({
               <button
                 key={option.value}
                 type="button"
-                role="option"
-                aria-selected={selected}
+                aria-current={selected}
                 onClick={() => choose(option.value)}
                 className={`flex w-full items-center rounded-control py-1.25
                 pr-2 pl-2.5 text-left text-caption font-medium ${

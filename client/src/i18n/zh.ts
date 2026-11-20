@@ -33,6 +33,9 @@ export const zh = {
     zh: "简体中文",
     en: "English",
   },
+  select: {
+    current: (name: string, value: string) => `${name}：${value}`,
+  },
   tagFilter: {
     label: "按标签筛选",
     title: "标签",
