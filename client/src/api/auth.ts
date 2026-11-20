@@ -1,6 +1,6 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import { ApiError, get } from "@/api/client";
-import { clearToken, getToken } from "@/api/token";
+import { clearToken, useToken } from "@/api/token";
 
 export type CurrentUser = {
   id: number;
@@ -10,29 +10,31 @@ export type CurrentUser = {
   createdAt: string;
 };
 
-export const meQueryKey = ["me"] as const;
-
-/**
- * The signed-in user, or null after a 1002 clears an expired stored token.
- * Keep this disabled when no token exists so the menu can show the signed-out state.
- */
-export const meQuery = queryOptions({
-  queryKey: meQueryKey,
-  queryFn: async ({ signal }): Promise<CurrentUser | null> => {
-    try {
-      return await get<CurrentUser>("/auth/me", {}, signal);
-    } catch (error) {
-      if (error instanceof ApiError && error.code === 1002) {
-        clearToken();
-        return null;
+// Keyed by token so a new sign-in never reuses the previous session's cached user.
+function meQuery(token: string | null) {
+  return queryOptions({
+    queryKey: ["me", token],
+    queryFn: async ({ signal }): Promise<CurrentUser | null> => {
+      try {
+        return await get<CurrentUser>("/auth/me", {}, signal);
+      } catch (error) {
+        // An expired token: clearing it switches every useSession caller to signed out.
+        if (error instanceof ApiError && error.code === 1002) {
+          clearToken();
+          return null;
+        }
+        throw error;
       }
-      throw error;
-    }
-  },
-  staleTime: 5 * 60_000,
-  retry: false,
-});
+    },
+    enabled: token !== null,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+}
 
-export function hasToken(): boolean {
-  return getToken() !== null;
+/** The signed-in state and, once /auth/me answers, the current user. */
+export function useSession() {
+  const token = useToken();
+  const { data: user } = useQuery(meQuery(token));
+  return { signedIn: token !== null, user: user ?? undefined };
 }

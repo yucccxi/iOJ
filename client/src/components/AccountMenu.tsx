@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Activity,
@@ -12,8 +11,7 @@ import {
   User,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { hasToken, meQuery, meQueryKey } from "@/api/auth";
-import type { CurrentUser } from "@/api/auth";
+import { useSession } from "@/api/auth";
 import { clearToken } from "@/api/token";
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
@@ -55,10 +53,8 @@ export default function AccountMenu() {
   const copy = useCopy();
   const locale = useLocale();
   const theme = useTheme();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const signedIn = hasToken();
-  const { data: user } = useQuery({ ...meQuery, enabled: signedIn });
+  const { signedIn, user } = useSession();
 
   const themeOptions = themes.map((value) => ({
     value,
@@ -75,7 +71,6 @@ export default function AccountMenu() {
 
   function signOut(close: () => void) {
     clearToken();
-    queryClient.setQueryData<CurrentUser | null>(meQueryKey, null);
     close();
     navigate({ to: "/" });
   }
