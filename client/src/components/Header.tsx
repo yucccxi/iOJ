@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, SquarePlus, User } from "lucide-react";
 import SectionSwitcher from "@/components/SectionSwitcher";
-import { copy } from "@/i18n";
+import { useCopy } from "@/i18n";
 import logoUrl from "@/assets/logo.svg";
 
 export default function Header() {
+  const copy = useCopy();
   return (
     <header className="flex h-11 items-center justify-between">
       <nav aria-label="breadcrumb" className="flex items-center gap-2.5">

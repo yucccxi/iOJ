@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { copy } from "@/i18n";
+import { useCopy } from "@/i18n";
+
+function NewProblemPage() {
+  const copy = useCopy();
+  return <h1 className="text-xl font-semibold">{copy.nav.contribute}</h1>;
+}
 
 export const Route = createFileRoute("/problems/new")({
-  component: () => (
-    <h1 className="text-xl font-semibold">{copy.nav.contribute}</h1>
-  ),
+  component: NewProblemPage,
 });

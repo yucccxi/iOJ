@@ -1,4 +1,4 @@
-import { copy } from "@/i18n";
+import { getCopy } from "@/i18n";
 
 type Envelope<T> = { code: number; message: string; data: T };
 type QueryValue = string | number;
@@ -35,7 +35,10 @@ export async function get<T>(
 
   // A proxy or gateway error returns HTML, not the envelope.
   if (!response.headers.get("content-type")?.includes("application/json")) {
-    throw new ApiError(-1, copy.errors.serviceUnavailable(response.status));
+    throw new ApiError(
+      -1,
+      getCopy().errors.serviceUnavailable(response.status),
+    );
   }
   const body = (await response.json()) as Envelope<T>;
   // Only code 0 means success; the same business error can come with 400, 405 or 415.

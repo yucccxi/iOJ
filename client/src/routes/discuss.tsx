@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { copy } from "@/i18n";
+import { useCopy } from "@/i18n";
 
-export const Route = createFileRoute("/discuss")({
-  component: () => (
-    <h1 className="text-xl font-semibold">{copy.nav.discuss}</h1>
-  ),
-});
+function DiscussPage() {
+  const copy = useCopy();
+  return <h1 className="text-xl font-semibold">{copy.nav.discuss}</h1>;
+}
+
+export const Route = createFileRoute("/discuss")({ component: DiscussPage });

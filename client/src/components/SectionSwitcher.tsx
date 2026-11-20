@@ -9,20 +9,16 @@ import {
   MessageSquare,
 } from "lucide-react";
 import Popover from "@/components/ui/Popover";
-import { copy } from "@/i18n";
+import { useCopy } from "@/i18n";
 
 const mainSections = [
-  { to: "/", label: copy.nav.home, icon: House },
-  { to: "/problems", label: copy.nav.problems, icon: Library },
-  { to: "/discuss", label: copy.nav.discuss, icon: MessageSquare },
-  { to: "/submissions", label: copy.nav.submissions, icon: History },
+  { to: "/", labelKey: "home", icon: House },
+  { to: "/problems", labelKey: "problems", icon: Library },
+  { to: "/discuss", labelKey: "discuss", icon: MessageSquare },
+  { to: "/submissions", labelKey: "submissions", icon: History },
 ] as const;
 
-const aboutSection = {
-  to: "/about",
-  label: copy.nav.about,
-  icon: Info,
-} as const;
+const aboutSection = { to: "/about", labelKey: "about", icon: Info } as const;
 
 type Section = (typeof mainSections)[number] | typeof aboutSection;
 
@@ -37,8 +33,10 @@ function findSection(pathname: string): Section {
 }
 
 export default function SectionSwitcher() {
+  const copy = useCopy();
   const pathname = useLocation({ select: (location) => location.pathname });
   const current = findSection(pathname);
+
   function renderItem(section: Section, close: () => void) {
     const isCurrent = section === current;
     const SectionIcon = section.icon;
@@ -55,7 +53,7 @@ export default function SectionSwitcher() {
           }`}
       >
         <SectionIcon />
-        <span className="flex-1">{section.label}</span>
+        <span className="flex-1">{copy.nav[section.labelKey]}</span>
         {isCurrent && <Check size={14} />}
       </Link>
     );
@@ -74,7 +72,7 @@ export default function SectionSwitcher() {
             px-2.5 py-1.5 text-field text-accent-strong"
         >
           <current.icon />
-          {current.label}
+          {copy.nav[current.labelKey]}
           <ChevronDown size={14} />
         </button>
       )}

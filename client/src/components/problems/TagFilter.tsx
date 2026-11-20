@@ -7,12 +7,7 @@ import { FilterHeader } from "@/components/ui/FilterPanel";
 import Popover from "@/components/ui/Popover";
 import Segmented from "@/components/ui/Segmented";
 import SelectButton from "@/components/ui/SelectButton";
-import { copy } from "@/i18n";
-
-const matchOptions: { value: TagMatch; label: string }[] = [
-  { value: "ANY", label: copy.tagFilter.any },
-  { value: "ALL", label: copy.tagFilter.all },
-];
+import { useCopy } from "@/i18n";
 
 type TagFilterProps = {
   tagId: number[];
@@ -22,6 +17,7 @@ type TagFilterProps = {
 
 /** Edits a draft and only filters on Apply; closing the panel discards the draft. */
 export default function TagFilter(props: TagFilterProps) {
+  const copy = useCopy();
   const count = props.tagId.length;
   return (
     <Popover
@@ -50,6 +46,11 @@ export default function TagFilter(props: TagFilterProps) {
 }
 
 function TagPanel({ tagId, tagMatch, onApply }: TagFilterProps) {
+  const copy = useCopy();
+  const matchOptions: { value: TagMatch; label: string }[] = [
+    { value: "ANY", label: copy.tagFilter.any },
+    { value: "ALL", label: copy.tagFilter.all },
+  ];
   const [selected, setSelected] = useState(tagId);
   const [match, setMatch] = useState(tagMatch);
   const [query, setQuery] = useState("");
