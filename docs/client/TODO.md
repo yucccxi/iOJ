@@ -14,7 +14,7 @@
   - 搜索框（300ms 防抖、`/` 快捷键聚焦）、来源筛选（`SourceFilter`）、难度筛选（`DifficultyFilter`，含 `UNKNOWN`）、标签筛选（`TagFilter`，草稿模式 + 搜索 + 任一/全部匹配 + 重置/应用）、排序菜单（`SortMenu`，含单来源 `RATING` 限制联动）。
   - 题目表格（`ProblemTable`，整行点击、`IOJ{id}` 与外部题号格式化、单行自适应标签、难度徽章 + 平台彩色 Rating Tooltip、通过率进度条 + 等宽计数 Tooltip、来源平台图标/作者头像）与分页器（`Pagination`）。
   - 右侧统计栏：难度分布卡（`DifficultyCard`）、热门标签卡（`PopularTagsCard`）、本站贡献卡（`ContributorsCard`）。
-- **账号菜单（[`AccountMenu.tsx`](../../client/src/components/AccountMenu.tsx)）**：未登录 / 已登录两态；主题切换（Default / Dark / Glass）与语言切换（仅已接入 i18n 的 Header、菜单与 TagFilter）；`/profile` `/activity` `/bookmarks` `/settings` 为占位页；`GET /auth/me` 恢复登录态，登出清本地 token。登录页仍是占位，已登录态需要真实 token。
+- **登录与注册（[`login.tsx`](../../client/src/routes/login.tsx)、[`register.tsx`](../../client/src/routes/register.tsx)）**：精简顶栏（Logo + 浏览题库）+ 居中 400px 卡片；登录含图形验证码、「7 天内自动登录」（不勾选只存 `sessionStorage`）；注册两步（邮箱 + 图形验证码 + 邮箱验证码 → 用户名、密码强度、确认密码、协议勾选），覆盖 `Sign Up · States` 11 种状态；注册成功跳 `/login?account=` 预填用户名。GitHub 登录、忘记密码、协议链接为 UI 占位。
 
 ---
 
@@ -46,9 +46,11 @@
   - [x] 通用 UI 组件与题库页响应式布局
 - [ ] **账号与个人中心**
   - [x] 账号菜单：`useSession` 恢复登录态、登出、主题与语言切换
-  - [ ] 登录页（`/login`）：居中 400px 表单卡片，输入框与按钮统一 40px 高；登录成功后调用 `setToken`
-  - [ ] 注册页（`/register`，邮箱验证码、图形验证码）：两步注册（Step 1 邮箱验证码 + Step 2 用户名密码，含 `Sign Up · States` 11 种校验与倒计时状态）；遵循表单规则 F5：Helper / Error 提示距输入框 4px，**有提示才占位、无提示不预留空白**，字段间距统一 16px
-  - [ ] 找回密码页
+  - [x] 登录页（`/login`）与两步注册页（`/register`）
+  - [ ] **下一步：找回密码页（`/forgot-password`）**：登录页「忘记密码？」目前是占位按钮，接口已就绪
+  - [ ] 登录/注册页浏览器实测：对照 Figma `Login - Default`、`Sign Up · Step 1/2`、`Sign Up · States` 检查三主题与窄屏
+  - [ ] 用户协议、隐私政策页（注册页协议标题目前不可点）
+  - [ ] GitHub 登录（按钮目前是占位）
   - [ ] 个人主页、修改昵称、修改密码（`/profile`、`/settings` 目前是占位页）
   - [ ] 登出所有设备
 - [ ] **题目与提交**
