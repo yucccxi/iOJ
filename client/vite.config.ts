@@ -24,6 +24,11 @@ export default defineConfig(({ mode }) => ({
       "/api": {
         target: loadEnv(mode, process.cwd(), "").IOJ_API_PROXY_TARGET,
         changeOrigin: true,
+        // The backend CORS list only has localhost:5173, so a POST from a LAN address gets 403.
+        // Behind the proxy the request is same-origin for the backend, so the header can go.
+        configure: (proxy) => {
+          proxy.on("proxyReq", (request) => request.removeHeader("origin"));
+        },
       },
     },
   },
