@@ -25,3 +25,5 @@ dist-ssr
 
 # Local review notes
 .review/
+
+.tanstack
