@@ -2,9 +2,14 @@
 
 ## Agent 职务：
 
-### 1. 前端开发和前端测试
+### 1. 测试用前端开发
 
-待定
+你需要编辑 iOJ/test-client（已被 gitignore）。初始化一个 vue3 项目（with typescript），并
+实现一个完整的可用的前端界面，无需美化。这个前端界面主要用来测试。
+
+api 文档在 iOJ/docs/api/frontend。如果需要的话你可以用 openapi，在 iOJ/openapi/ioj-api-v1.json
+
+你无需修改任何文档。
 
 ### 2. 后端开发和后端测试
 
