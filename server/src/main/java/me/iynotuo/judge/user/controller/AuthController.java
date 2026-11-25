@@ -8,6 +8,7 @@ import me.iynotuo.judge.user.dto.LoginRequest;
 import me.iynotuo.judge.user.dto.LoginResponse;
 import me.iynotuo.judge.user.dto.PasswordResetRequest;
 import me.iynotuo.judge.user.dto.RegisterRequest;
+import me.iynotuo.judge.user.dto.RegisterResponse;
 import me.iynotuo.judge.user.dto.SendEmailCodeRequest;
 import me.iynotuo.judge.user.dto.SendEmailCodeVO;
 import me.iynotuo.judge.user.dto.UserVO;
@@ -88,16 +89,16 @@ public class AuthController {
     }
 
     /**
-     * Registers a new account.
+     * Registers a new account and issues an access token for it.
      *
      * <p>The role is always USER and the status always ACTIVE regardless of the request
      * body, so registration can never be used to obtain administrator rights.</p>
      *
      * @param request username, email, password and optional nickname
-     * @return the created user
+     * @return the created user and its access token
      */
     @PostMapping("/register")
-    public ApiResponse<UserVO> register(@Valid @RequestBody RegisterRequest request) {
+    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ApiResponse.ok(userService.register(request));
     }
 

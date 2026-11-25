@@ -177,7 +177,8 @@ ioj:
 | `HttpJudgeAgentClientTest` / `AgentRunnerTest` | 位于 `judge-agent`：HTTP 协议与鉴权、ZIP bundle 解析、任务心跳间隔、claim → 执行 → 回报循环 |
 | `TestcaseCacheTest` | 位于 `judge-agent`：缓存命中、哈希变化重下、LRU 淘汰、哈希不一致拒绝、损坏缓存重下、禁用缓存直接下载 |
 | `JudgeAgentApplicationTest` | 位于 `judge-agent`：Spring 上下文、配置绑定和 Agent Bean 装配 |
-| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→匿名列表→提交 Java 代码→验证提交保持 `PENDING`→权限裁剪；不执行本地判题 |
+| `ApiFlowIntegrationTest` | 注册（返回 token 并写入 `last_login_at`）→登录→建题→传测试点→匿名列表→提交 Java 代码→验证提交保持 `PENDING`→权限裁剪；不执行本地判题 |
+| `OpenApiSpecificationTest` | 生成 OpenAPI schema 并与 `openapi/ioj-api-v1.json` 比对；注册响应类型为 `ApiResponseRegisterResponse` |
 | `DistributedJudgeIntegrationTest` | 管理员 key、节点心跳、claim、ZIP bundle 下载、任务心跳、结果回报、重复结果幂等、旧 token 拒绝、租约回收；覆盖 server 远程协议 |
 | `AdminModerationIntegrationTest` | 测试点单个/批量增删查、题目审核上下架、后台用户搜索、封禁后旧 token 立即失效 |
 | `CheckerIntegrationTest` | 判题器源码的读/写/清空、匿名与越权拒绝、题目详情只暴露 `hasChecker`；server 只存储源码，不执行 checker |

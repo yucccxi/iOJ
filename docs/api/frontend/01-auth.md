@@ -212,7 +212,7 @@
 
 `POST /api/v1/auth/register` ｜ 公开
 
-创建普通用户账号。启用邮箱验证时，必须先通过 2.1 获取验证码并在请求中带上；注册成功不会自动登录。
+创建普通用户账号。启用邮箱验证时，必须先通过 2.1 获取验证码并在请求中带上。注册成功后服务端直接签发 token 并写入 `last_login_at`，客户端保存 `data.token` 即可进入已登录态，不需要再调用 `POST /auth/login`。
 
 **请求体**
 
@@ -245,7 +245,10 @@
     "username": "alice",
     "nickname": "Alice",
     "role": "USER",
-    "createdAt": "2026-10-30T11:18:05"
+    "createdAt": "2026-10-30T11:18:05",
+    "token": "<jwt>",
+    "tokenType": "Bearer",
+    "expiresIn": 604800
   }
 }
 ```
@@ -257,6 +260,11 @@
 | `data.nickname` | string | 展示名 |
 | `data.role` | string | 注册固定为 `USER` |
 | `data.createdAt` | string | 注册时间 |
+| `data.token` | string | 注册成功后立即签发的访问令牌 |
+| `data.tokenType` | string | 固定 `Bearer` |
+| `data.expiresIn` | integer | 令牌有效期秒数，默认 604800（7 天） |
+
+> 注册响应是扁平结构：用户字段与 `token`、`tokenType`、`expiresIn` 同在 `data` 下；登录响应则把用户放在 `data.user`。OpenAPI 中该响应为 `ApiResponseRegisterResponse`，`data` 为 `RegisterResponse`。
 
 **失败情况**
 
@@ -271,6 +279,8 @@
 **行为说明**
 
 - 角色固定为 `USER`、状态固定为 `ACTIVE`，请求体无法指定角色。
+- 注册成功即视为首次登录：服务端写入 `last_login_at` 并返回可用 token，不再要求客户端调用登录接口。
+- 客户端保存 `data.token` 后即可请求需要登录的接口；token 过期后仍需通过 `POST /auth/login` 重新获取。
 - 验证码校验在写入用户之前；账号插入与验证码消费在同一事务内，插入失败不会浪费验证码。
 - 用户名/邮箱唯一性以数据库唯一索引为最终保证。
 

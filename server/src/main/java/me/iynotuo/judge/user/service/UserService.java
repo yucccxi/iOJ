@@ -16,6 +16,7 @@ import me.iynotuo.judge.user.dto.LoginRequest;
 import me.iynotuo.judge.user.dto.LoginResponse;
 import me.iynotuo.judge.user.dto.PasswordResetRequest;
 import me.iynotuo.judge.user.dto.RegisterRequest;
+import me.iynotuo.judge.user.dto.RegisterResponse;
 import me.iynotuo.judge.user.dto.UpdateProfileRequest;
 import me.iynotuo.judge.user.dto.UserProfileVO;
 import me.iynotuo.judge.user.dto.UserVO;
@@ -53,7 +54,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserVO register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
         if (userMapper.findByUsername(request.username()) != null) {
             throw BusinessException.of(ErrorCode.USERNAME_TAKEN);
@@ -87,7 +88,10 @@ public class UserService {
         // Consumed in this transaction, so a failed insert keeps the code usable and a successful
         // one can never be replayed.
         emailCodeService.consume(codeId);
-        return UserVO.from(user);
+        // Registration also signs the new account in, so it counts as the first login.
+        userMapper.updateLastLogin(user.getId(), now);
+        String token = tokenProvider.createToken(user);
+        return RegisterResponse.of(user, token, tokenProvider.expirationSeconds());
     }
 
     @Transactional

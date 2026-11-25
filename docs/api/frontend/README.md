@@ -53,9 +53,10 @@
 ### 4.1 注册与登录
 
 1. 注册页按需获取图形验证码（`purpose=EMAIL_SENDING`），再请求邮箱验证码。
-2. 提交 `username`、`email`、`password`、`emailCode` 注册；成功后不会自动登录。
-3. 登录页获取 `purpose=LOGIN` 的图形验证码，提交账号/密码/验证码。
-4. 保存 `token` 和 `user`；后续请求带 `Authorization: Bearer <token>`。
+2. 提交 `username`、`email`、`password`、`emailCode` 注册；成功响应包含 `token`、`tokenType`、`expiresIn`，服务端同时写入 `last_login_at`。
+3. 保存注册响应中的 `data.token` 和用户字段，直接进入已登录态；不需要再调用 `POST /auth/login`。
+4. 已有账号登录时，获取 `purpose=LOGIN` 的图形验证码，提交账号/密码/验证码，保存登录响应的 `token` 和 `user`。
+5. 后续请求带 `Authorization: Bearer <token>`。
 
 图形验证码一次性使用：密码错误、发码失败、验证码过期后都需要重新获取。部署关闭 `IOJ_CAPTCHA_ENABLED` 时，`captchaId` / `captchaCode` 可以省略，`POST /captcha` 返回 `1000`。
 

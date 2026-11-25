@@ -16,8 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Writes the OpenAPI document consumed by the frontend's openapi-typescript code generation.
  *
  * <p>The test uses the H2 test profile so schema generation does not need a MySQL instance. The
- * generated file is written to {@code target/openapi.json}; CI compares it with the committed copy
- * under {@code openapi/ioj-api-v1.json}.</p>
+ * generated file is written to {@code target/openapi.json}; commit it under
+ * {@code openapi/ioj-api-v1.json} when the API changes.</p>
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {

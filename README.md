@@ -68,7 +68,7 @@ java -jar server/target/server-0.0.1-SNAPSHOT.jar
   - [x] 节点心跳、claim、租约续期、结果回报
   - [x] 结果幂等、旧 token 拒绝、过期租约回收
   - [x] ZIP 测试数据 bundle 下载
-  - [ ] 下载的测试用例本地缓存
+  - [x] 下载的测试用例本地缓存
   - [ ] 重判
     - [ ] 单条提交重判
     - [ ] 批量重判
@@ -78,11 +78,11 @@ java -jar server/target/server-0.0.1-SNAPSHOT.jar
 - [ ] 运维与安全
   - [ ] 提交频率限制与防刷策略
   - [ ] 管理操作审计日志
+  - [ ] 接入 Cloudflare
 - [ ] i18n
 - [x] 文档与 CI
   - [x] API、后端、部署和运维文档
   - [x] GitHub Actions 服务端/前端部署工作流
-
 ## License
 
 见 [LICENSE](LICENSE)。

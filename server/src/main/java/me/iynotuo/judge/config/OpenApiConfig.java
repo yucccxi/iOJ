@@ -57,6 +57,7 @@ public class OpenApiConfig {
 
     private static boolean isResponseSchema(String name) {
         return name.endsWith("VO")
+                || name.endsWith("Response")
                 || name.startsWith("ApiResponse")
                 || name.startsWith("PageResult")
                 || name.endsWith("Row");

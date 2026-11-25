@@ -91,7 +91,7 @@ erDiagram
 | status | VARCHAR(16) | NOT NULL DEFAULT 'ACTIVE' | `ACTIVE` / `BANNED` |
 | created_at | DATETIME | NOT NULL | |
 | updated_at | DATETIME | NOT NULL | |
-| last_login_at | DATETIME | NULL | 登录时更新 |
+| last_login_at | DATETIME | NULL | 注册成功和登录成功时更新 |
 
 索引：`uk_users_username`、`uk_users_email`（唯一索引同时承担"注册去重"和"并发注册兜底"）。
 

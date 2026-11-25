@@ -47,6 +47,13 @@ class ApiFlowIntegrationTest extends ApiTestSupport {
         assertThat(token).isNotBlank();
 
         long authorId = register.path("data").path("id").asLong();
+        String registerToken = register.path("data").path("token").asString();
+        assertThat(registerToken).isNotBlank();
+        assertThat(get("/api/v1/auth/me", registerToken).path("data").path("id").asLong())
+                .isEqualTo(authorId);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT last_login_at FROM users WHERE id = ?", LocalDateTime.class, authorId))
+                .isNotNull();
         // A brand new account has not contributed any problem yet
         assertThat(get("/api/v1/users/" + authorId, null)
                 .path("data").path("contributedCount").asLong()).isZero();

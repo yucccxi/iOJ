@@ -167,7 +167,8 @@ curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
 | --- | --- |
 | `ServerApplicationTests` | Spring 上下文与全部 Mapper XML 可加载 |
 | `JwtTokenProviderTest` | 令牌签发/解析、token 版本、篡改、过期、弱密钥拒绝 |
-| `ApiFlowIntegrationTest` | 注册→登录→建题→传测试点→提交→验证 `PENDING`→字段裁剪；不执行本地判题 |
+| `ApiFlowIntegrationTest` | 注册（返回 token 并写入 `last_login_at`）→登录→建题→传测试点→提交→验证 `PENDING`→字段裁剪；不执行本地判题 |
+| `OpenApiSpecificationTest` | OpenAPI schema 与 `openapi/ioj-api-v1.json` 一致；注册响应为 `ApiResponseRegisterResponse` |
 | `DistributedJudgeIntegrationTest` | key、节点心跳、claim、ZIP bundle、任务心跳、结果回报、幂等、旧 token 拒绝、租约回收 |
 | `AdminModerationIntegrationTest` | 测试点增删改查、题目上下架、用户搜索与封禁 |
 | `AdminMetaIntegrationTest` | 标签/scope 字典、重复处理、使用量、`LOCAL` 保护、删除保护 |

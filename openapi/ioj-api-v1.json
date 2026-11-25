@@ -1128,7 +1128,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseUserVO"
+                  "$ref" : "#/components/schemas/ApiResponseRegisterResponse"
                 }
               }
             },
@@ -2702,6 +2702,22 @@
         },
         "required" : [ "code", "data", "message" ]
       },
+      "ApiResponseRegisterResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/RegisterResponse"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "data", "message" ]
+      },
       "ApiResponseScopeMetaVO" : {
         "type" : "object",
         "properties" : {
@@ -3143,7 +3159,8 @@
           "user" : {
             "$ref" : "#/components/schemas/UserVO"
           }
-        }
+        },
+        "required" : [ "expiresIn", "token", "tokenType", "user" ]
       },
       "PageResultCatalogItemVO" : {
         "type" : "object",
@@ -3506,6 +3523,40 @@
           }
         },
         "required" : [ "email", "password", "username" ]
+      },
+      "RegisterResponse" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nickname" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "USER", "ADMIN" ]
+          },
+          "token" : {
+            "type" : "string"
+          },
+          "tokenType" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "expiresIn", "id", "nickname", "role", "token", "tokenType", "username" ]
       },
       "SampleRequest" : {
         "type" : "object",
