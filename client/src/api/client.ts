@@ -16,27 +16,11 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * GETs `/api/v1{path}` and returns the envelope's `data`. Arrays become repeated params
- * (`a=1&a=2`); empty values are dropped.
- */
-export async function get<T>(
-  path: string,
-  query: Query = {},
-  signal?: AbortSignal,
-): Promise<T> {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    for (const item of [value].flat()) {
-      if (item !== undefined && item !== "") params.append(key, String(item));
-    }
-  }
-  const search = params.size > 0 ? `?${params}` : "";
+async function request<T>(path: string, init: RequestInit): Promise<T> {
+  const headers = new Headers(init.headers);
   const token = getToken();
-  const response = await fetch(`/api/v1${path}${search}`, {
-    signal,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`/api/v1${path}`, { ...init, headers });
 
   // A proxy or gateway error returns HTML, not the envelope.
   if (!response.headers.get("content-type")?.includes("application/json")) {
@@ -49,4 +33,37 @@ export async function get<T>(
   // Only code 0 means success; the same business error can come with 400, 405 or 415.
   if (body.code !== 0) throw new ApiError(body.code, body.message);
   return body.data;
+}
+
+/**
+ * GETs `/api/v1{path}` and returns the envelope's `data`. Arrays become repeated params
+ * (`a=1&a=2`); empty values are dropped.
+ */
+export function get<T>(
+  path: string,
+  query: Query = {},
+  signal?: AbortSignal,
+): Promise<T> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    for (const item of [value].flat()) {
+      if (item !== undefined && item !== "") params.append(key, String(item));
+    }
+  }
+  const search = params.size > 0 ? `?${params}` : "";
+  return request<T>(`${path}${search}`, { signal });
+}
+
+/** POSTs `body` as JSON to `/api/v1{path}` and returns the envelope's `data`. */
+export function post<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    signal,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
