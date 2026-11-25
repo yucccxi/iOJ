@@ -18,6 +18,10 @@ declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
   }
+  interface StaticDataRouteOption {
+    /** Swaps the full header for the logo-only one used on sign-in and sign-up. */
+    minimalHeader?: boolean;
+  }
 }
 
 createRoot(document.getElementById("root")!).render(
