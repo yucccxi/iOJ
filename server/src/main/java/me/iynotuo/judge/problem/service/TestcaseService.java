@@ -3,6 +3,7 @@ package me.iynotuo.judge.problem.service;
 import me.iynotuo.judge.common.exception.BusinessException;
 import me.iynotuo.judge.common.exception.ErrorCode;
 import me.iynotuo.judge.config.ProblemProperties;
+import me.iynotuo.judge.judge.service.TestcaseBundleHashService;
 import me.iynotuo.judge.problem.dto.TestcaseDetailVO;
 import me.iynotuo.judge.problem.dto.TestcaseRequest;
 import me.iynotuo.judge.problem.dto.TestcaseSummaryVO;
@@ -26,13 +27,16 @@ public class TestcaseService {
     private final ProblemService problemService;
     private final ProblemTestcaseMapper testcaseMapper;
     private final ProblemProperties properties;
+    private final TestcaseBundleHashService bundleHashService;
 
     public TestcaseService(ProblemService problemService,
                            ProblemTestcaseMapper testcaseMapper,
-                           ProblemProperties properties) {
+                           ProblemProperties properties,
+                           TestcaseBundleHashService bundleHashService) {
         this.problemService = problemService;
         this.testcaseMapper = testcaseMapper;
         this.properties = properties;
+        this.bundleHashService = bundleHashService;
     }
 
     public List<TestcaseSummaryVO> list(LoginUser current, Long problemId) {
@@ -68,6 +72,7 @@ public class TestcaseService {
         if (summary == null) {
             throw BusinessException.of(ErrorCode.TESTCASE_NOT_FOUND);
         }
+        bundleHashService.invalidate(problemId);
         return summary;
     }
 
@@ -82,22 +87,22 @@ public class TestcaseService {
         }
         requests.forEach(this::validate);
         testcaseMapper.deleteByProblemId(problemId);
-        if (requests.isEmpty()) {
-            return List.of();
+        if (!requests.isEmpty()) {
+            LocalDateTime now = LocalDateTime.now();
+            List<ProblemTestcase> entities = new ArrayList<>(requests.size());
+            for (int i = 0; i < requests.size(); i++) {
+                ProblemTestcase entity = new ProblemTestcase();
+                entity.setProblemId(problemId);
+                entity.setOrdinal(i + 1);
+                entity.setInputData(requests.get(i).input());
+                entity.setOutputData(requests.get(i).output());
+                entity.setCreatedAt(now);
+                entities.add(entity);
+            }
+            testcaseMapper.insertBatch(entities);
         }
-        LocalDateTime now = LocalDateTime.now();
-        List<ProblemTestcase> entities = new ArrayList<>(requests.size());
-        for (int i = 0; i < requests.size(); i++) {
-            ProblemTestcase entity = new ProblemTestcase();
-            entity.setProblemId(problemId);
-            entity.setOrdinal(i + 1);
-            entity.setInputData(requests.get(i).input());
-            entity.setOutputData(requests.get(i).output());
-            entity.setCreatedAt(now);
-            entities.add(entity);
-        }
-        testcaseMapper.insertBatch(entities);
-        return testcaseMapper.findSummaries(problemId);
+        bundleHashService.invalidate(problemId);
+        return requests.isEmpty() ? List.of() : testcaseMapper.findSummaries(problemId);
     }
 
     @Transactional
@@ -107,6 +112,7 @@ public class TestcaseService {
         if (deleted == 0) {
             throw BusinessException.of(ErrorCode.TESTCASE_NOT_FOUND);
         }
+        bundleHashService.invalidate(problemId);
     }
 
     private void validate(TestcaseRequest request) {

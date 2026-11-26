@@ -5,6 +5,7 @@ import me.iynotuo.judge.common.exception.ErrorCode;
 import me.iynotuo.judge.config.ServerJudgeProperties;
 import me.iynotuo.judge.problem.entity.Problem;
 import me.iynotuo.judge.problem.entity.ProblemTestcase;
+import me.iynotuo.judge.problem.entity.ProblemTestcaseBundle;
 import me.iynotuo.judge.problem.mapper.ProblemMapper;
 import me.iynotuo.judge.problem.mapper.ProblemTestcaseMapper;
 import me.iynotuo.judge.protocol.JudgeHeartbeatResponse;
@@ -41,7 +42,7 @@ public class JudgeTaskService {
     private final ServerJudgeProperties judgeProperties;
     private final JudgeKeyService judgeKeyService;
     private final JudgeNodeService judgeNodeService;
-    private final JudgeTestcaseBundleWriter testcaseBundleWriter;
+    private final TestcaseBundleHashService bundleHashService;
 
     public JudgeTaskService(SubmissionMapper submissionMapper,
                             ProblemMapper problemMapper,
@@ -49,14 +50,14 @@ public class JudgeTaskService {
                             ServerJudgeProperties judgeProperties,
                             JudgeKeyService judgeKeyService,
                             JudgeNodeService judgeNodeService,
-                            JudgeTestcaseBundleWriter testcaseBundleWriter) {
+                            TestcaseBundleHashService bundleHashService) {
         this.submissionMapper = submissionMapper;
         this.problemMapper = problemMapper;
         this.testcaseMapper = testcaseMapper;
         this.judgeProperties = judgeProperties;
         this.judgeKeyService = judgeKeyService;
         this.judgeNodeService = judgeNodeService;
-        this.testcaseBundleWriter = testcaseBundleWriter;
+        this.bundleHashService = bundleHashService;
     }
 
     /**
@@ -145,21 +146,28 @@ public class JudgeTaskService {
         if (language == null) {
             return null;
         }
-        List<ProblemTestcase> testcases = testcaseMapper.findByProblemId(problem.getId());
-        if (testcases.isEmpty()) {
-            return null;
-        }
         String checkerCode = problemMapper.findCheckerCode(problem.getId());
-        List<JudgeTestCase> allTestcases = testcases.stream()
-                .map(testcase -> new JudgeTestCase(testcase.getOrdinal(),
-                        testcase.getInputData(), testcase.getOutputData()))
-                .toList();
-        // Every task downloads its test data as a ZIP bundle, regardless of size.
+        // Every task downloads its test data as a ZIP bundle, regardless of size. A cache hit lets
+        // the claim skip loading the (possibly very large) test data entirely.
         String bundleSha256;
-        try {
-            bundleSha256 = testcaseBundleWriter.sha256(allTestcases);
-        } catch (IOException ex) {
-            throw new IllegalStateException("无法计算测试数据 bundle 哈希", ex);
+        ProblemTestcaseBundle cached = bundleHashService.find(problem.getId());
+        if (cached != null && cached.getBundleSha256() != null) {
+            bundleSha256 = cached.getBundleSha256();
+        } else {
+            long version = cached == null ? 0L : cached.getTestcaseVersion();
+            List<ProblemTestcase> testcases = testcaseMapper.findByProblemId(problem.getId());
+            if (testcases.isEmpty()) {
+                return null;
+            }
+            List<JudgeTestCase> allTestcases = testcases.stream()
+                    .map(testcase -> new JudgeTestCase(testcase.getOrdinal(),
+                            testcase.getInputData(), testcase.getOutputData()))
+                    .toList();
+            try {
+                bundleSha256 = bundleHashService.getOrCompute(problem.getId(), allTestcases, version);
+            } catch (IOException ex) {
+                throw new IllegalStateException("无法计算测试数据 bundle 哈希", ex);
+            }
         }
         JudgeLanguageConfig languageConfig = new JudgeLanguageConfig(
                 language.getSourceFile(),

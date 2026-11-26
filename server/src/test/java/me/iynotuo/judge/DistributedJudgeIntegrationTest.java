@@ -202,8 +202,14 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
                         .POST(body(staleResult)), judgeKey);
         assertThat(stale.statusCode()).isEqualTo(409);
 
-        assertThat(get("/api/v1/admin/judge-nodes", adminToken)
-                .path("data").get(0).path("nodeId").asString()).isEqualTo("judge-1");
+        boolean judgeNodeFound = false;
+        for (JsonNode node : get("/api/v1/admin/judge-nodes", adminToken).path("data")) {
+            if ("judge-1".equals(node.path("nodeId").asString())) {
+                judgeNodeFound = true;
+                break;
+            }
+        }
+        assertThat(judgeNodeFound).isTrue();
 
         // Expired leases are requeued, not left in JUDGING forever.
         long thirdSubmission = submitAcceptedJava(adminToken, problemId);
@@ -215,6 +221,62 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         judgeLeaseReaper.reap();
         assertThat(get("/api/v1/submissions/" + thirdSubmission, adminToken)
                 .path("data").path("status").asString()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void cachesBundleHashAndInvalidatesItWhenTestcasesChange() throws Exception {
+        String adminToken = createAdmin("hashadmin");
+        long problemId = createProblemWithOneCase(adminToken);
+        long firstSubmission = submitCpp(adminToken, problemId);
+
+        JsonNode createdKey = post("/api/v1/admin/judge-keys", adminToken, Map.of("name", "hash-key"));
+        String judgeKey = createdKey.path("data").path("key").asString();
+        post("/internal/judge/nodes/heartbeat", judgeKey, Map.of(
+                "nodeId", "hash-node",
+                "hostname", "judge-test",
+                "version", "0.0.1",
+                "languages", List.of("CPP"),
+                "maxConcurrency", 1,
+                "runningTasks", 0,
+                "isolateVersion", "test"));
+
+        JsonNode firstClaim = post("/internal/judge/tasks/claim", judgeKey, Map.of(
+                "nodeId", "hash-node",
+                "maxTasks", 1,
+                "languages", List.of("CPP"),
+                "protocolVersion", ProtocolVersion.CURRENT));
+        assertThat(firstClaim.path("data").path("tasks").size()).isEqualTo(1);
+        JsonNode firstTask = firstClaim.path("data").path("tasks").get(0);
+        assertThat(firstTask.path("submissionId").asLong()).isEqualTo(firstSubmission);
+        String firstHash = firstTask.path("bundleSha256").asString();
+        assertThat(firstHash).matches("[0-9a-f]{64}");
+        assertThat(cachedHash(problemId)).isEqualTo(firstHash);
+
+        // Replacing test cases clears the cached hash in the same transaction.
+        JsonNode replaced = put("/api/v1/problems/" + problemId + "/testcases", adminToken,
+                List.of(Map.of("input", "2 3\n", "output", "5\n")));
+        assertThat(replaced.path("code").asInt()).isZero();
+        assertThat(cachedHash(problemId)).isNull();
+
+        // The next claim recomputes the hash and repopulates the cache.
+        long secondSubmission = submitCpp(adminToken, problemId);
+        JsonNode secondClaim = post("/internal/judge/tasks/claim", judgeKey, Map.of(
+                "nodeId", "hash-node",
+                "maxTasks", 1,
+                "languages", List.of("CPP"),
+                "protocolVersion", ProtocolVersion.CURRENT));
+        assertThat(secondClaim.path("data").path("tasks").size()).isEqualTo(1);
+        JsonNode secondTask = secondClaim.path("data").path("tasks").get(0);
+        assertThat(secondTask.path("submissionId").asLong()).isEqualTo(secondSubmission);
+        String secondHash = secondTask.path("bundleSha256").asString();
+        assertThat(secondHash).matches("[0-9a-f]{64}").isNotEqualTo(firstHash);
+        assertThat(cachedHash(problemId)).isEqualTo(secondHash);
+    }
+
+    private String cachedHash(long problemId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT bundle_sha256 FROM problem_testcase_bundles WHERE problem_id = ?",
+                String.class, problemId);
     }
 
     private String createAdmin(String username) throws Exception {
@@ -249,6 +311,15 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
                 "problemId", problemId,
                 "language", "JAVA",
                 "code", "public class Main { public static void main(String[] args) { System.out.println(3); } }"));
+        assertThat(submitted.path("code").asInt()).isZero();
+        return submitted.path("data").path("id").asLong();
+    }
+
+    private long submitCpp(String adminToken, long problemId) throws Exception {
+        JsonNode submitted = post("/api/v1/submissions", adminToken, Map.of(
+                "problemId", problemId,
+                "language", "CPP",
+                "code", "#include <iostream>\nint main() { std::cout << 5; }\n"));
         assertThat(submitted.path("code").asInt()).isZero();
         return submitted.path("data").path("id").asLong();
     }

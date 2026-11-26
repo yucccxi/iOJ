@@ -118,6 +118,18 @@ CREATE TABLE problem_testcases (
     CONSTRAINT fk_testcases_problem FOREIGN KEY (problem_id) REFERENCES problems (id) ON DELETE CASCADE
 );
 
+-- Cached SHA-256 of the ZIP bundle generated from a problem's test cases.
+-- bundle_sha256 = NULL means the cache must be recomputed. Test case mutations clear it and bump
+-- testcase_version so a concurrent hash computation cannot write back a stale value.
+CREATE TABLE problem_testcase_bundles (
+    problem_id       BIGINT      NOT NULL PRIMARY KEY,
+    bundle_sha256    VARCHAR(64) NULL,
+    testcase_version BIGINT      NOT NULL DEFAULT 0,
+    updated_at       DATETIME    NOT NULL,
+    CONSTRAINT fk_problem_testcase_bundles_problem
+        FOREIGN KEY (problem_id) REFERENCES problems (id) ON DELETE CASCADE
+);
+
 CREATE TABLE tags (
     id   BIGINT      NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(32) NOT NULL,
