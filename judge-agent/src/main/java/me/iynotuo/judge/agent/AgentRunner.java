@@ -191,10 +191,7 @@ public class AgentRunner {
             if (cancelledTasks.remove(task.taskId())) {
                 return;
             }
-            List<JudgeTestCase> testcases = task.testcases();
-            if (testcases.isEmpty() && task.testcaseBundleUrl() != null) {
-                testcases = testcaseCache.loadOrFetch(task);
-            }
+            List<JudgeTestCase> testcases = testcaseCache.loadOrFetch(task);
             JudgeOutcome outcome = judgeEngine.judge(taskMapper.toContext(task, testcases));
             if (cancelledTasks.remove(task.taskId())) {
                 return;

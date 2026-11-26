@@ -14,9 +14,11 @@ public final class ProtocolVersion {
      *
      * <p>Version 2 requires test data bundles to be ZIP archives; the legacy JSON bundle fallback
      * was removed. Version 3 adds the problem id to every task and the SHA-256 of the ZIP bundle so
-     * agents can cache test data.</p>
+     * agents can cache test data. Version 4 removes the always-empty inline {@code testcases} and
+     * redundant {@code testcaseBundleUrl} fields; every task downloads its bundle from
+     * {@code /internal/judge/tasks/{taskId}/testcases}.</p>
      */
-    public static final int CURRENT = 3;
+    public static final int CURRENT = 4;
 
     private ProtocolVersion() {
     }

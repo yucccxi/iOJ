@@ -102,7 +102,7 @@ server/judge/
 | `GET /internal/judge/config` | Agent 启动时拉取语言、探测命令、checker 引导开关和协议版本；不下发 checker 运行时限/内存 |
 | `POST /internal/judge/nodes/heartbeat` | 节点注册/心跳，上报语言、并发、版本 |
 | `POST /internal/judge/tasks/claim` | 领取 1~N 个 PENDING 任务 |
-| `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载 ZIP bundle（含 `testcases.json`） |
+| `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 所有任务下载 ZIP bundle（含 `testcases.json`） |
 | `POST /internal/judge/tasks/{id}/heartbeat` | 续租；返回 `cancel=true` 表示任务已被重领/重测 |
 | `POST /internal/judge/tasks/{id}/result` | 回报终态结果 |
 | `POST /internal/judge/tasks/{id}/release` | Agent 优雅停机时释放未开始任务 |
@@ -115,10 +115,10 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 
 - `claim_token` 是 fencing token；结果写入时同时校验 token 和 `JUDGING` 状态。
 - 主服务器没有本地判题回退：Agent 不在线或没有可用 Agent 时，提交保持 `PENDING`，不会在 server 上执行。
-- Agent 启动时先拉取 `/internal/judge/config`，校验 `protocolVersion` 与 `ProtocolVersion.CURRENT`（当前 `3`）一致，再按 `requiredLanguages` 的 `probeCommands` 校验本机工具链；任一项失败都会拒绝启动，不会先发心跳或 claim。
-- 测试数据总量不超过 `ioj.judge.dispatch.inline-max-bytes`（默认 1 MiB）时直接内联在 claim 响应；超过时返回 `testcaseBundleUrl`，Agent 用同一个 `claimToken` 通过 GET 下载 ZIP bundle。
+- Agent 启动时先拉取 `/internal/judge/config`，校验 `protocolVersion` 与 `ProtocolVersion.CURRENT`（当前 `4`）一致，再按 `requiredLanguages` 的 `probeCommands` 校验本机工具链；任一项失败都会拒绝启动，不会先发心跳或 claim。
+- 所有测试用例都通过 ZIP bundle 下发，claim 响应不包含 `testcases` 或 `testcaseBundleUrl`；Agent 用同一个 `claimToken` 通过固定路径 `/internal/judge/tasks/{taskId}/testcases` 下载。
 - ZIP bundle 只有一个 `testcases.json` 条目。Agent 发送 `Accept: application/zip`，服务端始终返回 ZIP；不再提供 JSON bundle 兼容格式。
-- 当前内部协议版本为 `3`。v3 起 `JudgeTask` 包含 `problemId` 和 `bundleSha256`：`problemId` 是题目数据库 id，Agent 用它在本地按题缓存测试数据；`bundleSha256` 是服务端生成 ZIP 的 SHA-256，内联模式为 `null`。
+- 当前内部协议版本为 `4`。`JudgeTask` 包含 `problemId` 和 `bundleSha256`：`problemId` 是题目数据库 id，Agent 用它在本地按题缓存测试数据；`bundleSha256` 是服务端生成 ZIP 的 SHA-256，始终非空。
 - 服务端固定 ZIP 条目的时间戳，因此同样测试数据总是生成相同字节和相同 `bundleSha256`。Agent 在本地缓存缺失、哈希文件不一致或 ZIP 解析失败时重新下载；缓存关闭或哈希不可用时直接下载。下载后必须校验哈希，缓存目录、LRU 和权限见 [判题 Agent 部署与运维 §5](07-judge-agent.md#5-配置)。
 - 任务租约由主服务器 `ioj.judge.dispatch.lease-seconds` 决定；Agent 任务心跳间隔为租约的 `1/3`。
 - 租约边界采用半开区间：`lease_expires_at > now` 时仍有效，`lease_expires_at <= now` 时回收器可以处理；心跳在等号时返回 `cancel=true`。
@@ -131,7 +131,7 @@ judge_key_id / judge_node_id / claim_token / claimed_at / lease_expires_at / att
 
 ```text
 AgentRunner.execute(task)
-├── TestcaseCache.loadOrFetch(task)（bundle 模式；命中缓存或下载并校验 bundleSha256）
+├── TestcaseCache.loadOrFetch(task)（所有任务；命中缓存或下载并校验 bundleSha256）
 ├── AgentTaskMapper.toContext(task, testcases)
 ├── IsolateJudgeEngine.judge(context)
 │   ├── 从 box-id 池取一个编号，创建临时工作目录

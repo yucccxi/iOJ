@@ -1,13 +1,11 @@
 package me.iynotuo.judge.protocol;
 
-import java.util.List;
-
 /**
  * One unit of work claimed by a judge agent.
  *
- * <p>Large test data is not required to travel in this payload: {@code testcaseBundleUrl} points at a
- * ZIP download that the agent can fetch with the same claim token. The archive contains a single
- * {@code testcases.json} entry. Small tasks may inline the test cases instead.</p>
+ * <p>Test data always travels out of band as a ZIP bundle that the agent downloads from
+ * {@code /internal/judge/tasks/{taskId}/testcases} with the same claim token. The archive contains
+ * a single {@code testcases.json} entry.</p>
  *
  * @param taskId             submission id used as the task id in the current implementation
  * @param submissionId       submission being judged
@@ -20,10 +18,7 @@ import java.util.List;
  * @param memoryLimitMb      memory limit in megabytes
  * @param languageConfig     compile/run command snapshot
  * @param checkerCode        custom checker source, or {@code null} for the built-in comparator
- * @param testcases          inline test cases; empty when a bundle is used
- * @param testcaseBundleUrl  relative or absolute URL of a ZIP test case bundle containing
- *                           {@code testcases.json}
- * @param bundleSha256       SHA-256 of the ZIP bundle, or {@code null} when no bundle is used
+ * @param bundleSha256       SHA-256 of the ZIP test case bundle
  */
 public record JudgeTask(Long taskId,
                         Long submissionId,
@@ -36,11 +31,5 @@ public record JudgeTask(Long taskId,
                         int memoryLimitMb,
                         JudgeLanguageConfig languageConfig,
                         String checkerCode,
-                        List<JudgeTestCase> testcases,
-                        String testcaseBundleUrl,
                         String bundleSha256) {
-
-    public JudgeTask {
-        testcases = testcases == null ? List.of() : List.copyOf(testcases);
-    }
 }

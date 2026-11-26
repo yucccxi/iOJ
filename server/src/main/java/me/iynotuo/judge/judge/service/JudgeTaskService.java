@@ -22,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -155,19 +154,12 @@ public class JudgeTaskService {
                 .map(testcase -> new JudgeTestCase(testcase.getOrdinal(),
                         testcase.getInputData(), testcase.getOutputData()))
                 .toList();
-        long testcaseBytes = allTestcases.stream()
-                .mapToLong(testcase -> utf8Length(testcase.input()) + utf8Length(testcase.output()))
-                .sum();
-        boolean bundle = testcaseBytes > Math.max(0, judgeProperties.getDispatch().getInlineMaxBytes());
-        List<JudgeTestCase> judgeTestcases = bundle ? List.of() : allTestcases;
-        String bundleUrl = bundle ? "/internal/judge/tasks/" + submission.getId() + "/testcases" : null;
-        String bundleSha256 = null;
-        if (bundle) {
-            try {
-                bundleSha256 = testcaseBundleWriter.sha256(allTestcases);
-            } catch (IOException ex) {
-                throw new IllegalStateException("无法计算测试数据 bundle 哈希", ex);
-            }
+        // Every task downloads its test data as a ZIP bundle, regardless of size.
+        String bundleSha256;
+        try {
+            bundleSha256 = testcaseBundleWriter.sha256(allTestcases);
+        } catch (IOException ex) {
+            throw new IllegalStateException("无法计算测试数据 bundle 哈希", ex);
         }
         JudgeLanguageConfig languageConfig = new JudgeLanguageConfig(
                 language.getSourceFile(),
@@ -191,13 +183,11 @@ public class JudgeTaskService {
                 problem.getMemoryLimitMb() == null ? 256 : problem.getMemoryLimitMb(),
                 languageConfig,
                 checkerCode,
-                judgeTestcases,
-                bundleUrl,
                 bundleSha256);
     }
 
     /**
-     * Returns the full test data for a task that was claimed in bundle mode.
+     * Returns the full test data for a claimed task.
      */
     public List<JudgeTestCase> testcases(Long submissionId, String claimToken) {
         if (claimToken == null || claimToken.isBlank()) {
@@ -215,9 +205,5 @@ public class JudgeTaskService {
                 .map(testcase -> new JudgeTestCase(testcase.getOrdinal(),
                         testcase.getInputData(), testcase.getOutputData()))
                 .toList();
-    }
-
-    private long utf8Length(String value) {
-        return value == null ? 0 : value.getBytes(StandardCharsets.UTF_8).length;
     }
 }

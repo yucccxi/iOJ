@@ -22,7 +22,7 @@ public interface JudgeAgentClient {
     List<JudgeTask> claim(int maxTasks, List<Language> languages);
 
     /**
-     * Downloads test data when a task was claimed in bundle mode.
+     * Fetches and parses test data directly, bypassing the local disk cache.
      */
     List<JudgeTestCase> fetchTestcases(Long taskId, String claimToken);
 

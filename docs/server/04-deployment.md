@@ -81,7 +81,6 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin1234
 | `IOJ_JUDGE_REAPER_INTERVAL_MS` | integer | 否 | `30000` | 过期租约回收间隔 |
 | `IOJ_JUDGE_NODE_OFFLINE_SECONDS` | integer | 否 | `90` | 节点心跳超时后标记离线 |
 | `IOJ_JUDGE_MAX_CLAIM_BATCH` | integer | 否 | `10` | 单次 claim 最多返回任务数（服务端上限；Agent 默认申请 `1`） |
-| `IOJ_JUDGE_INLINE_MAX_BYTES` | integer | 否 | `1048576` | 测试数据总字节数超过该值时改用 ZIP bundle 下载 |
 | `IOJ_JUDGE_CHECKER_ENABLED` | boolean | 否 | `true` | 主服务器是否在 bootstrap 中声明 checker 可用并下发 checker 探针命令；**不控制远程 Agent 是否执行 checker** |
 | `IOJ_MAIL_HOST` / `IOJ_MAIL_PORT` | string / integer | 启用邮箱验证时是 | `smtp.localhost.invalid` / `25` | SMTP 服务器；默认值来自受跟踪配置，生产环境必须覆盖 |
 | `IOJ_MAIL_USERNAME` / `IOJ_MAIL_PASSWORD` | string | 视 SMTP 服务而定 | 空 | SMTP 认证信息 |
@@ -469,7 +468,7 @@ gunzip -c /backup/ioj-before-upgrade-<timestamp>.sql.gz | mysql -uioj -p'<db-pas
 
 > 恢复数据库会覆盖升级后产生的数据；只有在确认数据可以丢弃或已另行迁移时才能执行。升级顺序建议：若协议版本变更则不兼容旧 Agent，必须同时升级主服务器和 Agent；协议兼容时再按“主服务器兼容旧协议 → 逐台升级 Agent”的顺序。排障先看 `ProtocolVersion` 和发布说明。
 >
-> 当前协议版本为 `3`。旧 Agent 会在启动拉取配置时发现版本不匹配，以退出码 `78` 拒绝启动，不会领取任务；升级主服务器前先准备所有 Agent 的升级包。
+> 当前协议版本为 `4`。v4 移除 claim 响应中的 `testcases` 和 `testcaseBundleUrl`，所有任务都通过 bundle 获取测试数据；旧 Agent 会在启动拉取配置时发现版本不匹配，以退出码 `78` 拒绝启动，不会领取任务。升级主服务器前必须准备所有 Agent 的升级包，并同时升级主服务器和 Agent。
 
 ### 9.1 CI 部署
 

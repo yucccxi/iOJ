@@ -22,14 +22,7 @@ import java.util.List;
 public class AgentTaskMapper {
 
     /**
-     * Builds the execution context for one claimed task.
-     */
-    public JudgeContext toContext(JudgeTask task) {
-        return toContext(task, task.testcases());
-    }
-
-    /**
-     * Builds the execution context with test data supplied separately (bundle mode).
+     * Builds the execution context for one claimed task with test data supplied separately.
      */
     public JudgeContext toContext(JudgeTask task, List<JudgeTestCase> testcases) {
         if (testcases == null || testcases.isEmpty()) {

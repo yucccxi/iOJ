@@ -113,7 +113,6 @@ ioj:
       reaper-interval-ms: ${IOJ_JUDGE_REAPER_INTERVAL_MS:30000}
       node-offline-seconds: ${IOJ_JUDGE_NODE_OFFLINE_SECONDS:90}
       max-claim-batch: ${IOJ_JUDGE_MAX_CLAIM_BATCH:10}
-      inline-max-bytes: ${IOJ_JUDGE_INLINE_MAX_BYTES:1048576}
     # The server tells the agent whether custom checkers are allowed and which compiler to probe;
     # checker limits and commands are configured on the agent.
     checker:

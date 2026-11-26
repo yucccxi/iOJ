@@ -32,8 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "spring.datasource.url=jdbc:h2:mem:ioj-distributed;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
-                "ioj.judge.dispatch.inline-max-bytes=0"
+                "spring.datasource.url=jdbc:h2:mem:ioj-distributed;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
         })
 @ActiveProfiles("test")
 class DistributedJudgeIntegrationTest extends ApiTestSupport {
@@ -104,8 +103,8 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         assertThat(claimToken).isNotBlank();
         assertThat(task.path("submissionId").asLong()).isEqualTo(submissionId);
         assertThat(task.path("problemId").asLong()).isEqualTo(problemId);
-        assertThat(task.path("testcases").size()).isZero();
-        assertThat(task.path("testcaseBundleUrl").asString()).contains("/testcases");
+        assertThat(task.has("testcases")).isFalse();
+        assertThat(task.has("testcaseBundleUrl")).isFalse();
         String bundleSha256 = task.path("bundleSha256").asString();
         assertThat(bundleSha256).matches("[0-9a-f]{64}");
 

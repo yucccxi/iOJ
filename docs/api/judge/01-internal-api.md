@@ -46,12 +46,13 @@ key 失效条件：
 
 ### 1.3 协议版本
 
-当前 `ProtocolVersion.CURRENT = 3`。
+当前 `ProtocolVersion.CURRENT = 4`。
 
 | 项 | 说明 |
 | --- | --- |
 | v2 要求 | 测试数据 bundle 必须是 ZIP，归档内唯一入口为 `testcases.json`；旧 JSON bundle 已移除 |
 | v3 增加 | `JudgeTask.problemId` 和 `bundleSha256`；Agent 用 `bundleSha256` 校验 bundle 并判断本地缓存是否失效 |
+| v4 变更 | 删除恒为空的 `testcases` 和冗余的 `testcaseBundleUrl`；所有任务都从 `/internal/judge/tasks/{taskId}/testcases` 下载 bundle |
 | 启动校验 | Agent 拉取 `/config` 后必须校验 `protocolVersion`；不一致时拒绝启动，退出码 `78` |
 | claim/heartbeat 字段 | 请求中的 `protocolVersion` 用于诊断；当前服务端不会因该字段不同而拒绝 claim，真正的兼容性由启动校验保证 |
 | 升级策略 | 不兼容变更必须递增版本，并同时升级主服务器与 Agent；不得用字段缺失来“兼容”旧 Agent |
@@ -73,7 +74,7 @@ Agent 启动时调用一次，获取协议版本、必须支持的语言、语�
   "code": 0,
   "message": "ok",
   "data": {
-    "protocolVersion": 3,
+    "protocolVersion": 4,
     "configVersion": "<sha256-hex>",
     "requiredLanguages": ["JAVA", "CPP", "C", "PYTHON3"],
     "languages": {
@@ -130,7 +131,7 @@ Agent 启动时调用一次，获取协议版本、必须支持的语言、语�
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `data.protocolVersion` | integer | 内部协议版本，当前 `3` |
+| `data.protocolVersion` | integer | 内部协议版本，当前 `4` |
 | `data.configVersion` | string | 语言/checker 配置的 SHA-256，十六进制，用于诊断 |
 | `data.requiredLanguages` | string[] | Agent 必须支持的全部语言；等于主服务器 `ioj.judge.languages` 的 key 集合 |
 | `data.languages` | object | 按语言名索引的命令快照，见 §9.2 |
@@ -232,14 +233,14 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 | `nodeId` | string | 是 | — | Agent 节点 id；不存在时自动注册 |
 | `maxTasks` | integer | 否 | `1` | 期望领取数量；服务端再按 `ioj.judge.dispatch.max-claim-batch` 截断 |
 | `languages` | string[] | 否 | `[]` | 可判语言；空数组表示不按语言过滤 |
-| `protocolVersion` | integer | 否 | `3` | 协议版本，用于诊断 |
+| `protocolVersion` | integer | 否 | `4` | 协议版本，用于诊断 |
 
 ```json
 {
   "nodeId": "judge-1",
   "maxTasks": 2,
   "languages": ["JAVA", "CPP"],
-  "protocolVersion": 3
+  "protocolVersion": 4
 }
 ```
 
@@ -273,12 +274,7 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
           "probeCommands": ["javac -version", "java -version"]
         },
         "checkerCode": null,
-        "testcases": [
-          { "ordinal": 1, "input": "1 2\n", "output": "3\n" },
-          { "ordinal": 2, "input": "100 -50\n", "output": "50\n" }
-        ],
-        "testcaseBundleUrl": null,
-        "bundleSha256": null
+        "bundleSha256": "<sha256-hex>"
       }
     ]
   }
@@ -314,9 +310,7 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 | `data.tasks[].memoryLimitMb` | integer | 题目内存限制 |
 | `data.tasks[].languageConfig` | object | 主服务器的语言命令快照，见 §9.2 |
 | `data.tasks[].checkerCode` | string / null | 自定义判题器源码；`null` 表示使用内置文本比对 |
-| `data.tasks[].testcases` | array | 内联测试数据；使用 bundle 时为 `[]` |
-| `data.tasks[].testcaseBundleUrl` | string / null | 相对 URL，指向 ZIP 测试数据；内联时为 `null` |
-| `data.tasks[].bundleSha256` | string / null | bundle 模式为 ZIP 的 SHA-256（64 位小写十六进制）；内联模式为 `null`。Agent 下载后必须校验，并用于判断缓存是否失效 |
+| `data.tasks[].bundleSha256` | string | ZIP bundle 的 SHA-256（64 位小写十六进制），始终非空；Agent 下载后必须校验，并用于判断缓存是否失效 |
 
 **失败情况**
 
@@ -331,9 +325,9 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 
 - 只领取 `status=PENDING` 的提交，按 id 升序；每条领取成功后变为 `JUDGING`，写入 `judge_key_id`、`judge_node_id`、`claim_token`、`claimed_at`、`lease_expires_at`，并递增 `attempt_count`。
 - 服务端把 `maxTasks` 截断到 `ioj.judge.dispatch.max-claim-batch`（默认 10）且至少 1；Agent 侧还必须受自身并发限制。
-- 测试数据总 UTF-8 字节数超过 `ioj.judge.dispatch.inline-max-bytes`（默认 1 MiB）时，`testcases` 为空并返回 `testcaseBundleUrl`；否则内联。
+- 所有任务都使用 bundle：claim 响应不包含 `testcases` 或 `testcaseBundleUrl`，Agent 用固定路径 `/internal/judge/tasks/{taskId}/testcases` 和同一个 `claimToken` 下载。
 - 领取时如果题目、语言或测试数据已不可用，该提交会被标记为 `SYSTEM_ERROR`，不会返回给 Agent，循环继续尝试下一条。
-- 测试数据 bundle URL 是相对路径（`/internal/judge/tasks/{submissionId}/testcases`），Agent 用同一个 base URL 和 `claimToken` 下载。
+- `bundleSha256` 在每次 claim 中始终非空，Agent 下载后用它校验 ZIP 内容。
 - 节点不存在时自动注册，但 `nodeId` 绑定 key 的规则仍然生效。
 
 ## 5. 任务心跳
@@ -357,14 +351,14 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 | `nodeId` | string | 否 | `null` | 当前实现只用于诊断，不参与校验 |
 | `claimToken` | string | 是 | — | 当前租约 token |
 | `runningTasks` | integer | 否 | `0` | 当前运行任务数，仅上报 |
-| `protocolVersion` | integer | 否 | `3` | 协议版本，仅用于诊断 |
+| `protocolVersion` | integer | 否 | `4` | 协议版本，仅用于诊断 |
 
 ```json
 {
   "nodeId": "judge-1",
   "claimToken": "9f1c2d3e4a5b6c7d8e9f0a1b2c3d4e5f",
   "runningTasks": 1,
-  "protocolVersion": 3
+  "protocolVersion": 4
 }
 ```
 
@@ -406,7 +400,7 @@ Agent 启动校验通过后立即发一次，之后按服务端返回的 `offlin
 
 `GET /internal/judge/tasks/{submissionId}/testcases?claimToken=...` ｜ Bearer judge key
 
-当 claim 返回 `testcaseBundleUrl` 时调用。服务端始终返回 ZIP（协议 v2 起），不再提供 JSON bundle。
+所有任务的测试数据都通过该接口获取；Agent 本地缓存命中时可跳过下载。服务端始终返回 ZIP（协议 v2 起），不再提供 JSON bundle。
 
 **路径 / 查询参数**
 
@@ -633,9 +627,7 @@ Agent 优雅停机或没有空闲并发时，把尚未开始执行的任务交�
 | `memoryLimitMb` | integer | 题目内存限制 |
 | `languageConfig` | object | 语言命令快照 |
 | `checkerCode` | string / null | 判题器源码；无 checker 时为 `null` |
-| `testcases` | array | 内联测试点；bundle 模式为空数组 |
-| `testcaseBundleUrl` | string / null | 相对 URL；内联时为 `null` |
-| `bundleSha256` | string / null | bundle 模式为 ZIP 的 SHA-256（64 位小写十六进制）；内联模式为 `null` |
+| `bundleSha256` | string | ZIP bundle 的 SHA-256（64 位小写十六进制），始终非空 |
 
 ### 9.4 `JudgeTestCase`
 

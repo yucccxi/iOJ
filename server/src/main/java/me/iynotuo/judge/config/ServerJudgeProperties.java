@@ -121,12 +121,6 @@ public class ServerJudgeProperties {
          * Upper bound on tasks returned by one claim request.
          */
         private int maxClaimBatch = 10;
-
-        /**
-         * When the combined UTF-8 size of a task's test data exceeds this many bytes, the claim
-         * response omits the inline test cases and points at the ZIP bundle endpoint instead.
-         */
-        private int inlineMaxBytes = 1_048_576;
     }
 
     /**

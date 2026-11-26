@@ -152,8 +152,6 @@ class TestcaseCacheTest {
                 new JudgeLanguageConfig("Main.java", "javac Main.java", "java Main", null,
                         2.0, 64, 256, false, List.of("javac -version")),
                 null,
-                List.of(),
-                "/internal/judge/tasks/1/testcases",
                 hash);
     }
 

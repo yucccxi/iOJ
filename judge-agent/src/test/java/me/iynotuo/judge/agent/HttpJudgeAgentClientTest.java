@@ -179,8 +179,6 @@ class HttpJudgeAgentClientTest {
                 new JudgeLanguageConfig("Main.java", "javac Main.java", "java Main", null, 2.0, 64, 256,
                         false, List.of("javac -version")),
                 null,
-                List.of(new JudgeTestCase(1, "1 2\n", "3\n")),
-                null,
                 null);
     }
 }

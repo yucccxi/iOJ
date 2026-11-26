@@ -23,7 +23,7 @@
 | 角色 | `USER` / `ADMIN` | `JUDGE` |
 | 响应 | `{ code, message, data }` | 同样是 `{ code, message, data }`，但 `data` 是内部 DTO |
 | 暴露范围 | 可公网 | 仅判题网络 |
-| 版本 | `/api/v1` | `ProtocolVersion.CURRENT`，当前 `3` |
+| 版本 | `/api/v1` | `ProtocolVersion.CURRENT`，当前 `4` |
 
 两类凭据不得混用：用户 JWT 不得访问 `/internal/judge/**`，judge key 也不得访问 `/api/v1/**`。
 
@@ -44,13 +44,11 @@ sequenceDiagram
     loop 有空闲并发时
         A->>S: POST /internal/judge/tasks/claim
         S->>DB: SELECT ... FOR UPDATE + 标记 JUDGING + 写租约
-        S-->>A: tasks[]（内联或 bundle URL）
-        opt 测试数据使用 bundle
-            A->>A: 比对缓存 bundle.sha256 与 bundleSha256
-            opt 缓存缺失或哈希不一致
-                A->>S: GET /tasks/{id}/testcases?claimToken=...
-                S-->>A: ZIP（testcases.json）
-            end
+        S-->>A: tasks[]（含 problemId / bundleSha256）
+        A->>A: 比对缓存 bundle.sha256 与 bundleSha256
+        opt 缓存缺失或哈希不一致
+            A->>S: GET /tasks/{id}/testcases?claimToken=...
+            S-->>A: ZIP（testcases.json）
         end
         A->>A: 编译 + 逐测试点运行
         A->>S: POST /tasks/{id}/heartbeat（长任务续租）
@@ -66,7 +64,7 @@ Agent 不连接 MySQL，也不持有用户 JWT；它只需要出站访问主服�
 ## 4. 关键约定
 
 - **认证**：`Authorization: Bearer <judge-key>`。key 只在创建时返回一次，数据库只存 SHA-256 哈希。
-- **协议版本**：当前 `3`；v2 起测试数据 bundle 必须是 ZIP（旧 JSON bundle 已移除），v3 增加 `JudgeTask.problemId` 和 ZIP 的 `bundleSha256`，Agent 用后者校验下载并判断缓存是否失效。
+- **协议版本**：当前 `4`；v2 起测试数据 bundle 必须是 ZIP（旧 JSON bundle 已移除），v3 增加 `JudgeTask.problemId` 和 ZIP 的 `bundleSha256`，v4 删除恒为空的 `testcases` 和冗余的 `testcaseBundleUrl`，所有任务都通过 bundle 获取测试数据。Agent 用 `bundleSha256` 校验下载并判断缓存是否失效。
 - **任务租约**：claim 返回 `claimToken` 与 `leaseSeconds`；Agent 用心跳续租，过期后主服务器重新排队。
 - **幂等**：同一 `claimToken` 重复回报结果返回成功但不重复写；旧 token 的迟到结果返回 `409`。
 - **失败即停**：引擎在第一个失败测试点停止，`cases` 可能少于测试点总数。

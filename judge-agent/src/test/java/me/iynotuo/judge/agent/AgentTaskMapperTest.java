@@ -24,7 +24,8 @@ class AgentTaskMapperTest {
     @Test
     void mapsTaskIntoJudgeContext() {
         JudgeTask task = task();
-        JudgeContext context = mapper.toContext(task);
+        JudgeContext context = mapper.toContext(task,
+                List.of(new JudgeTestCase(1, "1 2\n", "3\n")));
 
         assertThat(context.submission().id()).isEqualTo(500L);
         assertThat(context.submission().language()).isEqualTo(Language.JAVA);
@@ -65,8 +66,6 @@ class AgentTaskMapperTest {
                 256,
                 new JudgeLanguageConfig("Main.java", "javac Main.java", "java Main", null, 2.0, 64, 256,
                         false, List.of("javac -version")),
-                null,
-                List.of(new JudgeTestCase(1, "1 2\n", "3\n")),
                 null,
                 null);
     }

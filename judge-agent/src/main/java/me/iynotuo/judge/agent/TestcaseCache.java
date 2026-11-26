@@ -83,7 +83,6 @@ public class TestcaseCache {
         if (!cacheUsable
                 || !properties.getTestcaseCache().isEnabled()
                 || task.problemId() == null
-                || task.testcaseBundleUrl() == null
                 || !isValidHash(expected)) {
             return client.fetchTestcases(task.taskId(), task.claimToken());
         }

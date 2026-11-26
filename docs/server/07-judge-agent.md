@@ -43,7 +43,7 @@ GET /internal/judge/config（key 认证）
 开始 claim
 ```
 
-- 启动配置的 `protocolVersion` 必须等于 Agent 的 `ProtocolVersion.CURRENT`（当前 `3`）；旧 Agent 会因版本不匹配以退出码 `78` 退出，不会领取任务。
+- 启动配置的 `protocolVersion` 必须等于 Agent 的 `ProtocolVersion.CURRENT`（当前 `4`）；旧 Agent 会因版本不匹配以退出码 `78` 退出，不会领取任务。
 - 如果主服务器支持的语言在本机探测失败，Agent **拒绝启动**并打印缺失语言和失败的探测命令。
 - 不会先发心跳，避免主服务器在工具链校验完成前分配任务。
 - 判题机是同构的：`requiredLanguages` 默认等于主服务器 `ioj.judge.languages` 的全部 key。
@@ -157,7 +157,7 @@ Agent 启动失败时不会先发心跳或 claim；缺少工具链会打印具�
 
 ### 测试数据缓存
 
-Agent 从 claim 响应中拿到 `problemId`、`testcaseBundleUrl` 和 `bundleSha256`。bundle 模式按题目缓存：
+Agent 从 claim 响应中拿到 `problemId` 和 `bundleSha256`。所有任务都按题目缓存测试数据：
 
 ```text
 <cache-directory>/
@@ -170,7 +170,7 @@ Agent 从 claim 响应中拿到 `problemId`、`testcaseBundleUrl` 和 `bundleSha
 - 只有 `bundle.zip` 存在且 `bundle.sha256` 与本次 `JudgeTask.bundleSha256` 一致时才命中缓存；缺失、不一致或 ZIP 无法解析时重新下载。同一 Agent 内按 `problemId` 串行，避免同一题并发下载。
 - 下载先写同目录临时文件，校验 SHA-256 通过后原子替换 `bundle.zip`，再写 `bundle.sha256`；崩溃不会留下“看起来完整”的半截缓存。
 - 每次命中或写入都会刷新 `bundle.zip` 的 mtime；总大小超过 `max-bytes` 时按 mtime 从旧到新淘汰其他题目，当前题保留。`max-bytes` 为 `0` 或负数表示不限制；单题 bundle 超过上限时仍保留。
-- 内联测试数据不进入缓存。bundle 任务在 `problemId` 为空、`bundleSha256` 非法、缓存关闭或目录不可用时直接下载，不落盘。
+- 所有任务都通过 bundle 获取测试数据；缓存命中时直接读取本地 `bundle.zip`，未命中时才下载。`problemId` 为空、`bundleSha256` 非法、缓存关闭或目录不可用时直接下载，不落盘。
 - 缓存目录和题目子目录按 POSIX 权限 `0700` 创建，`bundle.zip`、`bundle.sha256` 及临时文件为 `0600`；不支持 POSIX 权限的文件系统沿用默认值。
 - 仓库开发时不要把缓存目录放在工作区内；请通过 `IOJ_TESTCASE_CACHE_DIR` 指向仓库外的持久化目录，并确保缓存内容不进入版本控制。
 - 生产建议把 `IOJ_TESTCASE_CACHE_DIR` 指向持久化磁盘，例如 `/var/lib/ioj-agent/cache`；不要放在 `/tmp` 或容器临时层，否则重装、重启或重建容器后缓存全部丢失。每台 Agent 使用独立缓存根目录，不要让多个进程共享。
@@ -256,14 +256,14 @@ Agent 启动失败时的退出码：
 | `GET /internal/judge/config` | 启动时拉取语言、探测命令、checker 和协议版本 |
 | `POST /internal/judge/nodes/heartbeat` | 节点注册/心跳，上报语言、并发、版本 |
 | `POST /internal/judge/tasks/claim` | 领取任务；返回 `claimToken`、测试数据、语言配置 |
-| `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 大数据任务下载 ZIP bundle（含 `testcases.json`） |
+| `GET /internal/judge/tasks/{id}/testcases?claimToken=...` | 所有任务下载 ZIP bundle（含 `testcases.json`） |
 | `POST /internal/judge/tasks/{id}/heartbeat` | 续租；`cancel=true` 表示任务已被重领/重测 |
 | `POST /internal/judge/tasks/{id}/result` | 回报终态结果 |
 | `POST /internal/judge/tasks/{id}/release` | 优雅停机时释放未开始任务 |
 
-- 大数据任务通过 `Accept: application/zip` 下载；服务端始终返回 ZIP，Agent 直接解压
+- 所有任务通过 `Accept: application/zip` 下载；服务端始终返回 ZIP，Agent 直接解压
 - ZIP bundle 只有一个 `testcases.json` 条目
-- claim 响应包含 `problemId` 和 `bundleSha256`；bundle 模式按 `problemId` 缓存，用 `bundleSha256` 判断是否需要重新下载
+- claim 响应包含 `problemId` 和 `bundleSha256`；所有任务按 `problemId` 缓存，用 `bundleSha256` 判断是否需要重新下载
 - 下载后计算的 SHA-256 与 `bundleSha256` 不一致时，Agent 不使用该 bundle，并以 `SYSTEM_ERROR` 回报本次任务
 - 结果写入会校验 `claimToken` 和 `JUDGING` 状态
 - 同一 token 重复回报幂等
@@ -278,12 +278,12 @@ Agent 启动失败时的退出码：
 | claim 返回 `401` | key 错误/禁用/过期；重新创建或启用 |
 | claim 返回 `409` | `nodeId` 已绑定其他 key；换一个 `IOJ_JUDGE_NODE_ID`，或删除旧 key（会级联删除旧节点）后重建 |
 | 启动失败 `判题机能力校验失败` | 本机缺少主服务器要求的语言工具链；按日志中的探测命令安装后重启 |
-| 启动失败 `主服务器协议版本不匹配` | 主服务器与 Agent 的 `ProtocolVersion.CURRENT` 不一致（当前 `3`）；先升级 Agent 或回滚主服务器 |
+| 启动失败 `主服务器协议版本不匹配` | 主服务器与 Agent 的 `ProtocolVersion.CURRENT` 不一致（当前 `4`）；先升级 Agent 或回滚主服务器 |
 | 启动失败 `无法从主服务器获取判题配置` | 检查 `IOJ_JUDGE_SERVER_URL`、网络和主服务器状态；Agent 会按 `config-fetch-retries` 重试 |
 | 一直领取不到任务 | 检查 `GET /api/v1/admin/judge-nodes`、节点是否 ONLINE、主服务器是否有 PENDING |
 | 任务一直 JUDGING | Agent 崩溃/失联；等租约过期回收，检查 Agent 日志 |
 | 日志 `测试数据缓存不可用，将直接下载` | 检查 `IOJ_TESTCASE_CACHE_DIR`、目录属主和 `0700` 权限；Agent 会继续直接下载 |
-| `测试数据 bundle 哈希不一致` | 确认双方协议版本为 `3`，重新领取任务；不要手工修改 `bundle.sha256` |
+| `测试数据 bundle 哈希不一致` | 确认双方协议版本为 `4`，重新领取任务；不要手工修改 `bundle.sha256` |
 | Python 运行失败 | 确认主服务器 Python 配置同时有 `compile-command: python3 -m py_compile main.py` 和 `copy-source-to-run: true`，见 03-judge.md §4 |
 | `isolate binary is not executable` | 给运行用户执行权限，确认 `isolate --version` |
 | `This box belongs to a different user` | 换 `box-id-start` 或清理旧 box |

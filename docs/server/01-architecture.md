@@ -125,7 +125,12 @@ sequenceDiagram
     API->>TS: claim(keyId, nodeId, languages)
     TS->>DB: SELECT id ... PENDING LIMIT 1 FOR UPDATE
     TS->>DB: UPDATE submissions SET JUDGING, claim_token, lease_expires_at
-    TS-->>Agent: JudgeTask + testcases + languageConfig
+    TS-->>Agent: JudgeTask + bundleSha256 + languageConfig
+    Agent->>Agent: 比对本地缓存 bundle.sha256
+    opt 缓存未命中或哈希不一致
+        Agent->>API: GET /tasks/{id}/testcases?claimToken=...
+        API-->>Agent: ZIP bundle（testcases.json）
+    end
     Agent->>E: 编译 → 逐测试点运行 → 判定
     Agent->>API: POST /tasks/{id}/heartbeat（长任务续租）
     Agent->>API: POST /tasks/{id}/result
@@ -135,7 +140,7 @@ sequenceDiagram
 ```
 
 - **租约抢占**：agent 领取任务时写入 `claim_token` 和 `lease_expires_at`，只有持有当前 token 的 agent 能续租或回报结果。
-- **启动校验**：Agent 先拉取 `/internal/judge/config`，校验 `protocolVersion`（当前 `3`），再按 `probeCommands` 校验全部 `requiredLanguages`；任一失败就拒绝启动，不会先发心跳或 claim。
+- **启动校验**：Agent 先拉取 `/internal/judge/config`，校验 `protocolVersion`（当前 `4`），再按 `probeCommands` 校验全部 `requiredLanguages`；任一失败就拒绝启动，不会先发心跳或 claim。
 - **短事务**：领取和结果落库都是短事务；判题过程不持有数据库连接。
 - **测试数据缓存**：Agent 按 `problemId` 缓存 ZIP bundle，用 claim 下发的 `bundleSha256` 判断是否失效；主服务器不主动推送缓存失效通知。
 - **过期回收**：`JudgeLeaseReaper` 把过期租约重新变回 `PENDING`；超过最大尝试次数后判 `SYSTEM_ERROR`。

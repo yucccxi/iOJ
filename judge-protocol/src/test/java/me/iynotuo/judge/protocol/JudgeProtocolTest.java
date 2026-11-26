@@ -33,11 +33,11 @@ class JudgeProtocolTest {
                 new JudgeLanguageConfig("Main.java", "javac Main.java", "java Main", null, 2.0, 64, 256,
                         false, List.of("javac -version")),
                 null,
-                List.of(new JudgeTestCase(1, "1 2\n", "3\n")),
-                null,
                 null);
 
         String encoded = json.writeValueAsString(task);
+        assertThat(json.readTree(encoded).has("testcases")).isFalse();
+        assertThat(json.readTree(encoded).has("testcaseBundleUrl")).isFalse();
         JudgeTask decoded = json.readValue(encoded, JudgeTask.class);
 
         assertThat(decoded).isEqualTo(task);

@@ -134,9 +134,7 @@ class AgentRunnerTest {
                 new JudgeLanguageConfig("Main.java", "javac Main.java", "java Main", null, 2.0, 64, 256,
                         false, List.of("javac -version")),
                 null,
-                List.of(new JudgeTestCase(1, "1 2\n", "3\n")),
-                null,
-                null);
+                "a".repeat(64));
     }
 
     private static final class HeartbeatClient implements JudgeAgentClient {
@@ -170,7 +168,7 @@ class AgentRunnerTest {
 
         @Override
         public List<JudgeTestCase> fetchTestcases(Long taskId, String claimToken) {
-            return task.testcases();
+            return List.of(new JudgeTestCase(1, "1 2\n", "3\n"));
         }
 
         @Override
@@ -226,7 +224,7 @@ class AgentRunnerTest {
 
         @Override
         public List<JudgeTestCase> fetchTestcases(Long taskId, String claimToken) {
-            return task.testcases();
+            return List.of(new JudgeTestCase(1, "1 2\n", "3\n"));
         }
 
         @Override
