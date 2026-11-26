@@ -166,6 +166,16 @@ AgentRunner.execute(task)
 - **判题器与选手程序跑在两个不同的目录里**：`answer.txt` 只出现在判题器的目录，选手程序的目录里永远没有答案文件，因此选手无法 `cat` 到标准答案，也无法覆写判题器二进制。
 - 沙箱把程序输出写进自己管理的 `stdout.txt` / `stderr.txt`，因此判题器目录里可以放心地放一份名为 `output.txt` 的选手输出副本而不会被覆盖。
 
+### 3.1 测试数据 bundle 哈希缓存
+
+服务端在 claim 时按题目缓存 bundle 的 SHA-256，避免每次领取任务都重新读取并序列化全部测试点：
+
+- 首次 claim（`problem_testcase_bundles` 无行或 `bundle_sha256 IS NULL`）：读取测试点，计算 ZIP bundle 的 SHA-256，写入 `bundle_sha256`。
+- 后续 claim（`bundle_sha256` 非空）：直接使用缓存值，不再为计算哈希读取测试点。
+- 测试点 `add` / `replace` / `delete` 会清空 `bundle_sha256` 并递增 `testcase_version`；下一次 claim 重新计算。版本号保证在变更前开始的计算不会把旧哈希写回。
+- 题目删除时，`problem_testcase_bundles` 随 `problems` 级联删除。
+- 这里缓存的是 SHA-256，不是测试数据本身；bundle 仍在下载接口中按测试点生成。
+
 ## 4. 语言配置
 
 语言命令的唯一来源是**主服务器**的 `application.yaml` 中的 `ioj.judge.languages`，key 是提交时的 `language` 枚举名。Agent 在 claim 响应的 `languageConfig` 中拿到同一份命令，本地只配置 Isolate 路径、box id、挂载目录等机器参数。

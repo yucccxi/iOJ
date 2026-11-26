@@ -43,14 +43,15 @@ mysql -uioj -p ioj < server/src/main/resources/db/schema.sql
 mysql -uioj -p ioj < server/src/main/resources/db/seed.sql   # admin / admin123456，登录后立刻改密码
 ```
 
-> 已有数据库升级到分布式判题时，不得重跑 `schema.sql`；在仓库根目录先执行一次：
+> 已有数据库升级时，不得重跑 `schema.sql`；在仓库根目录先备份，再按版本执行尚未执行的迁移脚本：
 >
 > ```bash
-> mysqldump -uioj -p --single-transaction ioj > ioj-before-distributed-judge.sql
+> mysqldump -uioj -p --single-transaction ioj > ioj-before-upgrade.sql
 > mysql -uioj -p ioj < server/src/main/resources/db/migrate-distributed-judge.sql
+> mysql -uioj -p ioj < server/src/main/resources/db/migrate-testcase-bundle-hash.sql
 > ```
 >
-> 迁移脚本会新增 `judge_keys`、`judge_nodes` 和 `submissions` 的租约字段。执行前务必确认已备份。
+> `migrate-distributed-judge.sql` 会新增 `judge_keys`、`judge_nodes` 和 `submissions` 的租约字段，执行一次即可；`migrate-testcase-bundle-hash.sql` 只创建 `problem_testcase_bundles`，可重复执行。执行前务必确认已备份。
 
 > `seed.sql` 可重复执行（内部使用 `INSERT IGNORE`）；`schema.sql` 重复执行会报表已存在。
 >
@@ -442,6 +443,7 @@ sudo cp /opt/ioj/server.jar /opt/ioj/server.jar.bak
 ```bash
 # 在仓库根目录执行；主服务器
 git pull
+mysql -uioj -p'<db-password>' ioj < server/src/main/resources/db/migrate-testcase-bundle-hash.sql
 ./mvnw -B -pl server -am clean package
 sudo systemctl stop ioj
 sudo cp server/target/server-0.0.1-SNAPSHOT.jar /opt/ioj/server.jar
@@ -453,6 +455,8 @@ sudo systemctl stop ioj-judge-agent
 sudo cp judge-agent/target/judge-agent-0.0.1-SNAPSHOT.jar /opt/ioj-agent/judge-agent.jar
 sudo systemctl start ioj-judge-agent
 ```
+
+`migrate-testcase-bundle-hash.sql` 只创建 `problem_testcase_bundles`，可重复执行；必须在启动新 server 前完成。
 
 回滚：
 

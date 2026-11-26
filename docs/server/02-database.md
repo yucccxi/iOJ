@@ -11,6 +11,7 @@
 | `server/src/main/resources/db/schema.sql` | 建表脚本。使用可移植语法，MySQL 8 与 H2(MySQL 模式) 都能直接执行（测试就是这么跑的） |
 | `server/src/main/resources/db/seed.sql` | 初始管理员（admin / admin123456）、常用标签与保留 scope `LOCAL` |
 | `server/src/main/resources/db/migrate-distributed-judge.sql` | 已有数据库升级到分布式判题的迁移脚本，只执行一次 |
+| `server/src/main/resources/db/migrate-testcase-bundle-hash.sql` | 已有数据库新增 `problem_testcase_bundles` 哈希缓存表；只使用 `CREATE TABLE IF NOT EXISTS`，可重复执行 |
 
 以下命令在**仓库根目录**执行：
 
@@ -22,7 +23,7 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
 
 > `schema.sql` 里没有 `ENGINE/CHARSET` 子句，是为了让 H2 也能执行。生产库请在 `CREATE DATABASE` 时指定 `utf8mb4`。
 >
-> `seed.sql` 使用 `INSERT IGNORE`，可以重复执行；`schema.sql` 与 `migrate-distributed-judge.sql` 的 `ALTER TABLE` 部分不是幂等的（重复执行会报列/索引已存在）。
+> `seed.sql` 使用 `INSERT IGNORE`，可以重复执行；`migrate-testcase-bundle-hash.sql` 只创建新表，可重复执行；`schema.sql` 与 `migrate-distributed-judge.sql` 的 `ALTER TABLE` 部分不是幂等的（重复执行会报列/索引已存在）。
 >
 > **破坏性操作**：需要重建时先 `DROP DATABASE ioj;` 再重新 `CREATE DATABASE ioj ...`，然后依次执行两个脚本。该操作会删除库中的用户、题目、测试数据、提交和判题 key，影响范围是整个 `ioj` 数据库；执行前必须备份。
 
@@ -36,6 +37,7 @@ erDiagram
     users ||--o{ submissions : "user_id"
     problems ||--o{ problem_samples : "problem_id"
     problems ||--o{ problem_testcases : "problem_id"
+    problems ||--o| problem_testcase_bundles : "problem_id"
     problems ||--o{ problem_tags : "problem_id"
     tags ||--o{ problem_tags : "tag_id"
     external_problems ||--o{ external_problem_tags : "external_problem_id"
@@ -171,7 +173,20 @@ erDiagram
 - 如果将来要放几百 MB 的测试集，把 `input_data/output_data` 换成对象存储路径，只需改 `ProblemTestcaseMapper` 与判题取数逻辑，接口无需变化。
 - 只有题目作者与管理员能读取内容，列表接口只返回 `inputBytes/outputBytes`。
 
-### 4.6 tags / problem_tags —— 标签
+### 4.6 problem_testcase_bundles —— 测试数据 bundle 哈希缓存
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| problem_id | BIGINT | PK, FK → problems.id, `ON DELETE CASCADE` | 一题一行 |
+| bundle_sha256 | VARCHAR(64) | NULL | 测试数据 ZIP bundle 的 SHA-256；`NULL` 表示需要重新计算 |
+| testcase_version | BIGINT | NOT NULL DEFAULT 0 | 测试点变更时递增；用于阻止并发计算写回旧哈希 |
+| updated_at | DATETIME | NOT NULL | 哈希或版本更新时间 |
+
+- 首次 claim 某题时，服务端读取测试点并计算 ZIP bundle 的 SHA-256，写入 `bundle_sha256`；后续 claim 直接复用，不再为计算哈希读取测试点。
+- 测试点 `add` / `replace` / `delete` 会在同一事务内把 `bundle_sha256` 置为 `NULL` 并递增 `testcase_version`。计算中的旧版本不会写回缓存，下一次 claim 重新计算。
+- 删除题目时，外键 `ON DELETE CASCADE` 自动删除对应的 bundle 哈希行。
+
+### 4.7 tags / problem_tags —— 标签
 
 `tags`：`id BIGINT PK`、`name VARCHAR(32) NOT NULL UNIQUE`。
 
@@ -179,7 +194,7 @@ erDiagram
 
 上传/编辑题目时 `tagIds` 传**已存在**的标签 id（≤10 个）：服务端先按 id 批量校验，全部存在才写关联表；不存在返回 `400/1000`，**不会**自动创建标签。标签字典只由管理员通过 `POST/PUT/DELETE /admin/tags` 维护。
 
-### 4.7 submissions —— 提交记录
+### 4.8 submissions —— 提交记录
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -202,7 +217,7 @@ erDiagram
 | created_at | DATETIME | NOT NULL | 提交时间 |
 | judged_at | DATETIME | NULL | 判题完成时间 |
 
-### 4.8 submission_cases —— 逐测试点结果
+### 4.9 submission_cases —— 逐测试点结果
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -216,7 +231,7 @@ erDiagram
 
 唯一键 `uk_submission_cases_ordinal (submission_id, case_ordinal)`。`SubmissionCaseWriter` 使用“按 `(submission_id, case_ordinal)` upsert + 删除本次结果中不存在的旧序号”的方式写入，避免重判时先删后插产生的间隙锁死锁；重复回报或重判都幂等。
 
-### 4.9 external_problems —— 外部 OJ 题目（仅元数据）
+### 4.10 external_problems —— 外部 OJ 题目（仅元数据）
 
 只存“指路牌”：题名、scope、难度分、链接，以及原站的提交/通过次数。**不存题面、不存测试数据、不参与判题**，所以 `submit_count` / `accepted_count` 由导入或管理员维护，
 本站不会因为有人提交而加 1。
@@ -240,7 +255,7 @@ erDiagram
 - `uk_external_problems_url`：同一链接不得重复导入；
 - `uk_external_problems_code`：同一原站题号（如 `CF_2278G`）不得重复；`NULL` 不参与唯一性冲突。当前同步脚本不会写入 `NULL`，历史或人工导入行可以为空。
 
-### 4.10 external_problem_tags —— 外部题目标签
+### 4.11 external_problem_tags —— 外部题目标签
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -260,7 +275,7 @@ erDiagram
 
 标签同步来源：Codeforces 使用官方 `problemset.problems` API 的 `tags` 字段，脚本会同步写入 `tags` 并重建对应外部题的 `external_problem_tags` 关联。clist 的 problem 对象本身没有主题标签；AtCoder 没有主题标签来源，正常同步不会修改它已有的标签关联。
 
-### 4.11 email_verification_codes —— 邮箱验证码
+### 4.12 email_verification_codes —— 邮箱验证码
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -282,7 +297,7 @@ erDiagram
 - “作废”复用 `expires_at`（置为当前时间），不额外加 `invalidated_at` 列；查询只认 `expires_at > now` 的行。
 - 清理：`@Scheduled` 每小时删除 `expires_at < now - cleanup-retention-hours` 的行，保留最近一天便于排查误报。该 DELETE 幂等，多实例重复执行无害。
 
-### 4.12 captcha_challenges —— 图形验证码
+### 4.13 captcha_challenges —— 图形验证码
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
@@ -302,7 +317,7 @@ erDiagram
 - `@Scheduled` 每小时清理 `expires_at < now - cleanup-retention-hours` 的行，保留 24 小时便于排查。
 - 验证码答案只存 hash；`max-attempts` 在配置文件中，不重复入库。
 
-### 4.13 judge_keys —— 判题 Agent API key
+### 4.14 judge_keys —— 判题 Agent API key
 
 管理员为每台判题机创建一个 key。数据库只存 SHA-256 hash，明文只在创建响应中出现一次。
 
@@ -318,7 +333,7 @@ erDiagram
 | created_by | BIGINT | FK → users.id, SET NULL | 创建者 |
 | created_at | DATETIME | NOT NULL | |
 
-### 4.14 judge_nodes —— 判题节点
+### 4.15 judge_nodes —— 判题节点
 
 Agent 通过心跳注册自己，主服务器只把匹配语言的任务分配给在线节点。
 
@@ -395,6 +410,7 @@ COMMIT;
 ## 6. 事务与一致性
 
 - 创建/更新题目：`problems` + `problem_samples` + `problem_tags` 在同一个事务内完成。
+- 测试数据 bundle 哈希：首次 claim 计算并写入 `problem_testcase_bundles`；测试点 `add` / `replace` / `delete` 在同一事务内清空 `bundle_sha256` 并递增 `testcase_version`。
 - 提交：插入 `submissions` 与 `problems.submit_count + 1` 同一事务；这里允许计数多 1（提交成功但事务回滚的概率极低），计数仅用于展示。
 - 领取任务：`SELECT ... FOR UPDATE` + `UPDATE submissions SET status='JUDGING', claim_token=..., lease_expires_at=...` 在同一个短事务里完成。
 - 判题落库：条件更新 `submissions`（校验 `claim_token` 和 `JUDGING`）→ upsert `submission_cases` 并删除本次结果中不存在的旧序号 → 通过时 `accepted_count + 1`，同一事务。
@@ -410,6 +426,7 @@ COMMIT;
 | judge_keys / judge_nodes | 几~几十 | < 1 KB | 可忽略 |
 | problems | 500 | 题面 5~50 KB | 5~25 MB |
 | problem_testcases | 5000（每题 10 个） | 1~20 KB | 10~100 MB |
+| problem_testcase_bundles | 500（每题 1 行） | < 200 B | < 100 KB |
 | submissions | 50000 | 代码 1~5 KB | 50~250 MB |
 | submission_cases | 500000 | < 200 B | < 100 MB |
 | email_verification_codes | 每天几十行，保留 24 小时 | < 200 B | 可忽略 |

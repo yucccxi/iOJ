@@ -92,12 +92,15 @@ mysql -uioj -p ioj < server/src/main/resources/db/seed.sql
 
 `seed.sql` 会创建默认管理员 **admin / admin123456**、10 个常用标签和保留 scope `LOCAL`，**首次登录后请立即修改密码**。
 
-已有数据库升级到分布式判题时，不得重跑 `schema.sql`，在仓库根目录先备份再执行一次迁移脚本：
+已有数据库升级时，不得重跑 `schema.sql`，在仓库根目录先备份，再按版本执行尚未执行的迁移脚本：
 
 ```bash
 mysqldump -uioj -p --single-transaction ioj > ioj-before-distributed-judge.sql
 mysql -uioj -p ioj < server/src/main/resources/db/migrate-distributed-judge.sql
+mysql -uioj -p ioj < server/src/main/resources/db/migrate-testcase-bundle-hash.sql
 ```
+
+`migrate-distributed-judge.sql` 的 `ALTER TABLE` 部分不可重复执行；`migrate-testcase-bundle-hash.sql` 只创建 `problem_testcase_bundles` 表，使用 `CREATE TABLE IF NOT EXISTS`，可重复执行。
 
 ### 3.3 配置与启动
 
@@ -184,6 +187,7 @@ curl -s -X POST http://localhost:8080/api/v1/admin/judge-keys \
 - 建表脚本：`server/src/main/resources/db/schema.sql`（MySQL 8 与 H2 MySQL 模式通用）。
 - 初始数据：`server/src/main/resources/db/seed.sql`（幂等）。
 - 分布式判题迁移：`server/src/main/resources/db/migrate-distributed-judge.sql`（只用于已有数据库，`ALTER TABLE` 部分不可重复执行）。
+- 测试数据 bundle 哈希迁移：`server/src/main/resources/db/migrate-testcase-bundle-hash.sql`（只创建 `problem_testcase_bundles`，可重复执行）。
 - 表结构、索引、容量估算与备份说明见 [数据库设计](02-database.md)。
 - 完整环境变量与默认值见 [部署与运维 §3](04-deployment.md#3-配置项)；受版本控制的配置文件是 `server/src/main/resources/application.yaml`。
 
