@@ -275,3 +275,14 @@
   --blur-layer: 12px;
   --blur-tile: 8px;
 }
+
+@layer base {
+  /* Browser autofill paints its own background and text color on the bare input, which sits
+     inside a padded frame, so only part of the field turns blue. The UA rule uses !important,
+     so the colors are held back with a transition delay instead of overridden. */
+  input:autofill {
+    transition:
+      background-color 0s 600000s,
+      color 0s 600000s;
+  }
+}
