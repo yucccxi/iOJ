@@ -55,7 +55,7 @@ pnpm build
 接口完整参数与字段定义以 [`docs/api/`](../api/README.md) 为唯一权威来源（One home per fact）；本节只写前端必须遵守的调用与状态边界。
 
 - **Envelope & success check ([`src/api/client.ts`](../../client/src/api/client.ts))**: 所有请求带 `/api/v1` 前缀；**只看 `body.code === 0` 判断成功**（同一业务错误码可能对应多个 HTTP 状态）；非 JSON 响应（如 502 HTML）统一抛 `ApiError(-1, ...)`。
-- **Auth token ([`src/api/token.ts`](../../client/src/api/token.ts))**: token 存在 `ioj-token` 键下，勾选「7 天内自动登录」时存 `localStorage`，否则存 `sessionStorage`；请求以 `Authorization: Bearer` 发送。`setToken` / `clearToken` 会通知 `useToken` 的订阅者，登录和登出后所有读取方都会重新渲染。组件通过 [`src/api/auth.ts`](../../client/src/api/auth.ts) 的 `useSession()` 读取登录态；其 `/auth/me` 查询以 token 为键，新登录不会复用上一个用户，收到 `1002` 时清除 token。
+- **Auth token ([`src/api/token.ts`](../../client/src/api/token.ts))**: token 存在 `ioj-token` 键下，勾选「7 天内自动登录」时存 `localStorage`，否则存 `sessionStorage`；注册响应直接带 token，注册成功按勾选处理（存 `localStorage`），不再调用登录接口；请求以 `Authorization: Bearer` 发送。`setToken` / `clearToken` 会通知 `useToken` 的订阅者，登录和登出后所有读取方都会重新渲染。组件通过 [`src/api/auth.ts`](../../client/src/api/auth.ts) 的 `useSession()` 读取登录态；其 `/auth/me` 查询以 token 为键，新登录不会复用上一个用户，收到 `1002` 时清除 token。
 - **Array query serialization**: 多值参数拆为重复键 `?scopeId=1&scopeId=5`（禁写逗号分隔）；地址栏保持 TanStack Router 的 JSON 数组格式，在路由入口用 `validateSearch(searchSchema)`（Zod `.default().catch()`）+ `stripSearchParams(searchDefaults)` 集中归一化并剔除默认值。
 - **Catalog identity**: 本地题与外部题分表存储、`id` 可能重复，列表 React `key` 必须写 `` `${item.scopeId}-${item.id}` ``；本地题判断走 [`isLocal(item)`](../../client/src/lib/problem.ts)，`LOCAL` 的 scope id 从 `/meta/scopes` 按名称查找，禁止写死。
 - **Problem code display ([`problemCode`](../../client/src/lib/problem.ts))**: 本站题显示 `IOJ{item.id}`；外部题去掉平台前缀并把 `_` 换为空格（如 `CF_2278G → 2278G`）。

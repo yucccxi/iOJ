@@ -72,7 +72,6 @@ export const en = {
     login: {
       title: "Sign in",
       subtitle: "Welcome back to iOJ. Pick up where you left off.",
-      registeredSubtitle: "Account created. Sign in to start practicing.",
       account: "Username or email",
       password: "Password",
       forgotPassword: "Forgot password?",

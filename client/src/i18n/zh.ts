@@ -68,7 +68,6 @@ export const zh = {
     login: {
       title: "登录",
       subtitle: "欢迎回到 iOJ，继续今天的练习。",
-      registeredSubtitle: "注册成功，登录后开始练习。",
       account: "用户名或邮箱",
       password: "密码",
       forgotPassword: "忘记密码？",

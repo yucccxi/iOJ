@@ -14,7 +14,7 @@
   - 搜索框（300ms 防抖、`/` 快捷键聚焦）、来源筛选（`SourceFilter`）、难度筛选（`DifficultyFilter`，含 `UNKNOWN`）、标签筛选（`TagFilter`，草稿模式 + 搜索 + 任一/全部匹配 + 重置/应用）、排序菜单（`SortMenu`，含单来源 `RATING` 限制联动）。
   - 题目表格（`ProblemTable`，整行点击、`IOJ{id}` 与外部题号格式化、单行自适应标签、难度徽章 + 平台彩色 Rating Tooltip、通过率进度条 + 等宽计数 Tooltip、来源平台图标/作者头像）与分页器（`Pagination`）。
   - 右侧统计栏：难度分布卡（`DifficultyCard`）、热门标签卡（`PopularTagsCard`）、本站贡献卡（`ContributorsCard`）。
-- **登录与注册（[`login.tsx`](../../client/src/routes/login.tsx)、[`register.tsx`](../../client/src/routes/register.tsx)）**：精简顶栏（Logo + 浏览题库）+ 居中 400px 卡片；登录含图形验证码、「7 天内自动登录」（不勾选只存 `sessionStorage`）；注册两步（邮箱 + 图形验证码 + 邮箱验证码 → 用户名、密码强度、确认密码、协议勾选），覆盖 `Sign Up · States` 11 种状态；注册成功跳 `/login?account=` 预填用户名。GitHub 登录、忘记密码、协议链接为 UI 占位。
+- **登录与注册（[`login.tsx`](../../client/src/routes/login.tsx)、[`register.tsx`](../../client/src/routes/register.tsx)）**：精简顶栏（Logo + 浏览题库）+ 居中 400px 卡片；登录含图形验证码、「7 天内自动登录」（不勾选只存 `sessionStorage`）；注册两步（邮箱 + 图形验证码 + 邮箱验证码 → 用户名、密码强度、确认密码、协议勾选），覆盖 `Sign Up · States` 11 种状态；注册成功即保存返回的 token（存 `localStorage`）并跳回主页 `/`，处于已登录态。GitHub 登录、忘记密码、协议链接为 UI 占位。
 
 ---
 

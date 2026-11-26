@@ -18,12 +18,12 @@ type Captcha = { captchaId: string; image: string; expiresInSeconds: number };
 /** Omitted when the deployment turns the image captcha off. */
 type CaptchaAnswer = { captchaId?: string; captchaCode?: string };
 
-type LoginResult = {
-  token: string;
-  tokenType: "Bearer";
-  expiresIn: number;
-  user: CurrentUser;
-};
+type IssuedToken = { token: string; tokenType: "Bearer"; expiresIn: number };
+
+type LoginResult = IssuedToken & { user: CurrentUser };
+
+// Unlike login, sign-up returns the user fields beside the token, not under `user`.
+type RegisterResult = IssuedToken & CurrentUser;
 
 export type EmailCodeSent = {
   expiresInSeconds: number;
@@ -59,16 +59,42 @@ export function useSession() {
   return { signedIn: token !== null, user: user ?? undefined };
 }
 
-/** Signs in and seeds the session cache, so the header shows the user without a /auth/me round trip. */
-export function useSignIn() {
+// Seeding the cache lets the header show the user without a /auth/me round trip.
+function useStartSession() {
   const queryClient = useQueryClient();
+  return (token: string, user: CurrentUser, persist: boolean) => {
+    queryClient.setQueryData(meQuery(token).queryKey, user);
+    setToken(token, persist);
+  };
+}
+
+export function useSignIn() {
+  const startSession = useStartSession();
   return async (
     body: { account: string; password: string } & CaptchaAnswer,
     persist: boolean,
   ) => {
     const result = await post<LoginResult>("/auth/login", body);
-    queryClient.setQueryData(meQuery(result.token).queryKey, result.user);
-    setToken(result.token, persist);
+    startSession(result.token, result.user, persist);
+  };
+}
+
+/** Creates the account and signs in with the returned token, kept like a remembered sign-in. */
+export function useSignUp() {
+  const startSession = useStartSession();
+  return async (body: {
+    username: string;
+    email: string;
+    password: string;
+    emailCode: string;
+  }) => {
+    const result = await post<RegisterResult>("/auth/register", body);
+    const { id, username, nickname, role, createdAt } = result;
+    startSession(
+      result.token,
+      { id, username, nickname, role, createdAt },
+      true,
+    );
   };
 }
 
@@ -76,15 +102,6 @@ export function sendRegisterCode(
   body: { email: string } & CaptchaAnswer,
 ): Promise<EmailCodeSent> {
   return post<EmailCodeSent>("/auth/email-codes", body);
-}
-
-export function register(body: {
-  username: string;
-  email: string;
-  password: string;
-  emailCode: string;
-}): Promise<CurrentUser> {
-  return post<CurrentUser>("/auth/register", body);
 }
 
 function expiryMs(data: Captcha | undefined) {

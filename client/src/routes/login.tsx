@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { z } from "zod";
 import { useCaptcha, useSignIn } from "@/api/auth";
 import { ApiError } from "@/api/client";
 import AuthCard from "@/components/auth/AuthCard";
@@ -16,13 +15,7 @@ import { useCopy } from "@/i18n";
 import type { Copy } from "@/i18n";
 import githubUrl from "@/assets/github.svg";
 
-// `account` is set after sign-up, to prefill the new username.
-const searchSchema = z.object({
-  account: z.string().optional().catch(undefined),
-});
-
 export const Route = createFileRoute("/login")({
-  validateSearch: searchSchema,
   staticData: { minimalHeader: true },
   component: LoginPage,
 });
@@ -47,12 +40,11 @@ function errorFor(error: Error, messages: Copy["auth"]["errors"]): Errors {
 function LoginPage() {
   const copy = useCopy();
   const text = copy.auth.login;
-  const { account: registeredAccount } = Route.useSearch();
   const navigate = useNavigate();
   const signIn = useSignIn();
   const captcha = useCaptcha("LOGIN");
 
-  const [account, setAccount] = useState(registeredAccount ?? "");
+  const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState<Errors>({});
@@ -93,7 +85,7 @@ function LoginPage() {
   return (
     <AuthCard
       title={text.title}
-      subtitle={registeredAccount ? text.registeredSubtitle : text.subtitle}
+      subtitle={text.subtitle}
       footer={
         <AuthSwitch
           prompt={text.switchPrompt}
@@ -111,7 +103,7 @@ function LoginPage() {
           <FormField
             label={text.account}
             autoComplete="username"
-            autoFocus={!registeredAccount}
+            autoFocus
             maxLength={128}
             value={account}
             onChange={(event) =>
@@ -128,7 +120,6 @@ function LoginPage() {
               </button>
             }
             autoComplete="current-password"
-            autoFocus={Boolean(registeredAccount)}
             maxLength={64}
             value={password}
             onChange={(event) =>

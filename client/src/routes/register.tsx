@@ -4,7 +4,7 @@ import { flushSync } from "react-dom";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
-import { register, sendRegisterCode, useCaptcha } from "@/api/auth";
+import { sendRegisterCode, useCaptcha, useSignUp } from "@/api/auth";
 import { ApiError } from "@/api/client";
 import AuthCard from "@/components/auth/AuthCard";
 import AuthSwitch from "@/components/auth/AuthSwitch";
@@ -321,6 +321,7 @@ function AccountStep({
   const text = copy.auth.register;
   const messages = copy.auth.errors;
   const navigate = useNavigate();
+  const signUp = useSignUp();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -330,8 +331,8 @@ function AccountStep({
 
   const submit = useMutation({
     mutationFn: () =>
-      register({ username, email: email.trim(), password, emailCode: code }),
-    onSuccess: () => navigate({ to: "/login", search: { account: username } }),
+      signUp({ username, email: email.trim(), password, emailCode: code }),
+    onSuccess: () => navigate({ to: "/" }),
     onError: (error) => {
       if (error instanceof ApiError && [2003, 2007].includes(error.code)) {
         onEmailRejected(error);
