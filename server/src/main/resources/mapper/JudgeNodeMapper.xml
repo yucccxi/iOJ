@@ -39,11 +39,20 @@
         WHERE id = #{id}
     </update>
 
-    <update id="markOfflineBefore">
+    <select id="findStaleOnlineIds" resultType="java.lang.String">
+        SELECT id
+        FROM judge_nodes
+        WHERE status = 'ONLINE'
+          AND last_heartbeat_at &lt; #{threshold}
+        ORDER BY id
+    </select>
+
+    <update id="markOffline">
         UPDATE judge_nodes
         SET status = 'OFFLINE',
-            updated_at = #{threshold}
-        WHERE status = 'ONLINE'
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+          AND status = 'ONLINE'
           AND last_heartbeat_at &lt; #{threshold}
     </update>
 

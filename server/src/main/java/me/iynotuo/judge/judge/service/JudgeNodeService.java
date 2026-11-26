@@ -106,8 +106,15 @@ public class JudgeNodeService {
 
     @Scheduled(fixedDelayString = "${ioj.judge.dispatch.node-monitor-interval-ms:30000}")
     public void markOfflineNodes() {
-        LocalDateTime threshold = LocalDateTime.now().minusSeconds(nodeOfflineSeconds());
-        int changed = judgeNodeMapper.markOfflineBefore(threshold);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime threshold = now.minusSeconds(nodeOfflineSeconds());
+        int changed = 0;
+        // Read the ids without locking, then update each row by primary key. Updating with a range
+        // on last_heartbeat_at takes secondary-index locks before the row lock, which deadlocks
+        // with heartbeats that lock the row first and then update the same secondary index.
+        for (String id : judgeNodeMapper.findStaleOnlineIds(threshold)) {
+            changed += judgeNodeMapper.markOffline(id, threshold, now);
+        }
         if (changed > 0) {
             log.info("标记 {} 个判题节点为离线", changed);
         }

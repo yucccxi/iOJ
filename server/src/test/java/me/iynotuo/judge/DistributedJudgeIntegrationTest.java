@@ -2,6 +2,7 @@ package me.iynotuo.judge;
 
 import me.iynotuo.judge.common.enums.UserRole;
 import me.iynotuo.judge.judge.service.JudgeLeaseReaper;
+import me.iynotuo.judge.judge.service.JudgeNodeService;
 import me.iynotuo.judge.protocol.JudgeTestCase;
 import me.iynotuo.judge.protocol.ProtocolVersion;
 import me.iynotuo.judge.user.entity.User;
@@ -45,6 +46,9 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
 
     @Autowired
     private JudgeLeaseReaper judgeLeaseReaper;
+
+    @Autowired
+    private JudgeNodeService judgeNodeService;
 
     @Test
     void remoteAgentClaimsJudgesAndReportsResult() throws Exception {
@@ -271,6 +275,35 @@ class DistributedJudgeIntegrationTest extends ApiTestSupport {
         String secondHash = secondTask.path("bundleSha256").asString();
         assertThat(secondHash).matches("[0-9a-f]{64}").isNotEqualTo(firstHash);
         assertThat(cachedHash(problemId)).isEqualTo(secondHash);
+    }
+
+    @Test
+    void marksStaleOnlineNodesOfflineByPrimaryKey() throws Exception {
+        String adminToken = createAdmin("nodeadmin");
+        JsonNode createdKey = post("/api/v1/admin/judge-keys", adminToken, Map.of("name", "offline-key"));
+        String judgeKey = createdKey.path("data").path("key").asString();
+        JsonNode heartbeat = post("/internal/judge/nodes/heartbeat", judgeKey, Map.of(
+                "nodeId", "stale-node",
+                "hostname", "judge-test",
+                "version", "0.0.1",
+                "languages", List.of("JAVA"),
+                "maxConcurrency", 1,
+                "runningTasks", 0,
+                "isolateVersion", "test"));
+        assertThat(heartbeat.path("code").asInt()).isZero();
+
+        LocalDateTime staleHeartbeat = LocalDateTime.now().minusMinutes(10);
+        jdbcTemplate.update("UPDATE judge_nodes SET last_heartbeat_at = ? WHERE id = ?",
+                staleHeartbeat, "stale-node");
+
+        judgeNodeService.markOfflineNodes();
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT status FROM judge_nodes WHERE id = ?", String.class, "stale-node"))
+                .isEqualTo("OFFLINE");
+        LocalDateTime updatedAt = jdbcTemplate.queryForObject(
+                "SELECT updated_at FROM judge_nodes WHERE id = ?", LocalDateTime.class, "stale-node");
+        assertThat(updatedAt).isAfter(LocalDateTime.now().minusMinutes(1));
     }
 
     private String cachedHash(long problemId) {

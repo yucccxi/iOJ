@@ -18,5 +18,9 @@ public interface JudgeNodeMapper {
 
     int updateHeartbeat(JudgeNode node);
 
-    int markOfflineBefore(@Param("threshold") LocalDateTime threshold);
+    List<String> findStaleOnlineIds(@Param("threshold") LocalDateTime threshold);
+
+    int markOffline(@Param("id") String id,
+                    @Param("threshold") LocalDateTime threshold,
+                    @Param("updatedAt") LocalDateTime updatedAt);
 }
